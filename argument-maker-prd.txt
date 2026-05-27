@@ -1,0 +1,319 @@
+Argument Maker PRD
+
+Problem Statement
+
+People often need to create persuasive, well-thought arguments for reviews, blog posts, video scripts, essays, recommendations, and other communication outputs. They may know the facts or opinions they want to use, but the structure is often messy: context is mixed with claims, claims are not grouped logically, evidence is uneven, and the final argument is hard to review before drafting.
+
+The product should help users construct an argument before writing the final piece. It should combine SCQA for narrative framing with Minto Pyramid Principles for hierarchical support. The experience should feel like a minimal visual board: a fresh workspace each session, with explicit user-controlled download and upload for persistence.
+
+Solution
+
+Build a minimal web app with an argument board. Each new session opens on an empty board. Users can add, edit, arrange, and review structured argument blocks:
+
+- Situation
+- Complication
+- Question
+- Answer
+- Supporting Argument
+- Supporting Data or Facts
+- Evidence links for Supporting Data or Facts
+- Read-only Argument Preview
+
+The SCQA frame defines the argument's top-level logic. The Minto Pyramid structure sits under the Answer: the main answer is supported by Supporting Arguments, and each Supporting Argument can be supported by Supporting Data or Facts. Supporting Arguments capture reasoning and do not require evidence links. Supporting Data or Facts require both a written data/fact statement and an evidence link to be considered complete, but users can draft incomplete items before adding links. Supporting Arguments can use a Support Mode: Reasoning or Interpretation can stand alone, while Evidence-backed expects at least one Supporting Data or Facts item. The app should guide users toward clear structure without forcing a rigid writing workflow.
+
+The app should also include a read-only Argument Preview that visualizes the argument flow and hierarchy, similar in spirit to a Mermaid-style graph. The preview is for inspection, not the main writing surface. Users access it through a separate Preview mode or tab.
+
+The app should onboard users through plain-language prompts and progressive guidance. Users should not need to know the terms SCQA or Minto Pyramid Principles to use the app successfully. The UI should use plain-language primary labels and keep formal framework terms as small secondary labels or tooltips.
+
+Users can download the board to their local computer as an export file and later upload that file to continue or revise the same argument. Uploaded files replace the current board rather than merging into it. The app should not require accounts, cloud storage, browser autosave, or automatic persistence for the initial version.
+
+The visual theme should use the Olive Garden Feast palette:
+
+- #606C38
+- #283618
+- #FEFAE0
+- #DDA15E
+- #BC6C25
+
+User Stories
+
+1. As a reviewer, I want to frame the situation around what I reviewed, so that my review has context before judgment.
+2. As a reviewer, I want to identify the main complication or tension, so that my review explains why the topic matters.
+3. As a reviewer, I want to state the central question my review answers, so that readers understand the review's decision point.
+4. As a reviewer, I want to write a clear answer or verdict, so that the review has a defensible conclusion.
+5. As a blogger, I want to structure an argument before drafting, so that my post has a coherent spine.
+6. As a video creator, I want to plan the logic of a script visually, so that the final script flows clearly.
+7. As a user, I want every new session to start with a clean board, so that I can focus on the current argument.
+8. As a user, I want to download my board, so that I can keep work without creating an account.
+9. As a user, I want to upload a previous board file, so that I can revise or continue an argument.
+10. As a user, I want the app to warn me before replacing a non-empty board with an uploaded file, so that I do not lose current work by accident.
+11. As a user, I want to create SCQA blocks, so that I can separate context, tension, question, and answer.
+12. As a user, I want to edit SCQA block text inline, so that I can refine the argument quickly.
+13. As a user, I want to add Supporting Arguments under the Answer, so that the main answer has visible reasoning support.
+14. As a user, I want Supporting Arguments to work without evidence links, so that reasoning points are not confused with source-backed data.
+15. As a user, I want to add Supporting Data or Facts under a specific Supporting Argument, so that each fact has a clear role in the argument.
+16. As a user, I want each Supporting Data or Facts item to require both a written statement and an evidence link, so that factual support stays traceable.
+17. As a user, I want the app to distinguish Supporting Argument from Supporting Data or Facts, so that the structure is clear during review.
+18. As a user, I want evidence links on Supporting Data or Facts, so that I can return to the source during review.
+19. As a user, I want to label support as argument, fact, observation, example, or estimate, so that weak and strong support are not mixed together.
+20. As a user, I want the app to show which Supporting Data or Facts items are missing evidence links, so that I can fix incomplete factual support.
+21. As a user, I want the app to show whether the Answer lacks support, so that I can find gaps before drafting.
+22. As a user, I want to rearrange Supporting Arguments, so that the argument follows the most logical order.
+23. As a user, I want to rearrange Supporting Data or Facts, so that the strongest support can appear first.
+24. As a user, I want to mark a Supporting Argument as Reasoning or Interpretation, so that conceptual arguments are not incorrectly flagged as missing evidence.
+25. As a user, I want to mark a Supporting Argument as Evidence-backed, so that the app can remind me to add Supporting Data or Facts.
+26. As a user, I want an Argument Preview, so that I can inspect the argument as a graph or workflow.
+27. As a user, I want the Argument Preview to be read-only, so that editing remains focused in the structured board.
+28. As a user, I want the Argument Preview in a separate mode or tab, so that it does not crowd the main board.
+29. As a user, I want to delete blocks, so that I can remove weak or irrelevant reasoning.
+30. As a user, I want undo and redo for board edits, so that experimentation is low risk.
+31. As a user, I want a minimal interface, so that the tool feels like a thinking workspace rather than a writing app.
+32. As a user, I want clear visual distinction between SCQA, Supporting Arguments, and Supporting Data or Facts, so that the structure is easy to scan.
+33. As a user, I want the board to fit both desktop and smaller screens, so that I can work across devices.
+34. As a user, I want keyboard-accessible controls, so that the board is usable without relying only on pointer interaction.
+35. As a user, I want readable contrast across the Olive Garden Feast palette, so that the interface remains accessible.
+36. As a user, I want exported files to include all board text and links, so that imported sessions restore the full argument.
+37. As a user, I want the app to reject incompatible import files with a clear message, so that I know when a file cannot be used.
+38. As a user, I want the app to preserve unknown future fields during import/export when reasonable, so that board files can survive app updates.
+39. As a user, I want to copy an outline from the board, so that I can move from argument planning into drafting.
+40. As a user, I want the copied outline to preserve SCQA and pyramid hierarchy, so that the structure remains useful outside the app.
+41. As a user, I want a review checklist, so that I can check whether the argument has a clear answer, grouped claims, and adequate support.
+42. As a user, I want the app to avoid making claims for me, so that it remains a structuring tool rather than an unsupported evidence generator.
+43. As a user, I want no account requirement, so that I can use the app privately and quickly.
+44. As a user, I want clear local-file behavior, so that I understand my work is not automatically saved in the cloud.
+45. As a user, I want a board title, so that downloaded files and copied outlines are easy to identify.
+46. As a user, I want to add as many Supporting Arguments as I need, so that complex arguments are not artificially constrained.
+47. As a user, I want to add as many Supporting Data or Facts items as I need under each Supporting Argument, so that evidence-heavy arguments can be fully represented.
+48. As a user, I want a default starting structure of three Supporting Arguments and three Supporting Data or Facts slots per Supporting Argument, so that the board encourages a complete first draft.
+49. As a user, I want the app to guide me without requiring knowledge of SCQA or Minto Pyramid Principles, so that I can build a good argument even as a beginner.
+50. As a user, I want plain-language field prompts, so that I understand what to write in each section.
+51. As a user, I want lightweight onboarding, so that I can start building an argument without reading theory first.
+52. As a user, I want formal framework terms shown only as secondary labels or tooltips, so that I can learn the structure without being forced to know theory upfront.
+
+Implementation Decisions
+
+- The first product version is a client-side web app with local import/export rather than server-side accounts or cloud persistence.
+- The board is a structured board that feels canvas-like, not a fully free-form canvas.
+- A new session starts with an empty Argument Board by default.
+- The board state is persisted only when the user explicitly downloads an Export File.
+- The app should not autosave board content in browser storage for version 1.
+- Refreshing or closing with unsaved content should warn the user when technically possible.
+- Importing a previous Export File restores the board state.
+- Importing an Export File replaces the current board; merging uploaded files into the current board is out of scope for version 1.
+- Version 1 should support one active Argument Board at a time.
+- There should be no in-app board list or multi-board tabs in version 1.
+- Users manage multiple arguments through separate Export Files on their local computer.
+- The Export File should use a structured JSON format with an explicit schema version.
+- Export Files should use the `.argument.json` file extension.
+- The Export File should include schema version, app name, created timestamp, updated timestamp, board title, SCQA content, Supporting Arguments, Support Modes, Supporting Data or Facts, Evidence Links, touched/empty-slot state, and optional layout preferences.
+- The Export File should not include device information, user identity, browsing history, analytics IDs, hidden telemetry, or other unnecessary personal data.
+- The core domain model should be separated from the UI so argument validation, import/export, and outline generation can be tested without a browser.
+- The main deep modules should be:
+  - Argument model: owns SCQA blocks, Supporting Arguments, Supporting Data or Facts, evidence links, labels, ordering, and schema version.
+  - Board reducer: owns edit operations such as add, edit, delete, reorder, undo, redo, import, and reset.
+  - Import/export adapter: serializes and validates board files.
+  - Argument review engine: identifies missing answer, unsupported claims, unlabeled support, optional missing links, and hierarchy issues.
+  - Outline generator: converts board state into a readable SCQA plus Minto outline.
+  - Preview generator: converts board state into a read-only graph or workflow visualization.
+  - Theme system: applies the Olive Garden Feast palette with accessible foreground/background pairings.
+- The UI should have one primary board surface, not a marketing landing page.
+- The first screen should show the usable argument board immediately.
+- SCQA should be visually prominent as the top-level frame.
+- The Answer should act as the root for the Minto Pyramid.
+- A board should have exactly one Question and one Answer.
+- Multiple Answers are out of scope for version 1.
+- Supporting Arguments should be child nodes under the Answer.
+- Supporting Data or Facts should be child nodes under a specific Supporting Argument.
+- A new board should start with three Supporting Argument slots.
+- Each default Supporting Argument should start with three Supporting Data or Facts slots.
+- Default slots should be empty, not pre-filled with example text.
+- Empty default slots should not trigger checklist warnings until the user enters content into them.
+- Users can add more Supporting Arguments and Supporting Data or Facts without a fixed product limit.
+- Supporting Arguments do not require evidence links.
+- Supporting Arguments should have a Support Mode: Reasoning or Interpretation, or Evidence-backed.
+- Reasoning or Interpretation mode can stand alone without Supporting Data or Facts.
+- Evidence-backed mode expects at least one Supporting Data or Facts item.
+- Supporting Data or Facts require a written statement and an Evidence Link.
+- Supporting Data or Facts can have an optional Data Type: Fact, Observation, Example, or Estimate.
+- Data Type should default to blank or Unspecified and should not be required for readiness.
+- Copy Outline should include Data Type only when selected.
+- Preview may show Data Type as a small tag but should not depend on it.
+- Judgment should not be a Data Type in version 1 because judgment belongs in Supporting Argument.
+- Supporting Data or Facts can be drafted without an Evidence Link, but they remain incomplete until the Evidence Link is added.
+- Incomplete Supporting Data or Facts should still export, import, and appear in Preview, but the review checklist and copied outline should mark them as incomplete.
+- The app should distinguish "missing evidence link" from "invalid evidence link".
+- Evidence Link validation should check URL format only.
+- Evidence Link validation should accept http:// and https:// URLs.
+- Invalid Evidence Links can remain in draft, but the related Supporting Data or Facts item is not ready.
+- The app should not fetch evidence links, check whether pages exist, score source quality, or verify that a source supports the data/fact.
+- The app should never present evidence links as automatically verified proof.
+- Supporting items should distinguish Support Mode on Supporting Arguments from Data Type on Supporting Data or Facts.
+- Board files should be human-inspectable JSON for transparency and easier recovery.
+- Board files should contain only the data needed to restore and review the board.
+- Reopening the app should start with a clean board unless the user imports an Export File.
+- The app should warn before clearing or replacing a non-empty board.
+- Clear Board should reset the active board to the default empty slots.
+- Clear Board should run immediately when the board has no touched content.
+- Clear Board should ask for confirmation when the board has touched content.
+- Clear Board confirmation should remind users to download first if they want to keep the board.
+- Clear Board should not affect any previously downloaded local Export Files.
+- Uploading an Export File should replace the current board after confirmation when the current board contains user-entered content.
+- Merge import is out of scope for version 1.
+- The app should include copy-to-clipboard outline export in addition to download/upload because the target use cases include drafting elsewhere.
+- Copy Outline is the only drafting export format in version 1 besides the board Export File.
+- Copy Outline should include title, Situation, Complication, Question, Answer, Supporting Arguments, Support Modes, Supporting Data or Facts, Evidence Links, and an Incomplete Evidence section when relevant.
+- Version 1 should stop at argument structure, review readiness, Preview, Copy Outline, and board download/upload.
+- Version 1 should not include a final drafted text editor.
+- Version 1 should not include AI assistance.
+- The product should be designed so AI assistance could be considered later without being part of the initial scope.
+- The app should include a read-only Argument Preview that visualizes the structure like a graph or workflow, but the preview should not be the main editing surface.
+- The Argument Preview should be accessed through a separate Preview mode or tab, not always shown beside the board.
+- The Preview generator should produce Mermaid-compatible flowchart text from the board model.
+- The Preview tab should render the Mermaid-compatible graph visually when practical.
+- The Preview tab should include a Copy Mermaid action.
+- If visual Preview rendering fails, the app should show the Mermaid text and a clear rendering error instead of losing the preview.
+- Mermaid-compatible Preview output should include readiness markers.
+- Evidence-backed Supporting Arguments with no Supporting Data or Facts should show a needs-data marker.
+- Supporting Data or Facts with no Evidence Link should show a needs-evidence-link marker.
+- Supporting Data or Facts with invalid Evidence Links should show an invalid-evidence-link marker.
+- Empty untouched slots should be omitted from Mermaid output.
+- Empty touched slots should appear with an empty marker.
+- The review checklist should evaluate logic readiness and structure, not writing quality, truth, or persuasiveness.
+- The review checklist should verify that Situation, Complication, Question, and Answer have content; the Answer has at least one Supporting Argument; Evidence-backed Supporting Arguments have Supporting Data or Facts; Supporting Data or Facts with text have evidence links; evidence links look like valid URLs; no touched item is empty; Preview can be generated; and Export File can be generated.
+- The app should not claim that an argument is correct, that evidence proves a claim, that the argument is persuasive, or assign a numeric quality score.
+- The primary editing model should be inline editing on the board, not modal forms.
+- Users should be able to click into empty slots and type directly.
+- Users should be able to add another item at the same level with Enter or a compact add button.
+- Each Supporting Argument should have a compact add action for Supporting Data or Facts.
+- Items should expose compact controls for delete, duplicate, and move.
+- Duplicating a Supporting Argument should copy its text, Support Mode, Supporting Data or Facts, Evidence Links, and touched/incomplete states.
+- A duplicated Supporting Argument should appear directly below the original.
+- Users should also be able to duplicate individual Supporting Data or Facts.
+- Supporting Arguments should be reorderable because argument order affects the reasoning flow.
+- Supporting Data or Facts should be reorderable within their own Supporting Argument.
+- Moving Supporting Data or Facts between different Supporting Arguments is out of scope for version 1.
+- Reordering should support move up/down controls, keyboard-accessible controls, and optional drag handles.
+- Dragging should reorder items only within the structured hierarchy; it should not create free-position nodes.
+- Support Mode should be edited through a segmented control on each Supporting Argument.
+- Evidence Link should be a compact URL field attached to each Supporting Data or Facts item.
+- Onboarding should be embedded in the interface through plain-language prompts, placeholders, tooltips, and review guidance.
+- The UI should not require users to understand the labels SCQA or Minto Pyramid Principles.
+- Primary UI labels should be plain-language questions.
+- Formal terms such as Situation, Complication, Question, Answer, Supporting Argument, Supporting Data or Facts, and Evidence Link should appear as small secondary labels or tooltips.
+- Recommended primary labels are:
+  - What is happening?
+  - What changed or makes this matter?
+  - What question must this answer?
+  - What is your main answer?
+  - Why should someone believe this?
+  - What fact supports this?
+  - Where can this be checked?
+- The board should be compact but calm, closer to an expert worksheet than a spacious landing page.
+- The first screen should be the usable board, with no decorative hero or marketing section.
+- Recommended visual structure: cream background, dark olive text, SCQA row as four compact panels, Answer panel anchoring the support section, Supporting Arguments as stacked lanes or cards below Answer, and Supporting Data or Facts as smaller rows inside each Supporting Argument.
+- Palette usage should be restrained: #FEFAE0 for background, #283618 for primary text, #606C38 for primary actions, #DDA15E for warnings or incomplete states, and #BC6C25 for destructive or attention states.
+- The app should be responsive and usable on mobile, but optimized for desktop and tablet.
+- Desktop and tablet layouts may show the SCQA frame horizontally.
+- Mobile layouts should stack SCQA vertically and keep Supporting Arguments vertically stacked.
+- Preview may become scrollable on mobile.
+- There should be no separate mobile-only simplified version in version 1.
+- Minimalism means fewer screens and clear controls, not fewer safeguards.
+- The app should not include AI generation in the initial scope unless a later PRD adds evidence-grounded generation rules.
+
+Testing Decisions
+
+- Tests should focus on external behavior and user-visible outcomes rather than component internals.
+- Test priority should start with domain behavior and then cover the core browser flow.
+- The Argument model should be tested for valid SCQA, support hierarchy, Supporting Argument behavior, Supporting Data or Facts evidence-link requirements, labels, and schema-version handling.
+- The Board reducer should be tested for add, edit, delete, reorder, undo, redo, reset, import, and replacement warning flows.
+- Clear Board tests should cover untouched reset, touched-content confirmation, and preservation of downloaded files as external to the app.
+- The Import/export adapter should be tested for round-trip fidelity, invalid JSON, unsupported schema versions, missing required fields, and required evidence links for Supporting Data or Facts.
+- Export tests should verify that no unnecessary personal data or hidden telemetry fields are written.
+- The Argument review engine should be tested for missing Answer, unsupported Answer, missing support labels, missing evidence links on Supporting Data or Facts, invalid links, and acceptable no-link Supporting Arguments.
+- Review checklist tests should verify that the app reports structure and readiness issues without making truth, proof, persuasiveness, or quality-score claims.
+- The Outline generator should be tested for preserving SCQA order and Minto hierarchy, including title, support modes, evidence links, and incomplete evidence markers.
+- The Preview generator should be tested for accurately representing SCQA, Supporting Arguments, and Supporting Data or Facts without becoming an editing surface.
+- Preview tests should verify Mermaid-compatible output, Copy Mermaid behavior, and render-failure fallback behavior.
+- Preview tests should verify readiness markers for needs-data, needs-evidence-link, invalid-evidence-link, and empty touched slots.
+- The UI should be tested with browser-level checks for first-load empty board, add/edit flows, download/upload round trip, copy outline, keyboard navigation, and responsive layout.
+- UI tests should cover inline editing, add controls, support-mode segmented controls, evidence-link fields, delete, duplicate, and move interactions.
+- UI tests should verify branch-level Supporting Argument duplication and individual Supporting Data or Facts duplication.
+- UI tests should verify Supporting Argument reordering and Supporting Data or Facts reordering within one Supporting Argument.
+- Browser-level tests should cover first-load default empty board, inline SCQA editing, add/reorder/duplicate Supporting Arguments, add Supporting Data or Facts with missing/invalid/valid Evidence Links, Preview tab, Copy Mermaid, Copy Outline, download/upload round trip, Clear Board confirmation, and responsive sanity checks.
+- Accessibility checks should include keyboard reachability, visible focus, semantic labels, contrast, and no text overlap at common desktop and mobile widths.
+- Color checks should verify that the Olive Garden Feast palette is used with contrast-safe pairings, especially #FEFAE0 backgrounds with #283618 text and darker controls with light text.
+- Layout checks should verify compact worksheet-like density without text overlap or cramped controls.
+- Responsive checks should cover desktop, tablet, and mobile layouts, including stacked SCQA on mobile and scrollable Preview behavior.
+
+Out of Scope
+
+- User accounts.
+- Cloud storage or automatic cross-device sync.
+- Browser autosave or automatic local persistence.
+- Merging uploaded board files into the current board.
+- Multiple boards open at once.
+- In-app board library or board tabs.
+- Moving Supporting Data or Facts between different Supporting Arguments.
+- Real-time collaboration.
+- AI-generated arguments.
+- AI-assisted argument suggestions.
+- AI-assisted evidence suggestions.
+- AI rewriting.
+- AI link summarization.
+- AI autofill for SCQA or supporting sections.
+- Automatic fact checking.
+- Automatic citation validation beyond URL format checks.
+- Fetching or checking evidence-link destination pages.
+- Source-quality scoring.
+- Automated writing-quality, truth, proof, or persuasiveness scoring.
+- Publishing blog posts, video scripts, or reviews directly from the app.
+- Full prose editor.
+- Blog post, review, or video script template editor.
+- DOCX export.
+- PDF export.
+- Rich formatted document export.
+- Full Excalidraw feature parity.
+- Rich media uploads.
+- Legal, medical, financial, or compliance advice.
+
+Further Notes
+
+- Audience: people who need to reason before drafting, including reviewers, bloggers, video creators, analysts, students, and knowledge workers.
+- Use case: argument planning before writing or recording.
+- Decision supported: whether the argument is coherent enough to become a review, blog post, script, or other output.
+- Source quality: user-entered evidence may vary. The app should help label and expose source quality but should not certify truth.
+- Main assumption: users want local control and minimal setup more than multi-device persistence for the first version.
+- Main risk: the board may become too rigid if SCQA and Minto are enforced too aggressively. The app should guide structure while allowing incomplete drafts.
+- Resolved decision: the first implementation should use a structured board that visually feels canvas-like, because it is easier to make accessible and easier to validate than fully free-form placement.
+- Resolved decision: Supporting Arguments do not need evidence links, while Supporting Data or Facts require both a written statement and an evidence link.
+- Resolved decision: Supporting Data or Facts attach to a specific Supporting Argument rather than sitting directly under the Answer.
+- Resolved decision: Supporting Arguments can stand alone only when marked as Reasoning or Interpretation; Evidence-backed Supporting Arguments expect Supporting Data or Facts.
+- Resolved decision: the app should include a read-only Argument Preview similar to a graph or workflow view, but users write and edit on the structured board.
+- Resolved decision: the Argument Preview should live in a separate Preview mode or tab.
+- Resolved decision: Supporting Data or Facts can be drafted without evidence links, but remain incomplete until evidence is added.
+- Resolved decision: the default board starts with three Supporting Arguments and three Supporting Data or Facts slots per Supporting Argument, while allowing users to add more as needed.
+- Resolved decision: default slots are empty and do not trigger warnings until the user enters content into them.
+- Resolved decision: version 1 supports exactly one Answer per board.
+- Resolved decision: onboarding must assume users do not know SCQA or Minto Pyramid Principles.
+- Resolved decision: the UI uses plain-language primary labels, with formal framework terms as secondary labels or tooltips.
+- Resolved decision: uploaded board files replace the current board; merge import is out of scope for version 1.
+- Resolved decision: export files include board recovery metadata and content, but no analytics, hidden telemetry, user identity, device information, browsing history, or unnecessary personal data.
+- Resolved decision: version 1 has no browser autosave; users must download an Export File to keep work across sessions.
+- Resolved decision: the review checklist evaluates logic readiness and structure only, with no truth, proof, persuasiveness, or numeric quality score.
+- Resolved decision: version 1 supports Copy Outline for drafting, while DOCX/PDF/rich document export is out of scope.
+- Resolved decision: the primary editing model is inline board editing with compact controls, not modal forms.
+- Resolved decision: Supporting Arguments are reorderable; Supporting Data or Facts are reorderable within their own Supporting Argument; cross-argument data/fact moves are out of scope for version 1.
+- Resolved decision: users can duplicate a full Supporting Argument branch, including its Supporting Data or Facts, Evidence Links, Support Mode, and touched/incomplete states.
+- Resolved decision: version 1 stops at argument structure plus Copy Outline and does not include a full drafted text editor.
+- Resolved decision: Support Mode has two options, Reasoning / Interpretation and Evidence-backed; Supporting Data or Facts can optionally use Data Type values Fact, Observation, Example, and Estimate.
+- Resolved decision: Data Type is optional and does not block readiness when blank.
+- Resolved decision: Evidence Link validation is URL-format-only, accepts http:// and https://, and does not fetch, score, or verify sources.
+- Resolved decision: the visual layout should be compact but calm, worksheet-like, and use the Olive Garden Feast palette with restrained status colors.
+- Resolved decision: version 1 supports one active Argument Board only; multiple arguments are managed as separate local Export Files.
+- Resolved decision: version 1 is desktop/tablet-optimized but responsive and usable on mobile.
+- Resolved decision: Argument Preview uses Mermaid-compatible flowchart output, with visual rendering when practical and Copy Mermaid as a fallback.
+- Resolved decision: Mermaid-compatible Preview output includes readiness markers and omits empty untouched slots.
+- Resolved decision: version 1 includes no AI assistance.
+- Resolved decision: Clear Board resets to default empty slots immediately when untouched and requires confirmation when touched content exists.
+- Resolved decision: testing prioritizes domain behavior first, then browser-level tests for the core user flow.
+- Resolved decision: Export Files use the `.argument.json` extension for transparency and file association clarity.
