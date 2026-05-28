@@ -1,6 +1,7 @@
 import type { ArgumentBoard, DataType, SupportMode } from "./argument-board";
 import { createArgumentBoardSession, type ArgumentBoardSession, type ViewMode } from "./argument-board-session";
 import { createArgumentBoardViewModel, type ArgumentBoardViewModel } from "./argument-board-view-model";
+import mermaid from "mermaid";
 
 const app = document.querySelector<HTMLDivElement>("#app");
 
@@ -10,6 +11,23 @@ if (!app) {
 
 const appRoot = app;
 const session = createArgumentBoardSession();
+let renderVersion = 0;
+
+mermaid.initialize({
+  startOnLoad: false,
+  securityLevel: "strict",
+  theme: "dark",
+  themeVariables: {
+    background: "#02080d",
+    primaryColor: "#06131d",
+    primaryTextColor: "#f4ffe4",
+    primaryBorderColor: "#d9ed92",
+    lineColor: "#b5e48c",
+    secondaryColor: "#123f61",
+    tertiaryColor: "#000000",
+    fontFamily: "Inter, ui-sans-serif, system-ui, sans-serif",
+  },
+});
 
 render();
 
@@ -51,6 +69,8 @@ appRoot.addEventListener("click", (event) => {
 });
 
 function render() {
+  renderVersion += 1;
+  const currentRender = renderVersion;
   const view = createArgumentBoardViewModel(session.snapshot());
   appRoot.innerHTML = `
     <main class="app-shell">
@@ -58,6 +78,10 @@ function render() {
       ${view.mode === "board" ? renderBoard(view) : renderPreview(view)}
     </main>
   `;
+
+  if (view.mode === "preview") {
+    void renderMermaidPreview(view.preview.mermaid, currentRender);
+  }
 }
 
 function renderToolbar(view: ArgumentBoardViewModel): string {
@@ -200,12 +224,18 @@ function renderPreview(view: ArgumentBoardViewModel): string {
       <div class="section-heading">
         <div>
           <h2>Argument Preview</h2>
-          <span>Mermaid-compatible workflow</span>
+          <span>Rendered workflow with copyable Mermaid source</span>
         </div>
         <button type="button" data-action="copy-mermaid">Copy Mermaid</button>
       </div>
       ${renderPreviewDiagram(view)}
-      <pre class="mermaid-box">${escapeHtml(view.preview.mermaid)}</pre>
+      <div class="mermaid-diagram" aria-label="Rendered Mermaid workflow">
+        <div class="mermaid-status">Rendering workflow...</div>
+      </div>
+      <details class="mermaid-source">
+        <summary>Mermaid source</summary>
+        <pre class="mermaid-box">${escapeHtml(view.preview.mermaid)}</pre>
+      </details>
     </section>
   `;
 }
@@ -241,6 +271,30 @@ function renderPreviewNode(label: string, text: string): string {
       <strong>${escapeHtml(text.trim() || "[empty]")}</strong>
     </div>
   `;
+}
+
+async function renderMermaidPreview(source: string, currentRender: number) {
+  const container = appRoot.querySelector<HTMLDivElement>(".mermaid-diagram");
+
+  if (!container) {
+    return;
+  }
+
+  try {
+    const { svg } = await mermaid.render(`argument-preview-${currentRender}`, source);
+
+    if (currentRender !== renderVersion) {
+      return;
+    }
+
+    container.innerHTML = svg;
+  } catch {
+    if (currentRender !== renderVersion) {
+      return;
+    }
+
+    container.innerHTML = `<div class="mermaid-status error">The workflow could not be rendered. Check the Mermaid source below.</div>`;
+  }
 }
 
 function applyInput(argumentSession: ArgumentBoardSession, target: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement) {
