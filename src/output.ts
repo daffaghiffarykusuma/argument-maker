@@ -1,5 +1,5 @@
 import type { ArgumentBoard, DataType, SupportMode, SupportingArgument, SupportingDataFact } from "./argument-board";
-import { isValidEvidenceLink } from "./review";
+import { hasPreviewText, previewArgumentLabel, previewDataLabel } from "./argument-preview-labels";
 
 export function generateOutline(board: ArgumentBoard): string {
   const lines: string[] = [];
@@ -58,18 +58,15 @@ export function generateMermaidPreview(board: ArgumentBoard): string {
   lines.push("  question --> answer");
 
   for (const argument of activeArguments(board)) {
-    const label = argument.mode === "evidence-backed" && activeData(argument).length === 0
-      ? `${argument.text} [needs data]`
-      : argument.text;
-    addMermaidNode(lines, argument.id, label);
+    addMermaidNode(lines, argument.id, previewArgumentLabel(argument));
     lines.push(`  answer --> ${mermaidId(argument.id)}`);
 
     for (const item of argument.data) {
-      if (!hasText(item.text) && !item.touched) {
+      if (!hasPreviewText(item.text) && !item.touched) {
         continue;
       }
 
-      addMermaidNode(lines, item.id, dataFactPreviewLabel(item));
+      addMermaidNode(lines, item.id, previewDataLabel(item));
       lines.push(`  ${mermaidId(argument.id)} --> ${mermaidId(item.id)}`);
     }
   }
@@ -77,28 +74,12 @@ export function generateMermaidPreview(board: ArgumentBoard): string {
   return lines.join("\n");
 }
 
-function dataFactPreviewLabel(item: SupportingDataFact): string {
-  if (!hasText(item.text)) {
-    return "[empty]";
-  }
-
-  if (!hasText(item.evidenceLink)) {
-    return `${item.text} [needs evidence link]`;
-  }
-
-  if (!isValidEvidenceLink(item.evidenceLink)) {
-    return `${item.text} [invalid evidence link]`;
-  }
-
-  return item.text;
-}
-
 function activeArguments(board: ArgumentBoard): SupportingArgument[] {
-  return board.supportingArguments.filter((argument) => hasText(argument.text) || argument.touched);
+  return board.supportingArguments.filter((argument) => hasPreviewText(argument.text) || argument.touched);
 }
 
 function activeData(argument: SupportingArgument): SupportingDataFact[] {
-  return argument.data.filter((item) => hasText(item.text) || item.touched);
+  return argument.data.filter((item) => hasPreviewText(item.text) || item.touched);
 }
 
 function addMermaidNode(lines: string[], id: string, label: string) {
@@ -126,8 +107,4 @@ function formatDataType(type: DataType): string {
   };
 
   return type ? labels[type] : "Unspecified";
-}
-
-function hasText(value: string): boolean {
-  return value.trim().length > 0;
 }

@@ -255,7 +255,7 @@ export function deleteSupportingArgument(board: ArgumentBoard, argumentId: strin
   return touchBoard(
     {
       ...board,
-      supportingArguments: board.supportingArguments.filter((argument) => argument.id !== argumentId),
+      supportingArguments: removeById(board.supportingArguments, argumentId),
     },
     now,
   );
@@ -267,20 +267,7 @@ export function deleteSupportingDataFact(
   dataId: string,
   now = new Date(),
 ): ArgumentBoard {
-  return touchBoard(
-    {
-      ...board,
-      supportingArguments: board.supportingArguments.map((argument) =>
-        argument.id === argumentId
-          ? {
-              ...argument,
-              data: argument.data.filter((item) => item.id !== dataId),
-            }
-          : argument,
-      ),
-    },
-    now,
-  );
+  return updateArgumentData(board, argumentId, (data) => removeById(data, dataId), now);
 }
 
 export function moveSupportingDataFact(
@@ -290,30 +277,7 @@ export function moveSupportingDataFact(
   direction: "up" | "down",
   now = new Date(),
 ): ArgumentBoard {
-  const nextArguments = board.supportingArguments.map((argument) => {
-    if (argument.id !== argumentId) {
-      return argument;
-    }
-
-    const currentIndex = argument.data.findIndex((item) => item.id === dataId);
-    const targetIndex = direction === "up" ? currentIndex - 1 : currentIndex + 1;
-
-    if (currentIndex < 0 || targetIndex < 0 || targetIndex >= argument.data.length) {
-      return argument;
-    }
-
-    const nextData = [...argument.data];
-    const current = nextData[currentIndex]!;
-    nextData[currentIndex] = nextData[targetIndex]!;
-    nextData[targetIndex] = current;
-
-    return {
-      ...argument,
-      data: nextData,
-    };
-  });
-
-  return touchBoard({ ...board, supportingArguments: nextArguments }, now);
+  return updateArgumentData(board, argumentId, (data) => moveById(data, dataId, direction), now);
 }
 
 export function duplicateSupportingDataFact(
@@ -322,29 +286,7 @@ export function duplicateSupportingDataFact(
   dataId: string,
   now = new Date(),
 ): ArgumentBoard {
-  const nextArguments = board.supportingArguments.map((argument) => {
-    if (argument.id !== argumentId) {
-      return argument;
-    }
-
-    const currentIndex = argument.data.findIndex((item) => item.id === dataId);
-
-    if (currentIndex < 0) {
-      return argument;
-    }
-
-    const original = argument.data[currentIndex]!;
-    const copyId = makeCopyId(original.id, argument.data.map((item) => item.id));
-    const nextData = [...argument.data];
-    nextData.splice(currentIndex + 1, 0, { ...original, id: copyId });
-
-    return {
-      ...argument,
-      data: nextData,
-    };
-  });
-
-  return touchBoard({ ...board, supportingArguments: nextArguments }, now);
+  return updateArgumentData(board, argumentId, (data) => duplicateById(data, dataId, (item, id) => ({ ...item, id })), now);
 }
 
 export function moveSupportingArgument(
@@ -353,42 +295,77 @@ export function moveSupportingArgument(
   direction: "up" | "down",
   now = new Date(),
 ): ArgumentBoard {
-  const currentIndex = board.supportingArguments.findIndex((argument) => argument.id === argumentId);
-  const targetIndex = direction === "up" ? currentIndex - 1 : currentIndex + 1;
-
-  if (currentIndex < 0 || targetIndex < 0 || targetIndex >= board.supportingArguments.length) {
-    return board;
-  }
-
-  const nextArguments = [...board.supportingArguments];
-  const current = nextArguments[currentIndex]!;
-  nextArguments[currentIndex] = nextArguments[targetIndex]!;
-  nextArguments[targetIndex] = current;
-
-  return touchBoard({ ...board, supportingArguments: nextArguments }, now);
+  const supportingArguments = moveById(board.supportingArguments, argumentId, direction);
+  return supportingArguments === board.supportingArguments ? board : touchBoard({ ...board, supportingArguments }, now);
 }
 
 export function duplicateSupportingArgument(board: ArgumentBoard, argumentId: string, now = new Date()): ArgumentBoard {
-  const currentIndex = board.supportingArguments.findIndex((argument) => argument.id === argumentId);
+  const supportingArguments = duplicateById(board.supportingArguments, argumentId, (argument, id) => ({
+    ...argument,
+    id,
+    data: argument.data.map((item, index) => ({
+      ...item,
+      id: `${id}-data-${index + 1}`,
+    })),
+  }));
 
-  if (currentIndex < 0) {
-    return board;
+  return supportingArguments === board.supportingArguments ? board : touchBoard({ ...board, supportingArguments }, now);
+}
+
+function updateArgumentData(
+  board: ArgumentBoard,
+  argumentId: string,
+  update: (data: SupportingDataFact[]) => SupportingDataFact[],
+  now: Date,
+): ArgumentBoard {
+  let changed = false;
+  const supportingArguments = board.supportingArguments.map((argument) => {
+    if (argument.id !== argumentId) {
+      return argument;
+    }
+
+    const data = update(argument.data);
+    changed = changed || data !== argument.data;
+    return data === argument.data ? argument : { ...argument, data };
+  });
+
+  return changed ? touchBoard({ ...board, supportingArguments }, now) : board;
+}
+
+function removeById<T extends { id: string }>(items: T[], id: string): T[] {
+  const nextItems = items.filter((item) => item.id !== id);
+  return nextItems.length === items.length ? items : nextItems;
+}
+
+function moveById<T extends { id: string }>(items: T[], id: string, direction: "up" | "down"): T[] {
+  const currentIndex = items.findIndex((item) => item.id === id);
+  const targetIndex = direction === "up" ? currentIndex - 1 : currentIndex + 1;
+
+  if (currentIndex < 0 || targetIndex < 0 || targetIndex >= items.length) {
+    return items;
   }
 
-  const original = board.supportingArguments[currentIndex]!;
-  const copyId = makeCopyId(original.id, board.supportingArguments.map((argument) => argument.id));
-  const copy: SupportingArgument = {
-    ...original,
-    id: copyId,
-    data: original.data.map((item, index) => ({
-      ...item,
-      id: `${copyId}-data-${index + 1}`,
-    })),
-  };
-  const nextArguments = [...board.supportingArguments];
-  nextArguments.splice(currentIndex + 1, 0, copy);
+  const nextItems = [...items];
+  const current = nextItems[currentIndex]!;
+  nextItems[currentIndex] = nextItems[targetIndex]!;
+  nextItems[targetIndex] = current;
 
-  return touchBoard({ ...board, supportingArguments: nextArguments }, now);
+  return nextItems;
+}
+
+function duplicateById<T extends { id: string }>(items: T[], id: string, copy: (item: T, id: string) => T): T[] {
+  const currentIndex = items.findIndex((item) => item.id === id);
+
+  if (currentIndex < 0) {
+    return items;
+  }
+
+  const original = items[currentIndex]!;
+  const copyId = makeCopyId(original.id, items.map((item) => item.id));
+  const nextItems = [...items];
+  nextItems.splice(currentIndex + 1, 0, copy(original, copyId));
+
+  return nextItems;
 }
 
 function makeCopyId(baseId: string, existingIds: string[]): string {

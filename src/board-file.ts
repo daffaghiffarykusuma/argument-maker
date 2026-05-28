@@ -1,4 +1,4 @@
-import type { ArgumentBoard } from "./argument-board";
+import type { ArgumentBoard, DataType, SupportMode } from "./argument-board";
 
 export interface ExportedBoardFile {
   name: string;
@@ -72,9 +72,59 @@ function hasBoardShape(value: unknown): value is ArgumentBoard {
     typeof value["title"] === "string" &&
     typeof value["createdAt"] === "string" &&
     typeof value["updatedAt"] === "string" &&
-    isRecord(value["scqa"]) &&
-    Array.isArray(value["supportingArguments"])
+    hasScqaShape(value["scqa"]) &&
+    Array.isArray(value["supportingArguments"]) &&
+    value["supportingArguments"].every(hasSupportingArgumentShape)
   );
+}
+
+function hasScqaShape(value: unknown): value is ArgumentBoard["scqa"] {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  return (
+    hasTextSlotShape(value["situation"]) &&
+    hasTextSlotShape(value["complication"]) &&
+    hasTextSlotShape(value["question"]) &&
+    hasTextSlotShape(value["answer"])
+  );
+}
+
+function hasSupportingArgumentShape(value: unknown): value is ArgumentBoard["supportingArguments"][number] {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  const record = value;
+  const mode = record["mode"];
+  const data = record["data"];
+
+  return hasTextSlotShape(record) && isSupportMode(mode) && Array.isArray(data) && data.every(hasSupportingDataFactShape);
+}
+
+function hasSupportingDataFactShape(value: unknown): value is ArgumentBoard["supportingArguments"][number]["data"][number] {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  const record = value;
+  const evidenceLink = record["evidenceLink"];
+  const dataType = record["dataType"];
+
+  return hasTextSlotShape(record) && typeof evidenceLink === "string" && isDataType(dataType);
+}
+
+function hasTextSlotShape(value: unknown): value is { id: string; text: string; touched: boolean } {
+  return isRecord(value) && typeof value["id"] === "string" && typeof value["text"] === "string" && typeof value["touched"] === "boolean";
+}
+
+function isSupportMode(value: unknown): value is SupportMode {
+  return value === "reasoning" || value === "evidence-backed";
+}
+
+function isDataType(value: unknown): value is DataType {
+  return value === "" || value === "fact" || value === "observation" || value === "example" || value === "estimate";
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

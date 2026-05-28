@@ -55,6 +55,22 @@ describe("Argument Board file persistence", () => {
       ok: false,
       message: "Unsupported Argument Board file version.",
     });
+    expect(
+      importBoardFile(
+        JSON.stringify({
+          schemaVersion: 1,
+          appName: "Argument Maker",
+          title: "Broken",
+          createdAt: "2026-05-27T09:00:00.000Z",
+          updatedAt: "2026-05-27T09:00:00.000Z",
+          scqa: {},
+          supportingArguments: [{ id: "argument-1", text: "Reason", touched: true, mode: "reasoning" }],
+        }),
+      ),
+    ).toEqual({
+      ok: false,
+      message: "This Argument Board file is missing required data.",
+    });
   });
 
   test("preserves reasonable unknown future fields during import and export", () => {

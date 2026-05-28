@@ -50,15 +50,46 @@ describe.skipIf(!canRunBrowserSmoke())("browser smoke", () => {
           `Array.from(document.querySelectorAll('[data-action="argument-text"]')).filter((node) => node.value === 'The menu works for groups.').length`,
         ),
       ).toBe(2);
-      await page.evaluate(`document.querySelector('[data-action="mode"][data-mode="preview"]').click();`);
+      await page.evaluate(`document.querySelector('[data-action="toggle-preview"]').click();`);
       const previewText = await page.evaluate(`document.body.innerText`);
 
       expect(previewText).toContain("Argument Preview");
       expect(previewText).toContain("Yes, recommend it.");
       expect(previewText).toContain("invalid evidence link");
+      expect(await page.evaluate(`document.querySelector('[data-action="scqa"][data-field="answer"]') !== null`)).toBe(true);
+      expect(await page.evaluate(`document.querySelector('[data-action="toggle-preview"]').getAttribute('aria-label')`)).toBe("Hide Argument Preview");
+      expect(await page.evaluate(`document.querySelector('[data-action="toggle-preview"]').getAttribute('data-tooltip')`)).toBe(
+        "Hide Argument Preview",
+      );
+      expect(await page.evaluate(`document.querySelector('[data-action="copy-outline"]').querySelector('svg') !== null`)).toBe(true);
+      expect(await page.evaluate(`document.querySelector('[data-action="copy-outline"]').getAttribute('aria-label')`)).toBe("Copy Outline");
+      expect(await page.evaluate(`document.querySelector('[data-action="duplicate-argument"]').getAttribute('data-tooltip')`)).toBe(
+        "Duplicate Supporting Argument",
+      );
+      expect(
+        await page.evaluate(`
+          [
+            ['[data-action="download"]', 'Download Board'],
+            ['[data-action="undo"]', 'Undo'],
+            ['[data-action="redo"]', 'Redo'],
+            ['[data-action="clear"]', 'Clear Board'],
+            ['[data-action="move-argument"][data-direction="up"]', 'Move Supporting Argument Up'],
+            ['[data-action="move-argument"][data-direction="down"]', 'Move Supporting Argument Down'],
+            ['[data-action="delete-argument"]', 'Delete Supporting Argument'],
+            ['[data-action="move-data"][data-direction="up"]', 'Move Supporting Data or Facts Up'],
+            ['[data-action="move-data"][data-direction="down"]', 'Move Supporting Data or Facts Down'],
+            ['[data-action="duplicate-data"]', 'Duplicate Supporting Data or Facts'],
+            ['[data-action="delete-data"]', 'Delete Supporting Data or Facts'],
+            ['[data-action="copy-mermaid"]', 'Copy Mermaid'],
+          ].every(([selector, label]) => {
+            const node = document.querySelector(selector);
+            return node?.querySelector('svg') && node.getAttribute('aria-label') === label && node.getAttribute('data-tooltip') === label;
+          })
+        `),
+      ).toBe(true);
       await page.evaluate(`
         window.confirm = () => true;
-        document.querySelector('[data-action="mode"][data-mode="board"]').click();
+        document.querySelector('[data-action="toggle-preview"]').click();
         document.querySelector('[data-action="clear"]').click();
       `);
       expect(await page.evaluate(`document.querySelector('[data-action="scqa"][data-field="answer"]').value`)).toBe("");

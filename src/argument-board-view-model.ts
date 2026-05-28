@@ -1,7 +1,8 @@
-import type { ArgumentBoard, DataType, SupportMode, SupportingArgument, SupportingDataFact } from "./argument-board";
+import type { ArgumentBoard, DataType, SupportMode } from "./argument-board";
 import type { ViewMode } from "./argument-board-session";
+import { hasPreviewText, previewArgumentLabel, previewDataLabel } from "./argument-preview-labels";
 import { generateMermaidPreview } from "./output";
-import { isValidEvidenceLink, type ReviewIssue } from "./review";
+import type { ReviewIssue } from "./review";
 
 export interface ArgumentBoardViewModelInput {
   board: ArgumentBoard;
@@ -60,7 +61,7 @@ export interface SupportingDataFactView {
 }
 
 export function createArgumentBoardViewModel(input: ArgumentBoardViewModelInput): ArgumentBoardViewModel {
-  const activeArguments = input.board.supportingArguments.filter((argument) => hasText(argument.text) || argument.touched);
+  const activeArguments = input.board.supportingArguments.filter((argument) => hasPreviewText(argument.text) || argument.touched);
 
   return {
     board: input.board,
@@ -97,7 +98,7 @@ export function createArgumentBoardViewModel(input: ArgumentBoardViewModelInput)
         text: item.text,
         evidenceLink: item.evidenceLink,
         dataType: item.dataType,
-        previewLabel: previewDataLabel(item.text, item.evidenceLink),
+        previewLabel: previewDataLabel(item),
       })),
     })),
     checklist: {
@@ -120,37 +121,9 @@ export function createArgumentBoardViewModel(input: ArgumentBoardViewModelInput)
         label: `Supporting Argument ${index + 1}`,
         text: previewArgumentLabel(argument),
         data: argument.data
-          .filter((item) => hasText(item.text) || item.touched)
-          .map((item) => ({ label: "Supporting Data or Facts", text: previewDataLabel(item.text, item.evidenceLink) })),
+          .filter((item) => hasPreviewText(item.text) || item.touched)
+          .map((item) => ({ label: "Supporting Data or Facts", text: previewDataLabel(item) })),
       })),
     },
   };
-}
-
-function previewArgumentLabel(argument: SupportingArgument): string {
-  if (argument.mode === "evidence-backed" && hasText(argument.text) && !argument.data.some((item) => hasText(item.text))) {
-    return `${argument.text} [needs data]`;
-  }
-
-  return argument.text;
-}
-
-function previewDataLabel(text: string, evidenceLink: string): string {
-  if (!hasText(text)) {
-    return "[empty]";
-  }
-
-  if (!hasText(evidenceLink)) {
-    return `${text} [needs evidence link]`;
-  }
-
-  if (!isValidEvidenceLink(evidenceLink)) {
-    return `${text} [invalid evidence link]`;
-  }
-
-  return text;
-}
-
-function hasText(value: string): boolean {
-  return value.trim().length > 0;
 }
