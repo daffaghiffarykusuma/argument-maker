@@ -1,7 +1,6 @@
 import type { ArgumentBoard, DataType, SupportMode } from "./argument-board";
 import type { ViewMode } from "./argument-board-session";
-import { hasPreviewText, previewArgumentLabel, previewDataLabel } from "./argument-preview-labels";
-import { generateMermaidPreview } from "./output";
+import { previewSupportingDataFactLabel, projectArgumentPreview } from "./argument-preview-projection";
 import type { ReviewIssue } from "./review";
 
 export interface ArgumentBoardViewModelInput {
@@ -19,6 +18,10 @@ export interface ArgumentBoardViewModel {
     title: string;
     canUndo: boolean;
     canRedo: boolean;
+  };
+  status: {
+    argumentCount: number;
+    dataFactCount: number;
   };
   scqa: Array<{
     field: keyof ArgumentBoard["scqa"];
@@ -61,7 +64,7 @@ export interface SupportingDataFactView {
 }
 
 export function createArgumentBoardViewModel(input: ArgumentBoardViewModelInput): ArgumentBoardViewModel {
-  const activeArguments = input.board.supportingArguments.filter((argument) => hasPreviewText(argument.text) || argument.touched);
+  const preview = projectArgumentPreview(input.board);
 
   return {
     board: input.board,
@@ -70,6 +73,10 @@ export function createArgumentBoardViewModel(input: ArgumentBoardViewModelInput)
       title: input.board.title,
       canUndo: input.canUndo,
       canRedo: input.canRedo,
+    },
+    status: {
+      argumentCount: input.board.supportingArguments.length,
+      dataFactCount: input.board.supportingArguments.reduce((count, argument) => count + argument.data.length, 0),
     },
     scqa: [
       { field: "situation", label: "What is happening?", term: "Situation", value: input.board.scqa.situation.text },
@@ -98,7 +105,7 @@ export function createArgumentBoardViewModel(input: ArgumentBoardViewModelInput)
         text: item.text,
         evidenceLink: item.evidenceLink,
         dataType: item.dataType,
-        previewLabel: previewDataLabel(item),
+        previewLabel: previewSupportingDataFactLabel(item),
       })),
     })),
     checklist: {
@@ -110,19 +117,12 @@ export function createArgumentBoardViewModel(input: ArgumentBoardViewModelInput)
           : `${input.issues.length} item${input.issues.length === 1 ? "" : "s"} need attention.`,
     },
     preview: {
-      mermaid: generateMermaidPreview(input.board),
-      chain: [
-        { label: "Situation", text: input.board.scqa.situation.text },
-        { label: "Complication", text: input.board.scqa.complication.text },
-        { label: "Question", text: input.board.scqa.question.text },
-        { label: "Answer", text: input.board.scqa.answer.text },
-      ],
-      arguments: activeArguments.map((argument, index) => ({
-        label: `Supporting Argument ${index + 1}`,
-        text: previewArgumentLabel(argument),
-        data: argument.data
-          .filter((item) => hasPreviewText(item.text) || item.touched)
-          .map((item) => ({ label: "Supporting Data or Facts", text: previewDataLabel(item) })),
+      mermaid: preview.mermaid,
+      chain: preview.chain,
+      arguments: preview.arguments.map((argument) => ({
+        label: argument.label,
+        text: argument.text,
+        data: argument.data.map((item) => ({ label: "Supporting Data or Facts", text: item.label })),
       })),
     },
   };

@@ -25,4 +25,17 @@ describe("Argument Board view model", () => {
     expect(view.toolbar.canUndo).toBe(true);
     expect(view.mode).toBe("preview");
   });
+
+  test("summarizes default Command Desk hierarchy for the status area", () => {
+    const view = createArgumentBoardViewModel({
+      board: createDefaultBoard(),
+      mode: "board",
+      canUndo: false,
+      canRedo: false,
+      issues: [],
+    });
+
+    expect(view.status.argumentCount).toBe(3);
+    expect(view.status.dataFactCount).toBe(9);
+  });
 });

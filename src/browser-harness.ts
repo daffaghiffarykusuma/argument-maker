@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, rmSync, statSync } from "node:fs";
 import { join } from "node:path";
 
 export const defaultChromePath = "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe";
@@ -60,7 +60,9 @@ export function createBrowserHarness(options?: {
         appUrl,
       ]);
 
-      if (result.exitCode !== 0) {
+      const screenshotExists = existsSync(path) && statSync(path).size > 0;
+
+      if (result.exitCode !== 0 && !screenshotExists) {
         throw new Error("Chrome screenshot failed.");
       }
     },

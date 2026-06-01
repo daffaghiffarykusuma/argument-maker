@@ -34,7 +34,7 @@ export interface ArgumentBoardSession {
 
 export function createArgumentBoardSession(initialBoard = createDefaultBoard()): ArgumentBoardSession {
   let board = initialBoard;
-  let mode: ViewMode = "board";
+  let mode: ViewMode = "preview";
   const undoStack: ArgumentBoard[] = [];
   const redoStack: ArgumentBoard[] = [];
 

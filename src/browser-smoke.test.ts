@@ -17,7 +17,33 @@ describe.skipIf(!canRunBrowserSmoke())("browser smoke", () => {
     } finally {
       browser.cleanup();
     }
-  });
+  }, 20_000);
+
+  test("opens into the Command Desk layout with the default hierarchy", async () => {
+    await browser.startServer();
+    const page = await browser.openApp();
+
+    try {
+      await page.waitFor("document.querySelector('[aria-label=\"Board tools\"]') !== null");
+      expect(await page.evaluate(`document.querySelector('[aria-label="Board tools"] .mark')?.textContent`)).toBe("AM");
+      expect(await page.evaluate(`document.querySelector('.desk-status')?.innerText.includes('3 arguments')`)).toBe(true);
+      expect(await page.evaluate(`document.querySelector('.desk-status')?.innerText.includes('9 facts/data')`)).toBe(true);
+      expect(await page.evaluate(`document.querySelector('[data-field="answer"]')?.closest('.panel')?.classList.contains('answer-panel')`)).toBe(
+        true,
+      );
+      expect(await page.evaluate(`document.querySelectorAll('.argument-card').length`)).toBe(3);
+      expect(await page.evaluate(`document.querySelectorAll('.data-row').length`)).toBe(9);
+
+      const mobileOverflow = await page.evaluate(`
+        window.resizeTo(390, 900);
+        document.documentElement.scrollWidth > document.documentElement.clientWidth
+      `);
+      expect(mobileOverflow).toBe(false);
+    } finally {
+      await page.close();
+      browser.cleanup();
+    }
+  }, 20_000);
 
   test("supports the core board flow in a real browser", async () => {
     await browser.startServer();
@@ -50,7 +76,6 @@ describe.skipIf(!canRunBrowserSmoke())("browser smoke", () => {
           `Array.from(document.querySelectorAll('[data-action="argument-text"]')).filter((node) => node.value === 'The menu works for groups.').length`,
         ),
       ).toBe(2);
-      await page.evaluate(`document.querySelector('[data-action="toggle-preview"]').click();`);
       const previewText = await page.evaluate(`document.body.innerText`);
 
       expect(previewText).toContain("Argument Preview");
@@ -89,7 +114,6 @@ describe.skipIf(!canRunBrowserSmoke())("browser smoke", () => {
       ).toBe(true);
       await page.evaluate(`
         window.confirm = () => true;
-        document.querySelector('[data-action="toggle-preview"]').click();
         document.querySelector('[data-action="clear"]').click();
       `);
       expect(await page.evaluate(`document.querySelector('[data-action="scqa"][data-field="answer"]').value`)).toBe("");

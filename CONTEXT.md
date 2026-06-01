@@ -48,6 +48,14 @@ A URL attached to Supporting Data or Facts. The app records the link for review 
 
 A local file downloaded by the user that contains the board state needed to reopen, revise, or continue an argument in a later session.
 
+## Export File Contract
+
+The schema metadata, filename policy, validation result shape, and migration entrypoint for `.argument.json` files. It preserves unknown future fields when they pass the current board shape so exported files remain inspectable and forward-compatible.
+
 ## Argument Preview
 
 A read-only visualization of the current argument structure. The preview helps users inspect flow and hierarchy but is not the primary editing surface.
+
+## Argument Preview Projection
+
+The render-ready structure derived from an Argument Board for Argument Preview, Mermaid source, outline export, and readiness labels. It owns active branch selection and evidence-link labeling so those rules stay consistent across outputs.

@@ -1,6 +1,12 @@
 import type { ArgumentBoard, DataType, SupportMode } from "./argument-board";
 import { createArgumentBoardSession, type ArgumentBoardSession, type ViewMode } from "./argument-board-session";
 import { createArgumentBoardViewModel, type ArgumentBoardViewModel } from "./argument-board-view-model";
+import {
+  commandDeskActions,
+  decodeCommandDeskAction,
+  togglePreviewAction,
+  type CommandDeskActionControl,
+} from "./command-desk-actions";
 import { renderIcon, renderIconButton } from "./icon-controls";
 import mermaid from "mermaid";
 
@@ -69,10 +75,13 @@ function render(appRoot: HTMLDivElement, session: ArgumentBoardSession) {
   const view = createArgumentBoardViewModel(session.snapshot());
   appRoot.innerHTML = `
     <main class="app-shell">
-      ${renderToolbar(view)}
-      <div class="workspace ${view.mode === "preview" ? "with-preview" : ""}">
-        ${renderBoard(view)}
-        ${view.mode === "preview" ? renderPreview(view) : ""}
+      ${renderCommandRail(view)}
+      <div class="desk-main">
+        ${renderTopbar(view)}
+        <div class="workspace ${view.mode === "preview" ? "with-preview" : ""}">
+          ${renderBoard(view)}
+          ${view.mode === "preview" ? renderPreview(view) : ""}
+        </div>
       </div>
     </main>
   `;
@@ -82,29 +91,39 @@ function render(appRoot: HTMLDivElement, session: ArgumentBoardSession) {
   }
 }
 
-function renderToolbar(view: ArgumentBoardViewModel): string {
+function renderCommandRail(view: ArgumentBoardViewModel): string {
+  const togglePreview = togglePreviewAction(view.mode === "preview");
+
   return `
-    <header class="toolbar" aria-label="Argument board toolbar">
-      <div>
-        <input class="title-input" aria-label="Board title" value="${escapeAttr(view.toolbar.title)}" placeholder="Untitled argument" data-action="title" />
-        <p class="subtitle">Build the argument structure first. Download it when you want to keep it.</p>
-      </div>
-      <div class="toolbar-actions">
-        ${renderIconButton({
-          action: "toggle-preview",
-          label: view.mode === "preview" ? "Hide Argument Preview" : "Show Argument Preview",
-          icon: view.mode === "preview" ? "eyeOff" : "eye",
-          active: view.mode === "preview",
-        })}
-        ${renderIconButton({ action: "copy-outline", label: "Copy Outline", icon: "copy" })}
-        ${renderIconButton({ action: "download", label: "Download Board", icon: "download" })}
-        <label class="icon-button file-button" aria-label="Upload Board" title="Upload Board" data-tooltip="Upload Board" tabindex="0">
-          ${renderIcon("upload")}
+    <aside class="command-rail" aria-label="Board tools">
+      <div class="mark" aria-label="Argument Maker">AM</div>
+      <div class="rail-actions">
+        ${renderCommandButton(commandDeskActions.copyOutline)}
+        ${renderCommandButton(commandDeskActions.download)}
+        <label class="icon-button file-button" aria-label="${commandDeskActions.upload.label}" title="${commandDeskActions.upload.label}" data-tooltip="${commandDeskActions.upload.label}" tabindex="0">
+          ${renderIcon(commandDeskActions.upload.icon)}
           <input type="file" accept=".json,.argument.json,application/json" data-action="upload" />
         </label>
-        ${renderIconButton({ action: "undo", label: "Undo", icon: "undo", disabled: !view.toolbar.canUndo })}
-        ${renderIconButton({ action: "redo", label: "Redo", icon: "redo", disabled: !view.toolbar.canRedo })}
-        ${renderIconButton({ action: "clear", label: "Clear Board", icon: "trash", danger: true })}
+        ${renderCommandButton(togglePreview)}
+        ${renderCommandButton({ ...commandDeskActions.undo, disabled: !view.toolbar.canUndo })}
+        ${renderCommandButton({ ...commandDeskActions.redo, disabled: !view.toolbar.canRedo })}
+        ${renderCommandButton(commandDeskActions.clear)}
+      </div>
+    </aside>
+  `;
+}
+
+function renderTopbar(view: ArgumentBoardViewModel): string {
+  return `
+    <header class="topbar" aria-label="Argument board status">
+      <div class="title-group">
+        <p class="eyebrow">Argument Board</p>
+        <input class="title-input" aria-label="Board title" value="${escapeAttr(view.toolbar.title)}" placeholder="Command Desk" data-action="title" />
+        <p class="subtitle">A dense operator layout for fast argument editing and review.</p>
+      </div>
+      <div class="desk-status">
+        <span>${view.status.argumentCount} arguments</span>
+        <strong>${view.status.dataFactCount} facts/data</strong>
       </div>
     </header>
   `;
@@ -119,8 +138,8 @@ function renderBoard(view: ArgumentBoardViewModel): string {
       <section class="support-section" aria-label="Supporting argument structure">
         <div class="section-heading">
           <div>
-            <h2>Why should someone believe this?</h2>
-            <span>Supporting Argument</span>
+            <h2>Supporting Arguments</h2>
+            <span>Reasoning claims with nested support</span>
           </div>
           <button type="button" data-action="add-argument">+ Argument</button>
         </div>
@@ -134,8 +153,10 @@ function renderBoard(view: ArgumentBoardViewModel): string {
 }
 
 function renderTextPanel(field: keyof ArgumentBoard["scqa"], label: string, term: string, value: string): string {
+  const classes = ["panel", field === "answer" ? "answer-panel" : ""].filter(Boolean).join(" ");
+
   return `
-    <label class="panel">
+    <label class="${classes}">
       <span class="panel-label">${label}</span>
       <span class="term">${term}</span>
       <textarea data-action="scqa" data-field="${field}" rows="4" placeholder="Write here...">${escapeHtml(value)}</textarea>
@@ -154,36 +175,15 @@ function renderArgument(argument: ArgumentBoardViewModel["supportingArguments"][
         </label>
         <div class="card-controls" aria-label="Supporting Argument controls">
           ${renderModeControl(argument.id, argument.mode)}
-          ${renderIconButton({
-            action: "move-argument",
-            label: "Move Supporting Argument Up",
-            icon: "up",
-            attrs: `data-direction="up" data-argument-id="${argument.id}"`,
-          })}
-          ${renderIconButton({
-            action: "move-argument",
-            label: "Move Supporting Argument Down",
-            icon: "down",
-            attrs: `data-direction="down" data-argument-id="${argument.id}"`,
-          })}
-          ${renderIconButton({
-            action: "duplicate-argument",
-            label: "Duplicate Supporting Argument",
-            icon: "copy",
-            attrs: `data-argument-id="${argument.id}"`,
-          })}
-          ${renderIconButton({
-            action: "delete-argument",
-            label: "Delete Supporting Argument",
-            icon: "trash",
-            danger: true,
-            attrs: `data-argument-id="${argument.id}"`,
-          })}
+          ${renderCommandButton(commandDeskActions.moveArgumentUp, `data-direction="up" data-argument-id="${argument.id}"`)}
+          ${renderCommandButton(commandDeskActions.moveArgumentDown, `data-direction="down" data-argument-id="${argument.id}"`)}
+          ${renderCommandButton(commandDeskActions.duplicateArgument, `data-argument-id="${argument.id}"`)}
+          ${renderCommandButton(commandDeskActions.deleteArgument, `data-argument-id="${argument.id}"`)}
         </div>
       </div>
       <div class="data-heading">
-        <span>What fact supports this?</span>
-        <small>Supporting Data or Facts</small>
+        <span>Supporting Facts/Data</span>
+        <small>Evidence belongs to each row</small>
         <button type="button" data-action="add-data" data-argument-id="${argument.id}">+ Data/Fact</button>
       </div>
       <div class="data-list">
@@ -206,8 +206,6 @@ function renderModeControl(argumentId: string, modeValue: SupportMode): string {
 function renderDataFact(argumentId: string, item: ArgumentBoardViewModel["supportingArguments"][number]["data"][number]): string {
   return `
     <div class="data-row">
-      <textarea data-action="data-text" data-argument-id="${argumentId}" data-data-id="${item.id}" rows="2" placeholder="Write a fact, observation, example, or estimate...">${escapeHtml(item.text)}</textarea>
-      <input data-action="evidence-link" data-argument-id="${argumentId}" data-data-id="${item.id}" value="${escapeAttr(item.evidenceLink)}" placeholder="https://evidence-link" aria-label="Where can this be checked?" />
       <select data-action="data-type" data-argument-id="${argumentId}" data-data-id="${item.id}" aria-label="Data Type">
         ${renderDataTypeOption("", "Unspecified", item.dataType)}
         ${renderDataTypeOption("fact", "Fact", item.dataType)}
@@ -215,35 +213,28 @@ function renderDataFact(argumentId: string, item: ArgumentBoardViewModel["suppor
         ${renderDataTypeOption("example", "Example", item.dataType)}
         ${renderDataTypeOption("estimate", "Estimate", item.dataType)}
       </select>
+      <textarea data-action="data-text" data-argument-id="${argumentId}" data-data-id="${item.id}" rows="2" placeholder="Write a fact, observation, example, or estimate...">${escapeHtml(item.text)}</textarea>
+      <input data-action="evidence-link" data-argument-id="${argumentId}" data-data-id="${item.id}" value="${escapeAttr(item.evidenceLink)}" placeholder="Evidence link" aria-label="Where can this be checked?" />
       <div class="row-controls">
-        ${renderIconButton({
-          action: "move-data",
-          label: "Move Supporting Data or Facts Up",
-          icon: "up",
-          attrs: `data-direction="up" data-argument-id="${argumentId}" data-data-id="${item.id}"`,
-        })}
-        ${renderIconButton({
-          action: "move-data",
-          label: "Move Supporting Data or Facts Down",
-          icon: "down",
-          attrs: `data-direction="down" data-argument-id="${argumentId}" data-data-id="${item.id}"`,
-        })}
-        ${renderIconButton({
-          action: "duplicate-data",
-          label: "Duplicate Supporting Data or Facts",
-          icon: "copy",
-          attrs: `data-argument-id="${argumentId}" data-data-id="${item.id}"`,
-        })}
-        ${renderIconButton({
-          action: "delete-data",
-          label: "Delete Supporting Data or Facts",
-          icon: "trash",
-          danger: true,
-          attrs: `data-argument-id="${argumentId}" data-data-id="${item.id}"`,
-        })}
+        ${renderCommandButton(commandDeskActions.moveDataUp, `data-direction="up" data-argument-id="${argumentId}" data-data-id="${item.id}"`)}
+        ${renderCommandButton(commandDeskActions.moveDataDown, `data-direction="down" data-argument-id="${argumentId}" data-data-id="${item.id}"`)}
+        ${renderCommandButton(commandDeskActions.duplicateData, `data-argument-id="${argumentId}" data-data-id="${item.id}"`)}
+        ${renderCommandButton(commandDeskActions.deleteData, `data-argument-id="${argumentId}" data-data-id="${item.id}"`)}
       </div>
     </div>
   `;
+}
+
+function renderCommandButton(control: CommandDeskActionControl, attrs?: string): string {
+  return renderIconButton({
+    action: control.action,
+    label: control.label,
+    icon: control.icon,
+    attrs,
+    active: control.active,
+    danger: control.danger,
+    disabled: control.disabled,
+  });
 }
 
 function renderDataTypeOption(value: DataType, label: string, selected: DataType): string {
@@ -270,7 +261,7 @@ function renderPreview(view: ArgumentBoardViewModel): string {
           <h2>Argument Preview</h2>
           <span>Rendered Mermaid workflow</span>
         </div>
-        ${renderIconButton({ action: "copy-mermaid", label: "Copy Mermaid", icon: "copy" })}
+        ${renderCommandButton(commandDeskActions.copyMermaid)}
       </div>
       <div class="mermaid-diagram" aria-label="Rendered Mermaid workflow">
         <div class="mermaid-status">Rendering workflow...</div>
@@ -349,10 +340,13 @@ function applyInput(
 }
 
 function handleAction(appRoot: HTMLDivElement, argumentSession: ArgumentBoardSession, target: HTMLElement) {
-  const action = target.dataset.action;
-  const argumentId = target.dataset.argumentId;
-  const dataId = target.dataset.dataId;
-  const direction = target.dataset.direction as "up" | "down" | undefined;
+  const decodedAction = decodeCommandDeskAction(target);
+
+  if (!decodedAction) {
+    return;
+  }
+
+  const { action, argumentId, dataId, direction } = decodedAction;
 
   if (action === "toggle-preview") {
     argumentSession.setMode(argumentSession.snapshot().mode === "preview" ? "board" : "preview");

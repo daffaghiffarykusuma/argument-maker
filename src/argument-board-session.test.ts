@@ -37,4 +37,10 @@ describe("Argument Board session", () => {
     session.dispatch({ type: "update-scqa", field: "question", text: "Should we recommend it?" });
     expect(session.hasTouchedContent()).toBe(true);
   });
+
+  test("opens with the Argument Preview visible in the Command Desk workspace", () => {
+    const session = createArgumentBoardSession();
+
+    expect(session.snapshot().mode).toBe("preview");
+  });
 });

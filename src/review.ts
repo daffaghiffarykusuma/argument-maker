@@ -1,4 +1,5 @@
 import type { ArgumentBoard, SupportingArgument, SupportingDataFact } from "./argument-board";
+import { isValidEvidenceLink } from "./argument-preview-projection";
 
 export type ReviewIssueCode =
   | "missing-situation"
@@ -46,15 +47,6 @@ export function reviewBoard(board: ArgumentBoard): ReviewIssue[] {
   }
 
   return issues;
-}
-
-export function isValidEvidenceLink(value: string): boolean {
-  try {
-    const url = new URL(value);
-    return url.protocol === "http:" || url.protocol === "https:";
-  } catch {
-    return false;
-  }
 }
 
 function addMissingScqaIssue(

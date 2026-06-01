@@ -1,7 +1,8 @@
-import type { ArgumentBoard, DataType, SupportMode, SupportingArgument, SupportingDataFact } from "./argument-board";
-import { hasPreviewText, previewArgumentLabel, previewDataLabel } from "./argument-preview-labels";
+import type { ArgumentBoard } from "./argument-board";
+import { projectArgumentPreview } from "./argument-preview-projection";
 
 export function generateOutline(board: ArgumentBoard): string {
+  const preview = projectArgumentPreview(board);
   const lines: string[] = [];
   const incompleteEvidence: string[] = [];
 
@@ -13,15 +14,15 @@ export function generateOutline(board: ArgumentBoard): string {
   lines.push(`Answer: ${board.scqa.answer.text}`);
   lines.push("");
 
-  for (const [argumentIndex, argument] of activeArguments(board).entries()) {
-    lines.push(`Supporting Argument ${argumentIndex + 1}: ${argument.text}`);
-    lines.push(`Support Mode: ${formatSupportMode(argument.mode)}`);
+  for (const argument of preview.arguments) {
+    lines.push(`${argument.label}: ${argument.text.replace(" [needs data]", "")}`);
+    lines.push(`Support Mode: ${argument.supportMode}`);
 
-    for (const item of activeData(argument)) {
+    for (const item of argument.data) {
       lines.push(`- ${item.text}`);
 
       if (item.dataType) {
-        lines.push(`  Data Type: ${formatDataType(item.dataType)}`);
+        lines.push(`  Data Type: ${item.formattedDataType}`);
       }
 
       if (item.evidenceLink.trim()) {
@@ -47,64 +48,5 @@ export function generateOutline(board: ArgumentBoard): string {
 }
 
 export function generateMermaidPreview(board: ArgumentBoard): string {
-  const lines = ["flowchart TD"];
-
-  addMermaidNode(lines, "situation", board.scqa.situation.text || "Situation");
-  addMermaidNode(lines, "complication", board.scqa.complication.text || "Complication");
-  addMermaidNode(lines, "question", board.scqa.question.text || "Question");
-  addMermaidNode(lines, "answer", board.scqa.answer.text || "Answer");
-  lines.push("  situation --> complication");
-  lines.push("  complication --> question");
-  lines.push("  question --> answer");
-
-  for (const argument of activeArguments(board)) {
-    addMermaidNode(lines, argument.id, previewArgumentLabel(argument));
-    lines.push(`  answer --> ${mermaidId(argument.id)}`);
-
-    for (const item of argument.data) {
-      if (!hasPreviewText(item.text) && !item.touched) {
-        continue;
-      }
-
-      addMermaidNode(lines, item.id, previewDataLabel(item));
-      lines.push(`  ${mermaidId(argument.id)} --> ${mermaidId(item.id)}`);
-    }
-  }
-
-  return lines.join("\n");
-}
-
-function activeArguments(board: ArgumentBoard): SupportingArgument[] {
-  return board.supportingArguments.filter((argument) => hasPreviewText(argument.text) || argument.touched);
-}
-
-function activeData(argument: SupportingArgument): SupportingDataFact[] {
-  return argument.data.filter((item) => hasPreviewText(item.text) || item.touched);
-}
-
-function addMermaidNode(lines: string[], id: string, label: string) {
-  lines.push(`  ${mermaidId(id)}["${escapeMermaidLabel(label)}"]`);
-}
-
-function mermaidId(id: string): string {
-  return id.replace(/[^a-zA-Z0-9_]/g, "_");
-}
-
-function escapeMermaidLabel(label: string): string {
-  return label.replace(/"/g, '\\"');
-}
-
-function formatSupportMode(mode: SupportMode): string {
-  return mode === "evidence-backed" ? "Evidence-backed" : "Reasoning / Interpretation";
-}
-
-function formatDataType(type: DataType): string {
-  const labels: Record<Exclude<DataType, "">, string> = {
-    fact: "Fact",
-    observation: "Observation",
-    example: "Example",
-    estimate: "Estimate",
-  };
-
-  return type ? labels[type] : "Unspecified";
+  return projectArgumentPreview(board).mermaid;
 }
