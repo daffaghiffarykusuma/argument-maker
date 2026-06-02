@@ -119,18 +119,20 @@ function createTextSlot(id: string): TextSlot {
 function createSupportingArgument(argumentIndex: number): SupportingArgument {
   const id = `argument-${argumentIndex + 1}`;
 
+  return createSupportingArgumentWithId(id);
+}
+
+function createSupportingArgumentWithId(id: string): SupportingArgument {
   return {
     ...createTextSlot(id),
     mode: "reasoning",
-    data: Array.from({ length: DEFAULT_SUPPORTING_DATA_COUNT }, (_, dataIndex) =>
-      createSupportingDataFact(argumentIndex, dataIndex),
-    ),
+    data: Array.from({ length: DEFAULT_SUPPORTING_DATA_COUNT }, (_, dataIndex) => createSupportingDataFact(id, dataIndex)),
   };
 }
 
-function createSupportingDataFact(argumentIndex: number, dataIndex: number): SupportingDataFact {
+function createSupportingDataFact(argumentId: string, dataIndex: number): SupportingDataFact {
   return {
-    ...createTextSlot(`argument-${argumentIndex + 1}-data-${dataIndex + 1}`),
+    ...createTextSlot(`${argumentId}-data-${dataIndex + 1}`),
     evidenceLink: "",
     dataType: "",
   };
@@ -223,12 +225,15 @@ export function updateSupportingDataFact(
 }
 
 export function addSupportingArgument(board: ArgumentBoard, now = new Date()): ArgumentBoard {
-  const nextIndex = board.supportingArguments.length;
+  const id = makeIndexedId(
+    "argument",
+    board.supportingArguments.map((argument) => argument.id),
+  );
 
   return touchBoard(
     {
       ...board,
-      supportingArguments: [...board.supportingArguments, createSupportingArgument(nextIndex)],
+      supportingArguments: [...board.supportingArguments, createSupportingArgumentWithId(id)],
     },
     now,
   );
@@ -238,11 +243,20 @@ export function addSupportingDataFact(board: ArgumentBoard, argumentId: string, 
   return touchBoard(
     {
       ...board,
-      supportingArguments: board.supportingArguments.map((argument, argumentIndex) =>
+      supportingArguments: board.supportingArguments.map((argument) =>
         argument.id === argumentId
           ? {
               ...argument,
-              data: [...argument.data, createSupportingDataFact(argumentIndex, argument.data.length)],
+              data: [
+                ...argument.data,
+                {
+                  ...createSupportingDataFact(argument.id, argument.data.length),
+                  id: makeIndexedId(
+                    `${argument.id}-data`,
+                    argument.data.map((item) => item.id),
+                  ),
+                },
+              ],
             }
           : argument,
       ),
@@ -375,6 +389,19 @@ function makeCopyId(baseId: string, existingIds: string[]): string {
   while (existingIds.includes(candidate)) {
     copyIndex += 1;
     candidate = `${baseId}-copy-${copyIndex}`;
+  }
+
+  return candidate;
+}
+
+function makeIndexedId(prefix: string, existingIds: string[]): string {
+  const existing = new Set(existingIds);
+  let index = 1;
+  let candidate = `${prefix}-${index}`;
+
+  while (existing.has(candidate)) {
+    index += 1;
+    candidate = `${prefix}-${index}`;
   }
 
   return candidate;

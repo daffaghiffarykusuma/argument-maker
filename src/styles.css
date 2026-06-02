@@ -124,6 +124,27 @@ select {
   padding: 9px 10px;
 }
 
+select {
+  color-scheme: dark;
+  background-color: #040b06;
+}
+
+select option {
+  background-color: #06130a;
+  color: #f4ffe4;
+}
+
+select option:checked {
+  background-color: #d9ed92;
+  color: #06100a;
+}
+
+select option:hover,
+select option:focus {
+  background-color: #b5e48c;
+  color: #06100a;
+}
+
 textarea {
   min-height: 76px;
   resize: vertical;
@@ -411,13 +432,14 @@ textarea {
 .data-row input,
 .data-row select {
   min-height: 38px;
-  border: 0;
-  background: transparent;
-  padding: 4px 0;
+  border: 1px solid transparent;
+  background: #040b06;
+  padding: 6px 8px;
 }
 
 .data-row select {
-  color: #b5e48c;
+  border-color: rgba(181, 228, 140, 0.42);
+  color: #f4ffe4;
   font-size: 0.78rem;
   font-weight: 800;
   text-transform: uppercase;

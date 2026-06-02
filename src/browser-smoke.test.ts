@@ -86,6 +86,16 @@ describe.skipIf(!canRunBrowserSmoke())("browser smoke", () => {
       expect(await page.evaluate(`document.querySelector('[data-action="toggle-preview"]').getAttribute('data-tooltip')`)).toBe(
         "Hide Argument Preview",
       );
+      await page.evaluate(`
+        (() => {
+          const fact = document.querySelector('[data-action="data-text"]');
+          fact.value = 'The menu has a shared platter and private rooms.';
+          fact.dispatchEvent(new Event('input', { bubbles: true }));
+          return true;
+        })()
+      `);
+      await page.waitFor(`document.querySelector('.mermaid-box')?.textContent.includes('private rooms')`);
+      expect(await page.evaluate(`document.querySelector('.mermaid-diagram svg') !== null`)).toBe(true);
       expect(await page.evaluate(`document.querySelector('[data-action="copy-outline"]').querySelector('svg') !== null`)).toBe(true);
       expect(await page.evaluate(`document.querySelector('[data-action="copy-outline"]').getAttribute('aria-label')`)).toBe("Copy Outline");
       expect(await page.evaluate(`document.querySelector('[data-action="duplicate-argument"]').getAttribute('data-tooltip')`)).toBe(
@@ -117,6 +127,57 @@ describe.skipIf(!canRunBrowserSmoke())("browser smoke", () => {
         document.querySelector('[data-action="clear"]').click();
       `);
       expect(await page.evaluate(`document.querySelector('[data-action="scqa"][data-field="answer"]').value`)).toBe("");
+    } finally {
+      await page.close();
+      browser.cleanup();
+    }
+  }, 20_000);
+
+  test("keeps row controls isolated after deleting and adding gaps in the board", async () => {
+    await browser.startServer();
+    const page = await browser.openApp();
+
+    try {
+      await page.waitFor("document.querySelectorAll('.argument-card').length === 3");
+      await page.evaluate(`
+        const secondArgumentDelete = document.querySelectorAll('[data-action="delete-argument"]')[1];
+        secondArgumentDelete.click();
+        document.querySelector('[data-action="add-argument"]').click();
+      `);
+      expect(
+        await page.evaluate(`
+          (() => {
+            const ids = Array.from(document.querySelectorAll('[data-action="argument-text"]')).map((node) => node.dataset.argumentId);
+            return new Set(ids).size === ids.length;
+          })()
+        `),
+      ).toBe(true);
+
+      await page.evaluate(`
+        const firstCard = document.querySelector('.argument-card');
+        firstCard.querySelectorAll('[data-action="delete-data"]')[1].click();
+        firstCard.querySelector('[data-action="add-data"]').click();
+      `);
+      expect(
+        await page.evaluate(`
+          (() => {
+            const firstCard = document.querySelector('.argument-card');
+            const ids = Array.from(firstCard.querySelectorAll('[data-action="data-text"]')).map((node) => node.dataset.dataId);
+            return new Set(ids).size === ids.length;
+          })()
+        `),
+      ).toBe(true);
+
+      expect(
+        await page.evaluate(`
+          (() => {
+            const firstCard = document.querySelector('.argument-card');
+            const rowsBefore = firstCard.querySelectorAll('.data-row').length;
+            firstCard.querySelectorAll('[data-action="delete-data"]')[1].click();
+            return rowsBefore - document.querySelector('.argument-card').querySelectorAll('.data-row').length;
+          })()
+        `),
+      ).toBe(1);
     } finally {
       await page.close();
       browser.cleanup();

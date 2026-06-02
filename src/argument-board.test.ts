@@ -81,6 +81,30 @@ describe("Argument Board", () => {
     expect(updated.supportingArguments[1]!.data).toHaveLength(3);
   });
 
+  test("keeps newly added IDs unique after delete gaps so controls affect one target", () => {
+    let board = createDefaultBoard();
+    const secondArgumentId = board.supportingArguments[1]!.id;
+    board = deleteSupportingArgument(board, secondArgumentId);
+    board = addSupportingArgument(board);
+
+    expect(new Set(board.supportingArguments.map((argument) => argument.id)).size).toBe(board.supportingArguments.length);
+
+    const argumentId = board.supportingArguments[0]!.id;
+    const secondDataId = board.supportingArguments[0]!.data[1]!.id;
+    board = deleteSupportingDataFact(board, argumentId, secondDataId);
+    board = addSupportingDataFact(board, argumentId);
+
+    const dataIds = board.supportingArguments[0]!.data.map((item) => item.id);
+    expect(new Set(dataIds).size).toBe(dataIds.length);
+
+    const lastDataId = dataIds.at(-1)!;
+    const duplicated = duplicateSupportingDataFact(board, argumentId, lastDataId);
+    const deleted = deleteSupportingDataFact(duplicated, argumentId, lastDataId);
+
+    expect(duplicated.supportingArguments[0]!.data).toHaveLength(board.supportingArguments[0]!.data.length + 1);
+    expect(deleted.supportingArguments[0]!.data).toHaveLength(duplicated.supportingArguments[0]!.data.length - 1);
+  });
+
   test("reorders, duplicates, and deletes within the structured support hierarchy", () => {
     let board = createDefaultBoard();
     const argumentId = board.supportingArguments[0]!.id;

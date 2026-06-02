@@ -11,6 +11,7 @@ import { renderIcon, renderIconButton } from "./icon-controls";
 import mermaid from "mermaid";
 
 let renderVersion = 0;
+let previewRenderRequest: ReturnType<typeof setTimeout> | undefined;
 
 mermaid.initialize({
   startOnLoad: false,
@@ -337,6 +338,36 @@ function applyInput(
     });
     render(appRoot, argumentSession);
   }
+
+  schedulePreviewRefresh(appRoot, argumentSession);
+}
+
+function schedulePreviewRefresh(appRoot: HTMLDivElement, argumentSession: ArgumentBoardSession) {
+  if (argumentSession.snapshot().mode !== "preview" || !appRoot.querySelector(".preview-view")) {
+    return;
+  }
+
+  if (previewRenderRequest !== undefined) {
+    clearTimeout(previewRenderRequest);
+  }
+
+  previewRenderRequest = setTimeout(() => {
+    previewRenderRequest = undefined;
+    const view = createArgumentBoardViewModel(argumentSession.snapshot());
+    const source = appRoot.querySelector<HTMLElement>(".mermaid-box");
+
+    if (source) {
+      source.textContent = view.preview.mermaid;
+    }
+
+    const container = appRoot.querySelector<HTMLDivElement>(".mermaid-diagram");
+    if (container) {
+      container.innerHTML = `<div class="mermaid-status">Rendering workflow...</div>`;
+    }
+
+    renderVersion += 1;
+    void renderMermaidPreview(appRoot, view.preview.mermaid, renderVersion);
+  }, 0);
 }
 
 function handleAction(appRoot: HTMLDivElement, argumentSession: ArgumentBoardSession, target: HTMLElement) {
