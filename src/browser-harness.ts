@@ -35,7 +35,7 @@ export function createBrowserHarness(options?: {
     async startServer() {
       rmSync(smokeDir, { force: true, recursive: true });
       mkdirSync(smokeDir, { recursive: true });
-      serverProcess = Bun.spawn(["bun", "--hot", "index.html"], {
+      serverProcess = Bun.spawn(["bun", "run", "dev", "--host", "127.0.0.1", "--port", "3000", "--strictPort"], {
         cwd: rootDir,
         stdout: "ignore",
         stderr: "ignore",

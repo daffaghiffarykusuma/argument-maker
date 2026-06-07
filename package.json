@@ -4,13 +4,14 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "dev": "bun --hot index.html",
-    "build": "bun build index.html --outdir dist --target browser",
+    "dev": "vite --host 127.0.0.1",
+    "build": "vite build",
     "test": "bun test",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
-    "@types/bun": "latest"
+    "@types/bun": "latest",
+    "vite": "^8.0.16"
   },
   "peerDependencies": {
     "typescript": "^5"

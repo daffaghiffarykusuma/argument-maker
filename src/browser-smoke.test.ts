@@ -76,11 +76,13 @@ describe.skipIf(!canRunBrowserSmoke())("browser smoke", () => {
           `Array.from(document.querySelectorAll('[data-action="argument-text"]')).filter((node) => node.value === 'The menu works for groups.').length`,
         ),
       ).toBe(2);
+      await page.waitFor(`document.querySelector('.mermaid-box')?.textContent.includes('Yes, recommend it.')`);
+      const mermaidSource = await page.evaluate(`document.querySelector('.mermaid-box')?.textContent ?? ''`);
       const previewText = await page.evaluate(`document.body.innerText`);
 
       expect(previewText).toContain("Argument Preview");
-      expect(previewText).toContain("Yes, recommend it.");
-      expect(previewText).toContain("invalid evidence link");
+      expect(mermaidSource).toContain("Yes, recommend it.");
+      expect(mermaidSource).toContain("invalid evidence link");
       expect(await page.evaluate(`document.querySelector('[data-action="scqa"][data-field="answer"]') !== null`)).toBe(true);
       expect(await page.evaluate(`document.querySelector('[data-action="toggle-preview"]').getAttribute('aria-label')`)).toBe("Hide Argument Preview");
       expect(await page.evaluate(`document.querySelector('[data-action="toggle-preview"]').getAttribute('data-tooltip')`)).toBe(
@@ -95,6 +97,7 @@ describe.skipIf(!canRunBrowserSmoke())("browser smoke", () => {
         })()
       `);
       await page.waitFor(`document.querySelector('.mermaid-box')?.textContent.includes('private rooms')`);
+      await page.waitFor(`document.querySelector('.mermaid-diagram svg') !== null`);
       expect(await page.evaluate(`document.querySelector('.mermaid-diagram svg') !== null`)).toBe(true);
       expect(await page.evaluate(`document.querySelector('[data-action="copy-outline"]').querySelector('svg') !== null`)).toBe(true);
       expect(await page.evaluate(`document.querySelector('[data-action="copy-outline"]').getAttribute('aria-label')`)).toBe("Copy Outline");

@@ -14,4 +14,4 @@ To run:
 bun run dev
 ```
 
-This project was created using Bun. [Bun](https://bun.com) is a fast all-in-one JavaScript runtime.
+Bun is the package manager and script runner. Vite is the development server and production bundler.

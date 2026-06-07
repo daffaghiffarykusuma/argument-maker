@@ -30,8 +30,6 @@ mermaid.initialize({
 });
 
 export function mountArgumentBoardApp(appRoot: HTMLDivElement, session = createArgumentBoardSession()) {
-  render(appRoot, session);
-
   window.addEventListener("beforeunload", (event) => {
     if (session.hasTouchedContent()) {
       event.preventDefault();
@@ -68,6 +66,8 @@ export function mountArgumentBoardApp(appRoot: HTMLDivElement, session = createA
 
     handleAction(appRoot, session, target);
   });
+
+  render(appRoot, session);
 }
 
 function render(appRoot: HTMLDivElement, session: ArgumentBoardSession) {
