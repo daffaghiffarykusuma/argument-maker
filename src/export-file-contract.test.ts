@@ -17,7 +17,7 @@ describe("Export File contract", () => {
     expect(file.contents).toContain("\n  ");
   });
 
-  test("keeps validation and future migration entrypoint behind one interface", () => {
+  test("validates the current schema directly", () => {
     const board = createDefaultBoard();
     const imported = parseExportFile(JSON.stringify(board));
 

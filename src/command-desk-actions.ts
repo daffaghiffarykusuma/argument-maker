@@ -1,22 +1,25 @@
 import type { IconName } from "./icon-controls";
 
-export type CommandDeskActionId =
-  | "copy-outline"
-  | "download"
-  | "upload"
-  | "toggle-preview"
-  | "undo"
-  | "redo"
-  | "clear"
-  | "add-argument"
-  | "add-data"
-  | "move-argument"
-  | "duplicate-argument"
-  | "delete-argument"
-  | "move-data"
-  | "duplicate-data"
-  | "delete-data"
-  | "copy-mermaid";
+const actionIds = [
+  "copy-outline",
+  "download",
+  "upload",
+  "toggle-preview",
+  "undo",
+  "redo",
+  "clear",
+  "add-argument",
+  "add-data",
+  "move-argument",
+  "duplicate-argument",
+  "delete-argument",
+  "move-data",
+  "duplicate-data",
+  "delete-data",
+  "copy-mermaid",
+] as const;
+
+export type CommandDeskActionId = (typeof actionIds)[number];
 
 export type CommandDeskDirection = "up" | "down";
 
@@ -54,24 +57,7 @@ export const commandDeskActions = {
   copyMermaid: { action: "copy-mermaid", label: "Copy Mermaid", icon: "copy" },
 } as const satisfies Record<string, CommandDeskActionControl>;
 
-const actionIds = new Set<CommandDeskActionId>([
-  "copy-outline",
-  "download",
-  "upload",
-  "toggle-preview",
-  "undo",
-  "redo",
-  "clear",
-  "add-argument",
-  "add-data",
-  "move-argument",
-  "duplicate-argument",
-  "delete-argument",
-  "move-data",
-  "duplicate-data",
-  "delete-data",
-  "copy-mermaid",
-]);
+const actionIdSet = new Set<string>(actionIds);
 
 export function togglePreviewAction(isPreviewVisible: boolean): CommandDeskActionControl {
   return {
@@ -98,7 +84,7 @@ export function decodeCommandDeskAction(target: HTMLElement): DecodedCommandDesk
 }
 
 function isCommandDeskActionId(value: string | undefined): value is CommandDeskActionId {
-  return value !== undefined && actionIds.has(value as CommandDeskActionId);
+  return value !== undefined && actionIdSet.has(value);
 }
 
 function decodeDirection(value: string | undefined): CommandDeskDirection | undefined {

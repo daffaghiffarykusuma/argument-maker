@@ -4,35 +4,13 @@ import {
   type ArgumentBoard,
   type ArgumentBoardCommand,
 } from "./argument-board";
-import { exportBoardFile, importBoardFile, type ExportedBoardFile, type ImportBoardFileResult } from "./board-file";
+import { createExportFile, parseExportFile } from "./export-file-contract";
 import { generateMermaidPreview, generateOutline } from "./output";
-import { reviewBoard, type ReviewIssue } from "./review";
+import { reviewBoard } from "./review";
 
 export type ViewMode = "board" | "preview";
 
-export interface ArgumentBoardSessionSnapshot {
-  board: ArgumentBoard;
-  mode: ViewMode;
-  canUndo: boolean;
-  canRedo: boolean;
-  issues: ReviewIssue[];
-}
-
-export interface ArgumentBoardSession {
-  snapshot(): ArgumentBoardSessionSnapshot;
-  setMode(mode: ViewMode): void;
-  dispatch(command: ArgumentBoardCommand, options?: { rerender?: boolean }): void;
-  undo(): void;
-  redo(): void;
-  clear(): { cleared: boolean };
-  importFile(contents: string): ImportBoardFileResult;
-  exportFile(): ExportedBoardFile;
-  copyOutline(): string;
-  copyMermaid(): string;
-  hasTouchedContent(): boolean;
-}
-
-export function createArgumentBoardSession(initialBoard = createDefaultBoard()): ArgumentBoardSession {
+export function createArgumentBoardSession(initialBoard = createDefaultBoard()) {
   let board = initialBoard;
   let mode: ViewMode = "preview";
   const undoStack: ArgumentBoard[] = [];
@@ -58,10 +36,10 @@ export function createArgumentBoardSession(initialBoard = createDefaultBoard()):
         issues: reviewBoard(board),
       };
     },
-    setMode(nextMode) {
+    setMode(nextMode: ViewMode) {
       mode = nextMode;
     },
-    dispatch(command) {
+    dispatch(command: ArgumentBoardCommand) {
       commit(applyArgumentBoardCommand(board, command));
     },
     undo() {
@@ -86,15 +64,15 @@ export function createArgumentBoardSession(initialBoard = createDefaultBoard()):
       commit(createDefaultBoard());
       return { cleared: true };
     },
-    importFile(contents) {
-      const result = importBoardFile(contents);
+    importFile(contents: string) {
+      const result = parseExportFile(contents);
       if (result.ok) {
         commit(result.board);
       }
       return result;
     },
     exportFile() {
-      return exportBoardFile(board);
+      return createExportFile(board);
     },
     copyOutline() {
       return generateOutline(board);
@@ -107,6 +85,8 @@ export function createArgumentBoardSession(initialBoard = createDefaultBoard()):
     },
   };
 }
+
+export type ArgumentBoardSession = ReturnType<typeof createArgumentBoardSession>;
 
 export function hasTouchedContent(value: ArgumentBoard): boolean {
   return (

@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { createDefaultBoard } from "./argument-board";
 import { createArgumentBoardSession } from "./argument-board-session";
-import { exportBoardFile } from "./board-file";
+import { createExportFile } from "./export-file-contract";
 
 describe("Argument Board session", () => {
   test("concentrates commands, history, outputs, clear, and import replacement", () => {
@@ -21,7 +21,7 @@ describe("Argument Board session", () => {
     expect(session.clear().cleared).toBe(true);
     expect(session.snapshot().board.scqa.answer.text).toBe("");
 
-    const importedFile = exportBoardFile({
+    const importedFile = createExportFile({
       ...createDefaultBoard(),
       title: "Imported board",
     });

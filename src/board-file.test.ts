@@ -5,7 +5,7 @@ import {
   updateSupportingArgument,
   updateSupportingDataFact,
 } from "./argument-board";
-import { exportBoardFile, importBoardFile } from "./board-file";
+import { createExportFile, parseExportFile } from "./export-file-contract";
 
 describe("Argument Board file persistence", () => {
   test("exports and imports a human-inspectable .argument.json board file without hidden personal data", () => {
@@ -31,9 +31,9 @@ describe("Argument Board file persistence", () => {
       new Date("2026-05-27T09:03:00.000Z"),
     );
 
-    const file = exportBoardFile(board);
+    const file = createExportFile(board);
     const parsed = JSON.parse(file.contents) as Record<string, unknown>;
-    const imported = importBoardFile(file.contents);
+    const imported = parseExportFile(file.contents);
 
     expect(file.name).toBe("untitled-argument.argument.json");
     expect(parsed["schemaVersion"]).toBe(1);
@@ -50,13 +50,13 @@ describe("Argument Board file persistence", () => {
   });
 
   test("rejects invalid and unsupported board files with clear messages", () => {
-    expect(importBoardFile("{").ok).toBe(false);
-    expect(importBoardFile(JSON.stringify({ schemaVersion: 999, appName: "Argument Maker" }))).toEqual({
+    expect(parseExportFile("{").ok).toBe(false);
+    expect(parseExportFile(JSON.stringify({ schemaVersion: 999, appName: "Argument Maker" }))).toEqual({
       ok: false,
       message: "Unsupported Argument Board file version.",
     });
     expect(
-      importBoardFile(
+      parseExportFile(
         JSON.stringify({
           schemaVersion: 1,
           appName: "Argument Maker",
@@ -80,10 +80,10 @@ describe("Argument Board file persistence", () => {
       futureLayoutPreference: { zoom: 0.9 },
     });
 
-    const imported = importBoardFile(futureFile);
+    const imported = parseExportFile(futureFile);
     expect(imported.ok).toBe(true);
     const importedBoard = imported.ok ? (imported.board as typeof imported.board & { futureLayoutPreference: { zoom: number } }) : undefined;
     expect(importedBoard?.futureLayoutPreference.zoom).toBe(0.9);
-    expect(imported.ok ? exportBoardFile(imported.board).contents : "").toContain("futureLayoutPreference");
+    expect(imported.ok ? createExportFile(imported.board).contents : "").toContain("futureLayoutPreference");
   });
 });

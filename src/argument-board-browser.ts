@@ -1,6 +1,6 @@
 import type { ArgumentBoard, DataType, SupportMode } from "./argument-board";
-import { createArgumentBoardSession, type ArgumentBoardSession, type ViewMode } from "./argument-board-session";
-import { createArgumentBoardViewModel, type ArgumentBoardViewModel } from "./argument-board-view-model";
+import { createArgumentBoardSession, type ArgumentBoardSession } from "./argument-board-session";
+import { projectArgumentPreview } from "./argument-preview-projection";
 import {
   commandDeskActions,
   decodeCommandDeskAction,
@@ -28,6 +28,60 @@ mermaid.initialize({
     fontFamily: "Inter, ui-sans-serif, system-ui, sans-serif",
   },
 });
+
+function createArgumentBoardView(session: ArgumentBoardSession) {
+  const snapshot = session.snapshot();
+  const preview = projectArgumentPreview(snapshot.board);
+
+  return {
+    mode: snapshot.mode,
+    toolbar: {
+      title: snapshot.board.title,
+      canUndo: snapshot.canUndo,
+      canRedo: snapshot.canRedo,
+    },
+    status: {
+      argumentCount: snapshot.board.supportingArguments.length,
+      dataFactCount: snapshot.board.supportingArguments.reduce((count, argument) => count + argument.data.length, 0),
+    },
+    scqa: [
+      { field: "situation", label: "What is happening?", term: "Situation", value: snapshot.board.scqa.situation.text },
+      {
+        field: "complication",
+        label: "What changed or makes this matter?",
+        term: "Complication",
+        value: snapshot.board.scqa.complication.text,
+      },
+      {
+        field: "question",
+        label: "What question must this answer?",
+        term: "Question",
+        value: snapshot.board.scqa.question.text,
+      },
+      { field: "answer", label: "What is your main answer?", term: "Answer", value: snapshot.board.scqa.answer.text },
+    ] satisfies Array<{
+      field: keyof ArgumentBoard["scqa"];
+      label: string;
+      term: string;
+      value: string;
+    }>,
+    supportingArguments: snapshot.board.supportingArguments.map((argument, index) => ({
+      ...argument,
+      label: "Why should someone believe this?",
+      term: `Supporting Argument ${index + 1}`,
+    })),
+    checklist: {
+      messages: snapshot.issues.map((issue) => issue.message),
+      summary:
+        snapshot.issues.length === 0
+          ? "Ready to preview, copy, or download."
+          : `${snapshot.issues.length} item${snapshot.issues.length === 1 ? "" : "s"} need attention.`,
+    },
+    preview: { mermaid: preview.mermaid },
+  };
+}
+
+type ArgumentBoardView = ReturnType<typeof createArgumentBoardView>;
 
 export function mountArgumentBoardApp(appRoot: HTMLDivElement, session = createArgumentBoardSession()) {
   window.addEventListener("beforeunload", (event) => {
@@ -73,7 +127,7 @@ export function mountArgumentBoardApp(appRoot: HTMLDivElement, session = createA
 function render(appRoot: HTMLDivElement, session: ArgumentBoardSession) {
   renderVersion += 1;
   const currentRender = renderVersion;
-  const view = createArgumentBoardViewModel(session.snapshot());
+  const view = createArgumentBoardView(session);
   appRoot.innerHTML = `
     <main class="app-shell">
       ${renderCommandRail(view)}
@@ -92,7 +146,7 @@ function render(appRoot: HTMLDivElement, session: ArgumentBoardSession) {
   }
 }
 
-function renderCommandRail(view: ArgumentBoardViewModel): string {
+function renderCommandRail(view: ArgumentBoardView): string {
   const togglePreview = togglePreviewAction(view.mode === "preview");
 
   return `
@@ -114,7 +168,7 @@ function renderCommandRail(view: ArgumentBoardViewModel): string {
   `;
 }
 
-function renderTopbar(view: ArgumentBoardViewModel): string {
+function renderTopbar(view: ArgumentBoardView): string {
   return `
     <header class="topbar" aria-label="Argument board status">
       <div class="title-group">
@@ -130,7 +184,7 @@ function renderTopbar(view: ArgumentBoardViewModel): string {
   `;
 }
 
-function renderBoard(view: ArgumentBoardViewModel): string {
+function renderBoard(view: ArgumentBoardView): string {
   return `
     <section class="board-view" aria-label="Argument board">
       <section class="scqa-grid" aria-label="Argument frame">
@@ -165,7 +219,7 @@ function renderTextPanel(field: keyof ArgumentBoard["scqa"], label: string, term
   `;
 }
 
-function renderArgument(argument: ArgumentBoardViewModel["supportingArguments"][number]): string {
+function renderArgument(argument: ArgumentBoardView["supportingArguments"][number]): string {
   return `
     <article class="argument-card">
       <div class="argument-header">
@@ -204,7 +258,7 @@ function renderModeControl(argumentId: string, modeValue: SupportMode): string {
   `;
 }
 
-function renderDataFact(argumentId: string, item: ArgumentBoardViewModel["supportingArguments"][number]["data"][number]): string {
+function renderDataFact(argumentId: string, item: ArgumentBoardView["supportingArguments"][number]["data"][number]): string {
   return `
     <div class="data-row">
       <select data-action="data-type" data-argument-id="${argumentId}" data-data-id="${item.id}" aria-label="Data Type">
@@ -242,7 +296,7 @@ function renderDataTypeOption(value: DataType, label: string, selected: DataType
   return `<option value="${value}" ${selected === value ? "selected" : ""}>${label}</option>`;
 }
 
-function renderChecklist(view: ArgumentBoardViewModel): string {
+function renderChecklist(view: ArgumentBoardView): string {
   return `
     <aside class="checklist" aria-label="Review checklist">
       <h2>Readiness Check</h2>
@@ -254,7 +308,7 @@ function renderChecklist(view: ArgumentBoardViewModel): string {
   `;
 }
 
-function renderPreview(view: ArgumentBoardViewModel): string {
+function renderPreview(view: ArgumentBoardView): string {
   return `
     <section class="preview-view" aria-label="Argument Preview">
       <div class="section-heading">
@@ -353,7 +407,7 @@ function schedulePreviewRefresh(appRoot: HTMLDivElement, argumentSession: Argume
 
   previewRenderRequest = setTimeout(() => {
     previewRenderRequest = undefined;
-    const view = createArgumentBoardViewModel(argumentSession.snapshot());
+    const view = createArgumentBoardView(argumentSession);
     const source = appRoot.querySelector<HTMLElement>(".mermaid-box");
 
     if (source) {

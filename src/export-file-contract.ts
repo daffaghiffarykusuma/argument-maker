@@ -53,31 +53,13 @@ function normalizeExportFile(value: unknown): ExportFileImportResult {
     return reject("This Argument Board file is missing required data.");
   }
 
-  const migrated = migrateExportFile(value);
-
-  if (!migrated.ok) {
-    return migrated;
-  }
-
-  if (!hasBoardShape(migrated.board)) {
-    return reject("This Argument Board file is missing required data.");
-  }
-
-  return {
-    ok: true,
-    board: migrated.board,
-  };
-}
-
-function migrateExportFile(value: Record<string, unknown>): ExportFileImportResult {
   if (value["schemaVersion"] !== exportFileContract.currentSchemaVersion || value["appName"] !== exportFileContract.appName) {
     return reject("Unsupported Argument Board file version.");
   }
 
-  return {
-    ok: true,
-    board: value as unknown as ArgumentBoard,
-  };
+  return hasBoardShape(value)
+    ? { ok: true, board: value }
+    : reject("This Argument Board file is missing required data.");
 }
 
 function hasBoardShape(value: unknown): value is ArgumentBoard {
