@@ -14,4 +14,10 @@ To run:
 bun run dev
 ```
 
-Bun is the package manager and script runner. Vite is the development server and production bundler.
+To test:
+
+```bash
+bun test
+```
+
+Bun is the package manager, script runner, and primary test runner. Vite is the development server and production bundler.
