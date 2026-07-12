@@ -9,7 +9,9 @@ export function generateOutline(board: ArgumentBoard): string {
   lines.push(`# ${board.title.trim() || "Untitled argument"}`);
   lines.push("");
   lines.push(`Situation: ${board.scqa.situation.text}`);
+  if (board.scqa.situation.evidenceLink?.trim()) lines.push(`Situation Evidence: ${board.scqa.situation.evidenceLink}`);
   lines.push(`Complication: ${board.scqa.complication.text}`);
+  if (board.scqa.complication.evidenceLink?.trim()) lines.push(`Complication Evidence: ${board.scqa.complication.evidenceLink}`);
   lines.push(`Question: ${board.scqa.question.text}`);
   lines.push(`Answer: ${board.scqa.answer.text}`);
   lines.push("");

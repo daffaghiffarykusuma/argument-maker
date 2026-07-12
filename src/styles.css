@@ -318,6 +318,17 @@ textarea {
   padding: 8px 0 0;
 }
 
+.panel .scqa-evidence-link {
+  min-height: 34px;
+  border-color: transparent;
+  background: transparent;
+  padding: 6px 0 2px;
+  color: #d9ed92;
+  font-size: 0.82rem;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
 .answer-panel {
   border-color: #d9ed92;
   box-shadow: inset 0 0 0 1px rgba(217, 237, 146, 0.28);

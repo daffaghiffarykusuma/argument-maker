@@ -45,12 +45,13 @@ function createArgumentBoardView(session: ArgumentBoardSession) {
       dataFactCount: snapshot.board.supportingArguments.reduce((count, argument) => count + argument.data.length, 0),
     },
     scqa: [
-      { field: "situation", label: "What is happening?", term: "Situation", value: snapshot.board.scqa.situation.text },
+      { field: "situation", label: "What is happening?", term: "Situation", value: snapshot.board.scqa.situation.text, evidenceLink: snapshot.board.scqa.situation.evidenceLink ?? "" },
       {
         field: "complication",
         label: "What changed or makes this matter?",
         term: "Complication",
         value: snapshot.board.scqa.complication.text,
+        evidenceLink: snapshot.board.scqa.complication.evidenceLink ?? "",
       },
       {
         field: "question",
@@ -64,6 +65,7 @@ function createArgumentBoardView(session: ArgumentBoardSession) {
       label: string;
       term: string;
       value: string;
+      evidenceLink?: string;
     }>,
     supportingArguments: snapshot.board.supportingArguments.map((argument, index) => ({
       ...argument,
@@ -188,7 +190,7 @@ function renderBoard(view: ArgumentBoardView): string {
   return `
     <section class="board-view" aria-label="Argument board">
       <section class="scqa-grid" aria-label="Argument frame">
-        ${view.scqa.map((panel) => renderTextPanel(panel.field, panel.label, panel.term, panel.value)).join("")}
+        ${view.scqa.map((panel) => renderTextPanel(panel.field, panel.label, panel.term, panel.value, panel.evidenceLink)).join("")}
       </section>
       <section class="support-section" aria-label="Supporting argument structure">
         <div class="section-heading">
@@ -207,7 +209,7 @@ function renderBoard(view: ArgumentBoardView): string {
   `;
 }
 
-function renderTextPanel(field: keyof ArgumentBoard["scqa"], label: string, term: string, value: string): string {
+function renderTextPanel(field: keyof ArgumentBoard["scqa"], label: string, term: string, value: string, evidenceLink?: string): string {
   const classes = ["panel", field === "answer" ? "answer-panel" : ""].filter(Boolean).join(" ");
 
   return `
@@ -215,6 +217,7 @@ function renderTextPanel(field: keyof ArgumentBoard["scqa"], label: string, term
       <span class="panel-label">${label}</span>
       <span class="term">${term}</span>
       <textarea data-action="scqa" data-field="${field}" rows="4" placeholder="Write here...">${escapeHtml(value)}</textarea>
+      ${evidenceLink === undefined ? "" : `<input class="scqa-evidence-link" data-action="scqa-evidence-link" data-field="${field}" type="url" value="${escapeAttr(evidenceLink)}" placeholder="Evidence link (optional)" aria-label="Evidence link for ${term}" />`}
     </label>
   `;
 }
@@ -369,6 +372,12 @@ function applyInput(
       type: "update-scqa",
       field: target.dataset.field as keyof ArgumentBoard["scqa"],
       text: target.value,
+    });
+  } else if (action === "scqa-evidence-link" && target instanceof HTMLInputElement) {
+    argumentSession.dispatch({
+      type: "update-scqa-evidence",
+      field: target.dataset.field as "situation" | "complication",
+      evidenceLink: target.value,
     });
   } else if (action === "argument-text" && argumentId && target instanceof HTMLTextAreaElement) {
     argumentSession.dispatch({ type: "update-supporting-argument", argumentId, changes: { text: target.value } });

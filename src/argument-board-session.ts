@@ -92,6 +92,7 @@ export function hasTouchedContent(value: ArgumentBoard): boolean {
   return (
     value.title.trim().length > 0 ||
     Object.values(value.scqa).some((slot) => slot.touched && slot.text.trim().length > 0) ||
+    Boolean(value.scqa.situation.evidenceLink?.trim() || value.scqa.complication.evidenceLink?.trim()) ||
     value.supportingArguments.some(
       (argument) =>
         (argument.touched && argument.text.trim().length > 0) ||

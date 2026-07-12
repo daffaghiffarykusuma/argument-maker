@@ -29,6 +29,13 @@ test("supports the Argument Maker workflow in a real browser", async () => {
     expect(await page.locator(".data-row").count()).toBe(9);
     expect(await page.locator(".desk-status").innerText()).toContain("3 arguments");
 
+    const situationEvidence = page.locator('[data-action="scqa-evidence-link"][data-field="situation"]');
+    const complicationEvidence = page.locator('[data-action="scqa-evidence-link"][data-field="complication"]');
+    await situationEvidence.fill("https://example.com/situation");
+    await complicationEvidence.fill("https://example.com/complication");
+    expect(await situationEvidence.inputValue()).toBe("https://example.com/situation");
+    expect(await complicationEvidence.inputValue()).toBe("https://example.com/complication");
+
     await page.setViewportSize({ width: 390, height: 900 });
     expect(await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth)).toBe(false);
     await page.setViewportSize({ width: 1440, height: 1000 });

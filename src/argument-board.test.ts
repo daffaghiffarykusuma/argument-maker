@@ -10,6 +10,7 @@ import {
   moveSupportingArgument,
   moveSupportingDataFact,
   updateScqaField,
+  updateScqaEvidenceLink,
   updateSupportingArgument,
   updateSupportingDataFact,
 } from "./argument-board";
@@ -22,12 +23,23 @@ describe("Argument Board", () => {
     expect(board.title).toBe("");
     expect(board.scqa.situation.text).toBe("");
     expect(board.scqa.complication.text).toBe("");
+    expect(board.scqa.situation.evidenceLink).toBe("");
+    expect(board.scqa.complication.evidenceLink).toBe("");
     expect(board.scqa.question.text).toBe("");
     expect(board.scqa.answer.text).toBe("");
     expect(board.supportingArguments).toHaveLength(3);
     expect(board.supportingArguments.every((argument) => argument.mode === "reasoning")).toBe(true);
     expect(board.supportingArguments.every((argument) => argument.data.length === 3)).toBe(true);
     expect(board.supportingArguments.flatMap((argument) => argument.data).every((item) => item.evidenceLink === "")).toBe(true);
+  });
+
+  test("adds evidence links to Situation and Complication without changing their text", () => {
+    const board = updateScqaField(createDefaultBoard(), "situation", "Demand is growing.");
+    const updated = updateScqaEvidenceLink(board, "situation", "https://example.com/demand");
+
+    expect(updated.scqa.situation.text).toBe("Demand is growing.");
+    expect(updated.scqa.situation.evidenceLink).toBe("https://example.com/demand");
+    expect(board.scqa.situation.evidenceLink).toBe("");
   });
 
   test("edits SCQA, Supporting Arguments, and Supporting Data or Facts without mutating the original board", () => {

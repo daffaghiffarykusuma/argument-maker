@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
   createDefaultBoard,
+  updateScqaEvidenceLink,
   updateScqaField,
   updateSupportingArgument,
   updateSupportingDataFact,
@@ -52,5 +53,15 @@ describe("Argument Board review", () => {
     });
 
     expect(reviewBoard(board)).toEqual([]);
+  });
+
+  test("flags invalid optional evidence links on Situation and Complication", () => {
+    const board = updateScqaEvidenceLink(createDefaultBoard(), "complication", "not-a-url");
+
+    expect(reviewBoard(board)).toContainEqual({
+      code: "invalid-evidence-link",
+      message: "Use a valid http:// or https:// evidence link.",
+      targetId: "complication",
+    });
   });
 });

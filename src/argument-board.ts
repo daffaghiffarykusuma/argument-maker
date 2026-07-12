@@ -7,6 +7,10 @@ export interface TextSlot {
   touched: boolean;
 }
 
+export interface EvidenceTextSlot extends TextSlot {
+  evidenceLink?: string;
+}
+
 export interface SupportingDataFact extends TextSlot {
   evidenceLink: string;
   dataType: DataType;
@@ -24,8 +28,8 @@ export interface ArgumentBoard {
   createdAt: string;
   updatedAt: string;
   scqa: {
-    situation: TextSlot;
-    complication: TextSlot;
+    situation: EvidenceTextSlot;
+    complication: EvidenceTextSlot;
     question: TextSlot;
     answer: TextSlot;
   };
@@ -35,6 +39,7 @@ export interface ArgumentBoard {
 export type ArgumentBoardCommand =
   | { type: "update-title"; title: string }
   | { type: "update-scqa"; field: keyof ArgumentBoard["scqa"]; text: string }
+  | { type: "update-scqa-evidence"; field: "situation" | "complication"; evidenceLink: string }
   | { type: "update-supporting-argument"; argumentId: string; changes: Partial<Pick<SupportingArgument, "text" | "mode">> }
   | {
       type: "update-supporting-data-fact";
@@ -64,8 +69,8 @@ export function createDefaultBoard(now = new Date()): ArgumentBoard {
     createdAt: timestamp,
     updatedAt: timestamp,
     scqa: {
-      situation: createTextSlot("situation"),
-      complication: createTextSlot("complication"),
+      situation: { ...createTextSlot("situation"), evidenceLink: "" },
+      complication: { ...createTextSlot("complication"), evidenceLink: "" },
       question: createTextSlot("question"),
       answer: createTextSlot("answer"),
     },
@@ -85,6 +90,8 @@ export function applyArgumentBoardCommand(
       return updateBoardTitle(board, command.title, now);
     case "update-scqa":
       return updateScqaField(board, command.field, command.text, now);
+    case "update-scqa-evidence":
+      return updateScqaEvidenceLink(board, command.field, command.evidenceLink, now);
     case "update-supporting-argument":
       return updateSupportingArgument(board, command.argumentId, command.changes, now);
     case "update-supporting-data-fact":
@@ -154,6 +161,24 @@ export function updateScqaField(
           text,
           touched: true,
         },
+      },
+    },
+    now,
+  );
+}
+
+export function updateScqaEvidenceLink(
+  board: ArgumentBoard,
+  field: "situation" | "complication",
+  evidenceLink: string,
+  now = new Date(),
+): ArgumentBoard {
+  return touchBoard(
+    {
+      ...board,
+      scqa: {
+        ...board.scqa,
+        [field]: { ...board.scqa[field], evidenceLink },
       },
     },
     now,

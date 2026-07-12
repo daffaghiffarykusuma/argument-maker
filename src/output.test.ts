@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
   createDefaultBoard,
+  updateScqaEvidenceLink,
   updateScqaField,
   updateSupportingArgument,
   updateSupportingDataFact,
@@ -15,6 +16,7 @@ describe("Argument Board outputs", () => {
     board = updateScqaField(board, "complication", "Shared meals need to be good value.");
     board = updateScqaField(board, "question", "Should we recommend it?");
     board = updateScqaField(board, "answer", "Yes, for group dinners.");
+    board = updateScqaEvidenceLink(board, "situation", "https://example.com/demand");
     const argumentId = board.supportingArguments[0]!.id;
     board = updateSupportingArgument(board, argumentId, {
       text: "The menu supports sharing.",
@@ -30,6 +32,7 @@ describe("Argument Board outputs", () => {
 
     expect(outline).toContain("# Restaurant review");
     expect(outline).toContain("Situation: A group needs a dinner venue.");
+    expect(outline).toContain("Situation Evidence: https://example.com/demand");
     expect(outline).toContain("Supporting Argument 1: The menu supports sharing.");
     expect(outline).toContain("Support Mode: Evidence-backed");
     expect(outline).toContain("Data Type: Fact");

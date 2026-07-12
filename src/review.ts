@@ -25,6 +25,8 @@ export function reviewBoard(board: ArgumentBoard): ReviewIssue[] {
   addMissingScqaIssue(issues, board, "complication", "missing-complication", "Add what changed or makes this matter.");
   addMissingScqaIssue(issues, board, "question", "missing-question", "Add the question this argument must answer.");
   addMissingScqaIssue(issues, board, "answer", "missing-answer", "Add your main answer.");
+  addOptionalEvidenceIssue(issues, board.scqa.situation.id, board.scqa.situation.evidenceLink);
+  addOptionalEvidenceIssue(issues, board.scqa.complication.id, board.scqa.complication.evidenceLink);
 
   const activeArguments = board.supportingArguments.filter((argument) => hasText(argument.text));
 
@@ -47,6 +49,16 @@ export function reviewBoard(board: ArgumentBoard): ReviewIssue[] {
   }
 
   return issues;
+}
+
+function addOptionalEvidenceIssue(issues: ReviewIssue[], targetId: string, evidenceLink?: string) {
+  if (evidenceLink?.trim() && !isValidEvidenceLink(evidenceLink)) {
+    issues.push({
+      code: "invalid-evidence-link",
+      message: "Use a valid http:// or https:// evidence link.",
+      targetId,
+    });
+  }
 }
 
 function addMissingScqaIssue(
