@@ -8,26 +8,10 @@ import {
   type CommandDeskActionControl,
 } from "./command-desk-actions";
 import { renderIcon, renderIconButton } from "./icon-controls";
-import mermaid from "mermaid";
 
 let renderVersion = 0;
 let previewRenderRequest: ReturnType<typeof setTimeout> | undefined;
-
-mermaid.initialize({
-  startOnLoad: false,
-  securityLevel: "strict",
-  theme: "dark",
-  themeVariables: {
-    background: "#02080d",
-    primaryColor: "#06131d",
-    primaryTextColor: "#f4ffe4",
-    primaryBorderColor: "#d9ed92",
-    lineColor: "#b5e48c",
-    secondaryColor: "#123f61",
-    tertiaryColor: "#000000",
-    fontFamily: "Inter, ui-sans-serif, system-ui, sans-serif",
-  },
-});
+let mermaidPromise: Promise<typeof import("mermaid")["default"]> | undefined;
 
 function createArgumentBoardView(session: ArgumentBoardSession) {
   const snapshot = session.snapshot();
@@ -321,7 +305,7 @@ function renderPreview(view: ArgumentBoardView): string {
         </div>
         ${renderCommandButton(commandDeskActions.copyMermaid)}
       </div>
-      <div class="mermaid-diagram" aria-label="Rendered Mermaid workflow">
+      <div class="mermaid-diagram" role="img" aria-label="Rendered Mermaid workflow">
         <div class="mermaid-status">Rendering workflow...</div>
       </div>
       <details class="mermaid-source">
@@ -340,6 +324,7 @@ async function renderMermaidPreview(appRoot: HTMLDivElement, source: string, cur
   }
 
   try {
+    const mermaid = await loadMermaid();
     const { svg } = await mermaid.render(`argument-preview-${currentRender}`, source);
 
     if (currentRender !== renderVersion) {
@@ -354,6 +339,28 @@ async function renderMermaidPreview(appRoot: HTMLDivElement, source: string, cur
 
     container.innerHTML = `<div class="mermaid-status error">The workflow could not be rendered. Check the Mermaid source below.</div>`;
   }
+}
+
+function loadMermaid() {
+  return (mermaidPromise ??= import("mermaid").then(({ default: mermaid }) => {
+    mermaid.initialize({
+      startOnLoad: false,
+      securityLevel: "strict",
+      theme: "dark",
+      themeVariables: {
+        background: "#02080d",
+        primaryColor: "#06131d",
+        primaryTextColor: "#f4ffe4",
+        primaryBorderColor: "#d9ed92",
+        lineColor: "#b5e48c",
+        secondaryColor: "#123f61",
+        tertiaryColor: "#000000",
+        fontFamily: "Inter, ui-sans-serif, system-ui, sans-serif",
+      },
+    });
+
+    return mermaid;
+  }));
 }
 
 function applyInput(

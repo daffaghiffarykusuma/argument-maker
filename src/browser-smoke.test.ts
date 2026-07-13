@@ -49,6 +49,8 @@ test("supports the Argument Maker workflow in a real browser", async () => {
     await page.locator('[data-action="data-text"]').first().fill("The menu has a shared platter.");
     await page.locator('[data-action="evidence-link"]').first().fill("not-a-url");
 
+    expect(await page.locator('[data-action="toggle-preview"]').getAttribute("aria-label")).toBe("Show Argument Preview");
+    await page.locator('[data-action="toggle-preview"]').click();
     await page.waitForFunction(() => document.querySelector(".mermaid-box")?.textContent?.includes("invalid evidence link"));
     await page.locator(".mermaid-diagram svg").waitFor();
     expect(await page.locator('[data-action="copy-outline"] svg').count()).toBe(1);

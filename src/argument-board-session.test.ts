@@ -38,9 +38,9 @@ describe("Argument Board session", () => {
     expect(session.hasTouchedContent()).toBe(true);
   });
 
-  test("opens with the Argument Preview visible in the Command Desk workspace", () => {
+  test("opens in the editing board without loading the optional preview", () => {
     const session = createArgumentBoardSession();
 
-    expect(session.snapshot().mode).toBe("preview");
+    expect(session.snapshot().mode).toBe("board");
   });
 });

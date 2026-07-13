@@ -12,7 +12,7 @@ export type ViewMode = "board" | "preview";
 
 export function createArgumentBoardSession(initialBoard = createDefaultBoard()) {
   let board = initialBoard;
-  let mode: ViewMode = "preview";
+  let mode: ViewMode = "board";
   const undoStack: ArgumentBoard[] = [];
   const redoStack: ArgumentBoard[] = [];
 
