@@ -57,10 +57,6 @@ export function isValidEvidenceLink(value: string): boolean {
   }
 }
 
-export function previewSupportingDataFactLabel(item: Pick<SupportingDataFact, "text" | "evidenceLink">): string {
-  return previewDataLabel(item);
-}
-
 function activeArguments(board: ArgumentBoard): SupportingArgument[] {
   return board.supportingArguments.filter((argument) => hasText(argument.text) || argument.touched);
 }

@@ -4,8 +4,9 @@ import {
   type ArgumentBoard,
   type ArgumentBoardCommand,
 } from "./argument-board";
+import { projectArgumentPreview } from "./argument-preview-projection";
 import { createExportFile, parseExportFile } from "./export-file-contract";
-import { generateMermaidPreview, generateOutline } from "./output";
+import { generateOutline } from "./output";
 import { reviewBoard } from "./review";
 
 export type ViewMode = "board" | "preview";
@@ -78,7 +79,7 @@ export function createArgumentBoardSession(initialBoard = createDefaultBoard()) 
       return generateOutline(board);
     },
     copyMermaid() {
-      return generateMermaidPreview(board);
+      return projectArgumentPreview(board).mermaid;
     },
     hasTouchedContent() {
       return hasTouchedContent(board);

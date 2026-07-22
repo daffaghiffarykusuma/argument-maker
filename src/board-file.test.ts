@@ -5,7 +5,7 @@ import {
   updateSupportingArgument,
   updateSupportingDataFact,
 } from "./argument-board";
-import { createExportFile, parseExportFile } from "./export-file-contract";
+import { createExportFile, createExportFileName, parseExportFile } from "./export-file-contract";
 
 describe("Argument Board file persistence", () => {
   test("exports and imports a human-inspectable .argument.json board file without hidden personal data", () => {
@@ -36,6 +36,9 @@ describe("Argument Board file persistence", () => {
     const imported = parseExportFile(file.contents);
 
     expect(file.name).toBe("untitled-argument.argument.json");
+    expect(createExportFileName("Dinner Recommendation")).toBe("dinner-recommendation.argument.json");
+    expect(createExportFileName("!!!")).toBe("untitled-argument.argument.json");
+    expect(file.mimeType).toBe("application/json");
     expect(parsed["schemaVersion"]).toBe(1);
     expect(parsed["appName"]).toBe("Argument Maker");
     expect(file.contents).toContain("\n  ");

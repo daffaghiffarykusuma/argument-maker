@@ -268,15 +268,7 @@ function renderDataFact(argumentId: string, item: ArgumentBoardView["supportingA
 }
 
 function renderCommandButton(control: CommandDeskActionControl, attrs?: string): string {
-  return renderIconButton({
-    action: control.action,
-    label: control.label,
-    icon: control.icon,
-    attrs,
-    active: control.active,
-    danger: control.danger,
-    disabled: control.disabled,
-  });
+  return renderIconButton({ ...control, attrs });
 }
 
 function renderDataTypeOption(value: DataType, label: string, selected: DataType): string {

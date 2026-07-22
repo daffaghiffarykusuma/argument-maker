@@ -82,6 +82,7 @@ describe("Argument Board", () => {
     expect(duplicated.supportingArguments[3]!.text).toBe("Service is consistent.");
     expect(duplicated.supportingArguments[3]!.id).not.toBe(addedArgument.id);
     expect(duplicated.supportingArguments[3]!.data).toHaveLength(3);
+    expect(moveSupportingArgument(board, "missing", "up")).toBe(board);
   });
 
   test("adds Supporting Data or Facts under a specific Supporting Argument", () => {

@@ -5,7 +5,6 @@
     "": {
       "name": "argument-maker",
       "dependencies": {
-        "dompurify": "^3.4.12",
         "mermaid": "^11.16.0",
       },
       "devDependencies": {

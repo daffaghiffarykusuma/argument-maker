@@ -48,7 +48,3 @@ export function generateOutline(board: ArgumentBoard): string {
 
   return lines.join("\n").trimEnd();
 }
-
-export function generateMermaidPreview(board: ArgumentBoard): string {
-  return projectArgumentPreview(board).mermaid;
-}
