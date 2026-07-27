@@ -1,5 +1,11 @@
-import type { ArgumentBoard, SupportingArgument, SupportingDataFact } from "./argument-board";
-import { isValidEvidenceLink } from "./argument-preview-projection";
+import {
+  factCompleteness,
+  factUsageLabels,
+  isGatheredFactComplete,
+  type ArgumentBoard,
+  type FactIncompleteReason,
+  type SupportingArgument,
+} from "./argument-board";
 
 export type ReviewIssueCode =
   | "missing-situation"
@@ -8,14 +14,14 @@ export type ReviewIssueCode =
   | "missing-answer"
   | "missing-supporting-argument"
   | "empty-touched-item"
-  | "needs-data"
-  | "needs-evidence-link"
-  | "invalid-evidence-link";
+  | "needs-complete-fact"
+  | "incomplete-attached-fact";
 
 export interface ReviewIssue {
   code: ReviewIssueCode;
   message: string;
   targetId: string;
+  fieldMessages?: string[];
 }
 
 export function reviewBoard(board: ArgumentBoard): ReviewIssue[] {
@@ -25,12 +31,8 @@ export function reviewBoard(board: ArgumentBoard): ReviewIssue[] {
   addMissingScqaIssue(issues, board, "complication", "missing-complication", "Add what changed or makes this matter.");
   addMissingScqaIssue(issues, board, "question", "missing-question", "Add the question this argument must answer.");
   addMissingScqaIssue(issues, board, "answer", "missing-answer", "Add your main answer.");
-  addOptionalEvidenceIssue(issues, board.scqa.situation.id, board.scqa.situation.evidenceLink);
-  addOptionalEvidenceIssue(issues, board.scqa.complication.id, board.scqa.complication.evidenceLink);
 
-  const activeArguments = board.supportingArguments.filter((argument) => hasText(argument.text));
-
-  if (activeArguments.length === 0) {
+  if (!board.supportingArguments.some((argument) => hasText(argument.text))) {
     issues.push({
       code: "missing-supporting-argument",
       message: "Add at least one reason someone should believe the answer.",
@@ -38,27 +40,44 @@ export function reviewBoard(board: ArgumentBoard): ReviewIssue[] {
     });
   }
 
+  const factsById = new Map(board.gatheredFacts.map((fact) => [fact.id, fact]));
+
   for (const argument of board.supportingArguments) {
     addTouchedEmptyIssue(issues, argument);
-    addNeedsDataIssue(issues, argument);
 
-    for (const item of argument.data) {
-      addTouchedEmptyIssue(issues, item);
-      addEvidenceIssue(issues, item);
+    if (
+      argument.mode === "evidence-backed" &&
+      hasText(argument.text) &&
+      !argument.factIds.some((factId) => {
+        const fact = factsById.get(factId);
+        return fact !== undefined && isGatheredFactComplete(fact);
+      })
+    ) {
+      issues.push({
+        code: "needs-complete-fact",
+        message: "Attach at least one complete fact to this evidence-backed reason.",
+        targetId: argument.id,
+      });
     }
   }
 
-  return issues;
-}
+  for (const fact of board.gatheredFacts) {
+    const usageLabels = factUsageLabels(board, fact.id);
+    const incompleteReasons = factCompleteness(fact);
 
-function addOptionalEvidenceIssue(issues: ReviewIssue[], targetId: string, evidenceLink?: string) {
-  if (evidenceLink?.trim() && !isValidEvidenceLink(evidenceLink)) {
+    if (usageLabels.length === 0 || incompleteReasons.length === 0) {
+      continue;
+    }
+
     issues.push({
-      code: "invalid-evidence-link",
-      message: "Use a valid http:// or https:// evidence link.",
-      targetId,
+      code: "incomplete-attached-fact",
+      message: `Complete this fact; it is used in ${formatList(usageLabels)}.`,
+      targetId: fact.id,
+      fieldMessages: incompleteReasons.map(fieldMessage),
     });
   }
+
+  return issues;
 }
 
 function addMissingScqaIssue(
@@ -69,13 +88,12 @@ function addMissingScqaIssue(
   message: string,
 ) {
   const slot = board.scqa[field];
-
   if (!hasText(slot.text)) {
     issues.push({ code, message, targetId: slot.id });
   }
 }
 
-function addTouchedEmptyIssue(issues: ReviewIssue[], item: { id: string; text: string; touched: boolean }) {
+function addTouchedEmptyIssue(issues: ReviewIssue[], item: SupportingArgument) {
   if (item.touched && !hasText(item.text)) {
     issues.push({
       code: "empty-touched-item",
@@ -85,39 +103,26 @@ function addTouchedEmptyIssue(issues: ReviewIssue[], item: { id: string; text: s
   }
 }
 
-function addNeedsDataIssue(issues: ReviewIssue[], argument: SupportingArgument) {
-  const activeData = argument.data.filter((item) => hasText(item.text));
+function fieldMessage(reason: FactIncompleteReason): string {
+  const messages: Record<FactIncompleteReason, string> = {
+    "needs-text": "Add fact text.",
+    "needs-link": "Add an evidence link.",
+    "invalid-link": "Use a valid http:// or https:// evidence link.",
+  };
 
-  if (argument.mode === "evidence-backed" && hasText(argument.text) && activeData.length === 0) {
-    issues.push({
-      code: "needs-data",
-      message: "Add at least one data or fact item for this evidence-backed reason.",
-      targetId: argument.id,
-    });
-  }
+  return messages[reason];
 }
 
-function addEvidenceIssue(issues: ReviewIssue[], item: SupportingDataFact) {
-  if (!hasText(item.text)) {
-    return;
+function formatList(items: string[]): string {
+  if (items.length < 2) {
+    return items[0] ?? "";
   }
 
-  if (!hasText(item.evidenceLink)) {
-    issues.push({
-      code: "needs-evidence-link",
-      message: "Add a link where this data or fact can be checked.",
-      targetId: item.id,
-    });
-    return;
+  if (items.length === 2) {
+    return `${items[0]} and ${items[1]}`;
   }
 
-  if (!isValidEvidenceLink(item.evidenceLink)) {
-    issues.push({
-      code: "invalid-evidence-link",
-      message: "Use a valid http:// or https:// evidence link.",
-      targetId: item.id,
-    });
-  }
+  return `${items.slice(0, -1).join(", ")}, and ${items.at(-1)}`;
 }
 
 function hasText(value: string): boolean {

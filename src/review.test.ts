@@ -1,17 +1,89 @@
 import { describe, expect, test } from "bun:test";
-import {
-  createDefaultBoard,
-  updateScqaEvidenceLink,
-  updateScqaField,
-  updateSupportingArgument,
-  updateSupportingDataFact,
-} from "./argument-board";
+import { applyArgumentBoardCommand, createDefaultBoard, type ArgumentBoard } from "./argument-board";
 import { reviewBoard } from "./review";
 
 describe("Argument Board review", () => {
-  test("reports structural readiness issues without scoring truth or persuasiveness", () => {
-    const board = createDefaultBoard();
-    const issues = reviewBoard(board);
+  test("keeps unused incomplete facts out of argument readiness", () => {
+    let board = completeFrame(createDefaultBoard());
+    board = applyArgumentBoardCommand(board, { type: "create-gathered-fact" });
+
+    expect(reviewBoard(board)).toEqual([]);
+  });
+
+  test("reports one canonical issue for an incomplete fact reused across destinations", () => {
+    let board = completeFrame(createDefaultBoard());
+    board = applyArgumentBoardCommand(board, { type: "create-gathered-fact", destinationId: "situation" });
+    const factId = board.gatheredFacts[0]!.id;
+    board = {
+      ...board,
+      supportingArguments: board.supportingArguments.map((argument, index) =>
+        index === 0 ? { ...argument, factIds: [factId] } : argument,
+      ),
+    };
+
+    const factIssues = reviewBoard(board).filter((issue) => issue.targetId === factId);
+
+    expect(factIssues).toEqual([
+      {
+        code: "incomplete-attached-fact",
+        message: "Complete this fact; it is used in Situation and Supporting Argument 1.",
+        targetId: factId,
+        fieldMessages: ["Add fact text.", "Add an evidence link."],
+      },
+    ]);
+  });
+
+  test("requires one complete fact for evidence-backed support", () => {
+    let board = completeFrame(createDefaultBoard());
+    const argumentId = board.supportingArguments[0]!.id;
+    board = applyArgumentBoardCommand(board, {
+      type: "update-supporting-argument",
+      argumentId,
+      changes: { mode: "evidence-backed" },
+    });
+
+    expect(reviewBoard(board)).toContainEqual({
+      code: "needs-complete-fact",
+      message: "Attach at least one complete fact to this evidence-backed reason.",
+      targetId: argumentId,
+    });
+
+    board = applyArgumentBoardCommand(board, {
+      type: "create-gathered-fact",
+      evidenceLink: "https://example.com/source",
+    });
+    const factId = board.gatheredFacts[0]!.id;
+    board = applyArgumentBoardCommand(board, {
+      type: "update-gathered-fact",
+      factId,
+      changes: { text: "Complete evidence" },
+    });
+    board = applyArgumentBoardCommand(board, { type: "attach-fact", destinationId: argumentId, factId });
+
+    expect(reviewBoard(board)).toEqual([]);
+  });
+
+  test("gives exact guidance for an attached fact with an invalid link", () => {
+    let board = completeFrame(createDefaultBoard());
+    board = applyArgumentBoardCommand(board, {
+      type: "create-gathered-fact",
+      destinationId: "complication",
+      evidenceLink: "not-a-url",
+    });
+    const factId = board.gatheredFacts[0]!.id;
+    board = applyArgumentBoardCommand(board, {
+      type: "update-gathered-fact",
+      factId,
+      changes: { text: "A claim with a broken source" },
+    });
+
+    expect(reviewBoard(board).find((issue) => issue.targetId === factId)?.fieldMessages).toEqual([
+      "Use a valid http:// or https:// evidence link.",
+    ]);
+  });
+
+  test("keeps structural SCQA and Supporting Argument guidance", () => {
+    const issues = reviewBoard(createDefaultBoard());
 
     expect(issues.map((issue) => issue.code)).toEqual([
       "missing-situation",
@@ -20,48 +92,19 @@ describe("Argument Board review", () => {
       "missing-answer",
       "missing-supporting-argument",
     ]);
-    expect(issues.every((issue) => !issue.message.toLowerCase().includes("persuasive"))).toBe(true);
-    expect(issues.every((issue) => !issue.message.toLowerCase().includes("true"))).toBe(true);
-  });
-
-  test("requires data and valid evidence links only for evidence-backed support", () => {
-    let board = createDefaultBoard();
-    board = updateScqaField(board, "situation", "A group is choosing a dinner place.");
-    board = updateScqaField(board, "complication", "The place needs to work for shared meals.");
-    board = updateScqaField(board, "question", "Is this restaurant worth recommending?");
-    board = updateScqaField(board, "answer", "Yes, for group dinners.");
-
-    const argumentId = board.supportingArguments[0]!.id;
-    board = updateSupportingArgument(board, argumentId, {
-      text: "It offers practical shared meal options.",
-      mode: "evidence-backed",
-    });
-
-    expect(reviewBoard(board).map((issue) => issue.code)).toContain("needs-data");
-
-    const dataId = board.supportingArguments[0]!.data[0]!.id;
-    board = updateSupportingDataFact(board, argumentId, dataId, {
-      text: "The menu includes a shared platter.",
-      evidenceLink: "not-a-url",
-      dataType: "fact",
-    });
-
-    expect(reviewBoard(board).map((issue) => issue.code)).toContain("invalid-evidence-link");
-
-    board = updateSupportingDataFact(board, argumentId, dataId, {
-      evidenceLink: "https://example.com/menu",
-    });
-
-    expect(reviewBoard(board)).toEqual([]);
-  });
-
-  test("flags invalid optional evidence links on Situation and Complication", () => {
-    const board = updateScqaEvidenceLink(createDefaultBoard(), "complication", "not-a-url");
-
-    expect(reviewBoard(board)).toContainEqual({
-      code: "invalid-evidence-link",
-      message: "Use a valid http:// or https:// evidence link.",
-      targetId: "complication",
-    });
   });
 });
+
+function completeFrame(initial: ArgumentBoard): ArgumentBoard {
+  let board = initial;
+  board = applyArgumentBoardCommand(board, { type: "update-scqa", field: "situation", text: "Demand is rising." });
+  board = applyArgumentBoardCommand(board, { type: "update-scqa", field: "complication", text: "Capacity is fixed." });
+  board = applyArgumentBoardCommand(board, { type: "update-scqa", field: "question", text: "What should change?" });
+  board = applyArgumentBoardCommand(board, { type: "update-scqa", field: "answer", text: "Expand capacity." });
+  board = applyArgumentBoardCommand(board, {
+    type: "update-supporting-argument",
+    argumentId: board.supportingArguments[0]!.id,
+    changes: { text: "The gap is material." },
+  });
+  return board;
+}

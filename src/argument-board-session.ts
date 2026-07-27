@@ -9,11 +9,11 @@ import { createExportFile, parseExportFile } from "./export-file-contract";
 import { generateOutline } from "./output";
 import { reviewBoard } from "./review";
 
-export type ViewMode = "board" | "preview";
+export type WorkflowStage = "gather" | "construct" | "preview";
 
 export function createArgumentBoardSession(initialBoard = createDefaultBoard()) {
   let board = initialBoard;
-  let mode: ViewMode = "board";
+  let stage: WorkflowStage = "gather";
   const undoStack: ArgumentBoard[] = [];
   const redoStack: ArgumentBoard[] = [];
 
@@ -31,17 +31,18 @@ export function createArgumentBoardSession(initialBoard = createDefaultBoard()) 
     snapshot() {
       return {
         board,
-        mode,
+        stage,
         canUndo: undoStack.length > 0,
         canRedo: redoStack.length > 0,
         issues: reviewBoard(board),
       };
     },
-    setMode(nextMode: ViewMode) {
-      mode = nextMode;
+    setStage(nextStage: WorkflowStage) {
+      stage = nextStage;
     },
     dispatch(command: ArgumentBoardCommand) {
       commit(applyArgumentBoardCommand(board, command));
+      return board;
     },
     undo() {
       const previous = undoStack.pop();
@@ -64,6 +65,9 @@ export function createArgumentBoardSession(initialBoard = createDefaultBoard()) 
     clear() {
       commit(createDefaultBoard());
       return { cleared: true };
+    },
+    replaceBoard(nextBoard: ArgumentBoard) {
+      commit(nextBoard);
     },
     importFile(contents: string) {
       const result = parseExportFile(contents);
@@ -89,20 +93,19 @@ export function createArgumentBoardSession(initialBoard = createDefaultBoard()) 
 
 export type ArgumentBoardSession = ReturnType<typeof createArgumentBoardSession>;
 
-export function hasTouchedContent(value: ArgumentBoard): boolean {
+export function hasTouchedContent(board: ArgumentBoard): boolean {
   return (
-    value.title.trim().length > 0 ||
-    Object.values(value.scqa).some((slot) => slot.touched && slot.text.trim().length > 0) ||
-    Boolean(value.scqa.situation.evidenceLink?.trim() || value.scqa.complication.evidenceLink?.trim()) ||
-    value.supportingArguments.some(
+    board.title.trim().length > 0 ||
+    board.gatheredFacts.length > 0 ||
+    Object.values(board.scqa).some((slot) => slot.touched || slot.text.trim().length > 0) ||
+    board.scqa.situation.factIds.length > 0 ||
+    board.scqa.complication.factIds.length > 0 ||
+    board.supportingArguments.some(
       (argument) =>
-        (argument.touched && argument.text.trim().length > 0) ||
-        argument.data.some(
-          (item) =>
-            (item.touched && item.text.trim().length > 0) ||
-            item.evidenceLink.trim().length > 0 ||
-            item.dataType !== "",
-        ),
+        argument.touched ||
+        argument.text.trim().length > 0 ||
+        argument.mode !== "reasoning" ||
+        argument.factIds.length > 0,
     )
   );
 }

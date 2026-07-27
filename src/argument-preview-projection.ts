@@ -1,11 +1,25 @@
-import type { ArgumentBoard, DataType, SupportingArgument, SupportingDataFact } from "./argument-board";
-
-export type EvidenceState = "empty" | "needs-link" | "invalid-link" | "complete";
+import {
+  factCompleteness,
+  isValidEvidenceLink,
+  type ArgumentBoard,
+  type DataType,
+  type FactIncompleteReason,
+  type GatheredFact,
+  type SupportingArgument,
+} from "./argument-board";
 
 export interface ArgumentPreviewProjection {
-  chain: Array<{ label: string; text: string }>;
+  chain: ArgumentPreviewChainItem[];
   arguments: ArgumentPreviewArgument[];
+  evidenceGroups: ArgumentPreviewEvidenceGroup[];
   mermaid: string;
+}
+
+export interface ArgumentPreviewChainItem {
+  id: string;
+  label: string;
+  text: string;
+  facts: ArgumentPreviewFact[];
 }
 
 export interface ArgumentPreviewArgument {
@@ -13,130 +27,138 @@ export interface ArgumentPreviewArgument {
   label: string;
   text: string;
   supportMode: string;
-  data: ArgumentPreviewDataFact[];
+  facts: ArgumentPreviewFact[];
 }
 
-export interface ArgumentPreviewDataFact {
+export interface ArgumentPreviewEvidenceGroup {
+  id: string;
+  label: string;
+  facts: ArgumentPreviewFact[];
+}
+
+export interface ArgumentPreviewFact {
   id: string;
   text: string;
   label: string;
   evidenceLink: string;
+  evidenceLinkIsValid: boolean;
   dataType: DataType;
   formattedDataType: string;
-  evidenceState: EvidenceState;
+  markers: string[];
 }
 
 export function projectArgumentPreview(board: ArgumentBoard): ArgumentPreviewProjection {
-  const chain = [
-    { label: "Situation", text: board.scqa.situation.text },
-    { label: "Complication", text: board.scqa.complication.text },
-    { label: "Question", text: board.scqa.question.text },
-    { label: "Answer", text: board.scqa.answer.text },
+  const chain: ArgumentPreviewChainItem[] = [
+    {
+      id: "situation",
+      label: "Situation",
+      text: board.scqa.situation.text,
+      facts: projectFacts(board, board.scqa.situation.factIds),
+    },
+    {
+      id: "complication",
+      label: "Complication",
+      text: board.scqa.complication.text,
+      facts: projectFacts(board, board.scqa.complication.factIds),
+    },
+    { id: "question", label: "Question", text: board.scqa.question.text, facts: [] },
+    { id: "answer", label: "Answer", text: board.scqa.answer.text, facts: [] },
   ];
-  const projectedArguments = activeArguments(board).map((argument, index) => ({
+  const argumentsView = activeArguments(board).map(({ argument, index }) => ({
     id: argument.id,
     label: `Supporting Argument ${index + 1}`,
-    text: previewArgumentLabel(argument),
+    text: argument.text,
     supportMode: formatSupportMode(argument.mode),
-    data: activeData(argument).map(projectDataFact),
+    facts: projectFacts(board, argument.factIds),
   }));
+  const evidenceGroups = [
+    ...chain.filter((item) => item.facts.length > 0).map(({ id, label, facts }) => ({ id, label, facts })),
+    ...argumentsView
+      .filter((argument) => argument.facts.length > 0)
+      .map(({ id, label, facts }) => ({ id, label, facts })),
+  ];
 
   return {
     chain,
-    arguments: projectedArguments,
-    mermaid: generateMermaid(chain, projectedArguments),
+    arguments: argumentsView,
+    evidenceGroups,
+    mermaid: generateMermaid(chain, argumentsView),
   };
 }
 
-export function isValidEvidenceLink(value: string): boolean {
-  try {
-    const url = new URL(value);
-    return url.protocol === "http:" || url.protocol === "https:";
-  } catch {
-    return false;
-  }
+function activeArguments(board: ArgumentBoard): Array<{ argument: SupportingArgument; index: number }> {
+  return board.supportingArguments
+    .map((argument, index) => ({ argument, index }))
+    .filter(({ argument }) => argument.text.trim() || argument.touched || argument.factIds.length > 0);
 }
 
-function activeArguments(board: ArgumentBoard): SupportingArgument[] {
-  return board.supportingArguments.filter((argument) => hasText(argument.text) || argument.touched);
+function projectFacts(board: ArgumentBoard, factIds: string[]): ArgumentPreviewFact[] {
+  const factsById = new Map(board.gatheredFacts.map((fact) => [fact.id, fact]));
+
+  return factIds.flatMap((factId) => {
+    const fact = factsById.get(factId);
+    return fact ? [projectFact(fact)] : [];
+  });
 }
 
-function activeData(argument: SupportingArgument): SupportingDataFact[] {
-  return argument.data.filter((item) => hasText(item.text) || item.touched);
-}
-
-function projectDataFact(item: SupportingDataFact): ArgumentPreviewDataFact {
-  const evidenceState = getEvidenceState(item);
+function projectFact(fact: GatheredFact): ArgumentPreviewFact {
+  const markers = factCompleteness(fact).map(formatIncompleteReason);
+  const text = fact.text.trim();
+  const labelParts = [text, ...markers].filter(Boolean);
+  const content = labelParts.join(" ");
 
   return {
-    id: item.id,
-    text: item.text,
-    label: previewDataLabel(item, evidenceState),
-    evidenceLink: item.evidenceLink,
-    dataType: item.dataType,
-    formattedDataType: formatDataType(item.dataType),
-    evidenceState,
+    id: fact.id,
+    text: fact.text,
+    label: fact.dataType ? `${formatDataType(fact.dataType)}: ${content}` : content,
+    evidenceLink: fact.evidenceLink,
+    evidenceLinkIsValid: isValidEvidenceLink(fact.evidenceLink),
+    dataType: fact.dataType,
+    formattedDataType: formatDataType(fact.dataType),
+    markers,
   };
 }
 
-function previewArgumentLabel(argument: SupportingArgument): string {
-  if (argument.mode === "evidence-backed" && hasText(argument.text) && !argument.data.some((item) => hasText(item.text))) {
-    return `${argument.text} [needs data]`;
-  }
+function formatIncompleteReason(reason: FactIncompleteReason): string {
+  const markers: Record<FactIncompleteReason, string> = {
+    "needs-text": "[Needs fact text]",
+    "needs-link": "[Needs evidence link]",
+    "invalid-link": "[Invalid evidence link]",
+  };
 
-  return argument.text;
+  return markers[reason];
 }
 
-function previewDataLabel(item: Pick<SupportingDataFact, "text" | "evidenceLink">, evidenceState = getEvidenceState(item)): string {
-  if (evidenceState === "empty") {
-    return "[empty]";
-  }
-
-  if (evidenceState === "needs-link") {
-    return `${item.text} [needs evidence link]`;
-  }
-
-  if (evidenceState === "invalid-link") {
-    return `${item.text} [invalid evidence link]`;
-  }
-
-  return item.text;
-}
-
-function getEvidenceState(item: Pick<SupportingDataFact, "text" | "evidenceLink">): EvidenceState {
-  if (!hasText(item.text)) {
-    return "empty";
-  }
-
-  if (!hasText(item.evidenceLink)) {
-    return "needs-link";
-  }
-
-  return isValidEvidenceLink(item.evidenceLink) ? "complete" : "invalid-link";
-}
-
-function generateMermaid(chain: ArgumentPreviewProjection["chain"], argumentsView: ArgumentPreviewArgument[]): string {
+function generateMermaid(chain: ArgumentPreviewChainItem[], argumentsView: ArgumentPreviewArgument[]): string {
   const lines = ["flowchart TD"];
 
   for (const item of chain) {
-    addMermaidNode(lines, item.label.toLowerCase(), item.text || item.label);
+    addMermaidNode(lines, item.id, item.text || item.label);
   }
 
   lines.push("  situation --> complication");
   lines.push("  complication --> question");
   lines.push("  question --> answer");
 
-  for (const argument of argumentsView) {
-    addMermaidNode(lines, argument.id, argument.text);
-    lines.push(`  answer --> ${mermaidId(argument.id)}`);
+  for (const item of chain) {
+    addFactNodes(lines, item.id, item.facts);
+  }
 
-    for (const item of argument.data) {
-      addMermaidNode(lines, item.id, item.label);
-      lines.push(`  ${mermaidId(argument.id)} --> ${mermaidId(item.id)}`);
-    }
+  for (const argument of argumentsView) {
+    addMermaidNode(lines, argument.id, argument.text || argument.label);
+    lines.push(`  answer --> ${mermaidId(argument.id)}`);
+    addFactNodes(lines, argument.id, argument.facts);
   }
 
   return lines.join("\n");
+}
+
+function addFactNodes(lines: string[], destinationId: string, facts: ArgumentPreviewFact[]) {
+  facts.forEach((fact, index) => {
+    const placementId = `${destinationId}-fact-${index + 1}-${fact.id}`;
+    addMermaidNode(lines, placementId, fact.label);
+    lines.push(`  ${mermaidId(destinationId)} --> ${mermaidId(placementId)}`);
+  });
 }
 
 function addMermaidNode(lines: string[], id: string, label: string) {
@@ -164,8 +186,4 @@ function formatDataType(type: DataType): string {
   };
 
   return type ? labels[type] : "Unspecified";
-}
-
-function hasText(value: string): boolean {
-  return value.trim().length > 0;
 }

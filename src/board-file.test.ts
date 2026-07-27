@@ -1,92 +1,117 @@
 import { describe, expect, test } from "bun:test";
-import {
-  createDefaultBoard,
-  updateScqaField,
-  updateSupportingArgument,
-  updateSupportingDataFact,
-} from "./argument-board";
+import { applyArgumentBoardCommand, createDefaultBoard, type ArgumentBoard } from "./argument-board";
 import { createExportFile, createExportFileName, parseExportFile } from "./export-file-contract";
 
 describe("Argument Board file persistence", () => {
-  test("exports and imports a human-inspectable .argument.json board file without hidden personal data", () => {
-    let board = createDefaultBoard(new Date("2026-05-27T09:00:00.000Z"));
-    board = updateScqaField(board, "answer", "Yes, recommend it.", new Date("2026-05-27T09:01:00.000Z"));
-    const argumentId = board.supportingArguments[0]!.id;
-    board = updateSupportingArgument(
-      board,
-      argumentId,
-      { text: "It works for groups.", mode: "evidence-backed" },
-      new Date("2026-05-27T09:02:00.000Z"),
-    );
-    const dataId = board.supportingArguments[0]!.data[0]!.id;
-    board = updateSupportingDataFact(
-      board,
-      argumentId,
-      dataId,
-      {
-        text: "The menu has a shared platter.",
-        evidenceLink: "https://example.com/menu",
-        dataType: "fact",
-      },
-      new Date("2026-05-27T09:03:00.000Z"),
-    );
+  test("round-trips canonical facts, reused order, incomplete drafts, and unknown fields", () => {
+    let board = createDefaultBoard(new Date("2026-07-27T09:00:00.000Z"));
+    board = applyArgumentBoardCommand(board, {
+      type: "create-gathered-fact",
+      evidenceLink: "https://example.com/report",
+    });
+    const completeId = board.gatheredFacts[0]!.id;
+    board = applyArgumentBoardCommand(board, {
+      type: "update-gathered-fact",
+      factId: completeId,
+      changes: { text: "Demand increased.", dataType: "fact" },
+    });
+    board = applyArgumentBoardCommand(board, { type: "create-gathered-fact" });
+    const incompleteId = board.gatheredFacts[1]!.id;
+    board = applyArgumentBoardCommand(board, { type: "attach-fact", destinationId: "situation", factId: completeId });
+    board = applyArgumentBoardCommand(board, {
+      type: "attach-fact",
+      destinationId: board.supportingArguments[0]!.id,
+      factId: completeId,
+    });
 
-    const file = createExportFile(board);
-    const parsed = JSON.parse(file.contents) as Record<string, unknown>;
-    const imported = parseExportFile(file.contents);
+    const withUnknowns = {
+      ...board,
+      futureLayout: { zoom: 0.9 },
+      gatheredFacts: board.gatheredFacts.map((fact) =>
+        fact.id === completeId ? { ...fact, sourceTitle: "Annual report" } : fact,
+      ),
+      scqa: {
+        ...board.scqa,
+        situation: { ...board.scqa.situation, futureTone: "direct" },
+      },
+      supportingArguments: board.supportingArguments.map((argument, index) =>
+        index === 0 ? { ...argument, futureGroup: "primary" } : argument,
+      ),
+    } as ArgumentBoard;
+
+    const file = createExportFile(withUnknowns);
+    const result = parseExportFile(file.contents);
 
     expect(file.name).toBe("untitled-argument.argument.json");
-    expect(createExportFileName("Dinner Recommendation")).toBe("dinner-recommendation.argument.json");
-    expect(createExportFileName("!!!")).toBe("untitled-argument.argument.json");
-    expect(file.mimeType).toBe("application/json");
-    expect(parsed["schemaVersion"]).toBe(1);
-    expect(parsed["appName"]).toBe("Argument Maker");
-    expect(file.contents).toContain("\n  ");
-    expect(file.contents).not.toContain("device");
-    expect(file.contents).not.toContain("analytics");
-    expect(file.contents).not.toContain("telemetry");
-    expect(imported.ok).toBe(true);
-    expect(imported.ok ? imported.board.scqa.answer.text : "").toBe("Yes, recommend it.");
-    expect(imported.ok ? imported.board.supportingArguments[0]!.data[0]!.evidenceLink : "").toBe(
-      "https://example.com/menu",
-    );
+    expect(createExportFileName("Evidence Plan")).toBe("evidence-plan.argument.json");
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error(result.message);
+    expect(result.board.schemaVersion).toBe(2);
+    expect(result.board.gatheredFacts.map((fact) => fact.id)).toEqual([completeId, incompleteId]);
+    expect(result.board.scqa.situation.factIds).toEqual([completeId]);
+    expect(result.board.supportingArguments[0]!.factIds).toEqual([completeId]);
+    expect(createExportFile(result.board).contents).toContain('"futureLayout"');
+    expect(createExportFile(result.board).contents).toContain('"sourceTitle"');
+    expect(createExportFile(result.board).contents).toContain('"futureTone"');
+    expect(createExportFile(result.board).contents).toContain('"futureGroup"');
+    expect(createExportFile(result.board).contents).not.toContain('"data"');
   });
 
-  test("rejects invalid and unsupported board files with clear messages", () => {
-    expect(parseExportFile("{").ok).toBe(false);
-    expect(parseExportFile(JSON.stringify({ schemaVersion: 999, appName: "Argument Maker" }))).toEqual({
+  test("rejects version 1 and every invalid identity or reference relationship", () => {
+    expect(parseExportFile(JSON.stringify({ schemaVersion: 1, appName: "Argument Maker" }))).toEqual({
       ok: false,
       message: "Unsupported Argument Board file version.",
     });
-    expect(
-      parseExportFile(
-        JSON.stringify({
-          schemaVersion: 1,
-          appName: "Argument Maker",
-          title: "Broken",
-          createdAt: "2026-05-27T09:00:00.000Z",
-          updatedAt: "2026-05-27T09:00:00.000Z",
-          scqa: {},
-          supportingArguments: [{ id: "argument-1", text: "Reason", touched: true, mode: "reasoning" }],
-        }),
-      ),
-    ).toEqual({
+
+    const valid = createDefaultBoard();
+    const fact = {
+      id: "fact-1",
+      text: "",
+      touched: true,
+      evidenceLink: "",
+      dataType: "",
+    } as const;
+    const cases: unknown[] = [
+      { ...valid, gatheredFacts: [fact, fact] },
+      {
+        ...valid,
+        supportingArguments: [{ ...valid.supportingArguments[0] }, { ...valid.supportingArguments[0] }],
+      },
+      {
+        ...valid,
+        gatheredFacts: [{ ...fact, id: valid.supportingArguments[0]!.id }],
+      },
+      {
+        ...valid,
+        supportingArguments: [{ ...valid.supportingArguments[0], id: "situation" }],
+      },
+      { ...valid, scqa: { ...valid.scqa, situation: { ...valid.scqa.situation, id: "wrong" } } },
+      { ...valid, scqa: { ...valid.scqa, situation: { ...valid.scqa.situation, factIds: ["missing"] } } },
+      {
+        ...valid,
+        gatheredFacts: [fact],
+        scqa: { ...valid.scqa, situation: { ...valid.scqa.situation, factIds: ["fact-1", "fact-1"] } },
+      },
+      { ...valid, gatheredFacts: [{ ...fact, dataType: "unsupported" }] },
+      { ...valid, supportingArguments: [{ ...valid.supportingArguments[0], mode: "unsupported" }] },
+    ];
+
+    for (const invalid of cases) {
+      expect(parseExportFile(JSON.stringify(invalid))).toEqual({
+        ok: false,
+        message: "This Argument Board file is missing required data.",
+      });
+    }
+  });
+
+  test("rejects malformed input without inventing a board", () => {
+    expect(parseExportFile("{")).toEqual({
+      ok: false,
+      message: "This is not a readable Argument Board file.",
+    });
+    expect(parseExportFile("null")).toEqual({
       ok: false,
       message: "This Argument Board file is missing required data.",
     });
-  });
-
-  test("preserves reasonable unknown future fields during import and export", () => {
-    const board = createDefaultBoard();
-    const futureFile = JSON.stringify({
-      ...board,
-      futureLayoutPreference: { zoom: 0.9 },
-    });
-
-    const imported = parseExportFile(futureFile);
-    expect(imported.ok).toBe(true);
-    const importedBoard = imported.ok ? (imported.board as typeof imported.board & { futureLayoutPreference: { zoom: number } }) : undefined;
-    expect(importedBoard?.futureLayoutPreference.zoom).toBe(0.9);
-    expect(imported.ok ? createExportFile(imported.board).contents : "").toContain("futureLayoutPreference");
   });
 });

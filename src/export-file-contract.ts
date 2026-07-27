@@ -2,7 +2,7 @@ import type { ArgumentBoard, DataType, SupportMode } from "./argument-board";
 
 export const exportFileContract = {
   appName: "Argument Maker",
-  currentSchemaVersion: 1,
+  currentSchemaVersion: 2,
   extension: ".argument.json",
   mimeType: "application/json",
   defaultTitle: "untitled-argument",
@@ -15,14 +15,8 @@ export interface ExportFile {
 }
 
 export type ExportFileImportResult =
-  | {
-      ok: true;
-      board: ArgumentBoard;
-    }
-  | {
-      ok: false;
-      message: string;
-    };
+  | { ok: true; board: ArgumentBoard }
+  | { ok: false; message: string };
 
 export function createExportFile(board: ArgumentBoard): ExportFile {
   return {
@@ -41,39 +35,61 @@ export function parseExportFile(contents: string): ExportFileImportResult {
     return reject("This is not a readable Argument Board file.");
   }
 
-  return normalizeExportFile(parsed);
+  if (!isRecord(parsed)) {
+    return reject("This Argument Board file is missing required data.");
+  }
+
+  if (parsed["schemaVersion"] !== exportFileContract.currentSchemaVersion || parsed["appName"] !== exportFileContract.appName) {
+    return reject("Unsupported Argument Board file version.");
+  }
+
+  return hasBoardShape(parsed)
+    ? { ok: true, board: parsed }
+    : reject("This Argument Board file is missing required data.");
 }
 
 export function createExportFileName(title: string): string {
   return `${slugify(title || exportFileContract.defaultTitle)}${exportFileContract.extension}`;
 }
 
-function normalizeExportFile(value: unknown): ExportFileImportResult {
-  if (!isRecord(value)) {
-    return reject("This Argument Board file is missing required data.");
-  }
-
-  if (value["schemaVersion"] !== exportFileContract.currentSchemaVersion || value["appName"] !== exportFileContract.appName) {
-    return reject("Unsupported Argument Board file version.");
-  }
-
-  return hasBoardShape(value)
-    ? { ok: true, board: value }
-    : reject("This Argument Board file is missing required data.");
-}
-
-function hasBoardShape(value: unknown): value is ArgumentBoard {
-  if (!isRecord(value)) {
+function hasBoardShape(value: Record<string, unknown>): value is Record<string, unknown> & ArgumentBoard {
+  if (
+    typeof value["title"] !== "string" ||
+    typeof value["createdAt"] !== "string" ||
+    typeof value["updatedAt"] !== "string" ||
+    !Array.isArray(value["gatheredFacts"]) ||
+    !value["gatheredFacts"].every(hasGatheredFactShape) ||
+    !hasScqaShape(value["scqa"]) ||
+    !Array.isArray(value["supportingArguments"]) ||
+    !value["supportingArguments"].every(hasSupportingArgumentShape)
+  ) {
     return false;
   }
 
-  return (
-    typeof value["title"] === "string" &&
-    typeof value["createdAt"] === "string" &&
-    typeof value["updatedAt"] === "string" &&
-    hasScqaShape(value["scqa"]) &&
-    Array.isArray(value["supportingArguments"]) &&
-    value["supportingArguments"].every(hasSupportingArgumentShape)
+  const factIds = value["gatheredFacts"].map((fact) => fact.id);
+  const argumentIds = value["supportingArguments"].map((argument) => argument.id);
+  const allIds = [
+    value["scqa"].situation.id,
+    value["scqa"].complication.id,
+    value["scqa"].question.id,
+    value["scqa"].answer.id,
+    ...factIds,
+    ...argumentIds,
+  ];
+
+  if (new Set(allIds).size !== allIds.length) {
+    return false;
+  }
+
+  const knownFactIds = new Set(factIds);
+  const destinations = [
+    value["scqa"].situation.factIds,
+    value["scqa"].complication.factIds,
+    ...value["supportingArguments"].map((argument) => argument.factIds),
+  ];
+
+  return destinations.every(
+    (ids) => new Set(ids).size === ids.length && ids.every((id) => knownFactIds.has(id)),
   );
 }
 
@@ -83,40 +99,45 @@ function hasScqaShape(value: unknown): value is ArgumentBoard["scqa"] {
   }
 
   return (
-    hasTextSlotShape(value["situation"]) &&
-    hasTextSlotShape(value["complication"]) &&
+    hasFactTextSlotShape(value["situation"]) &&
+    value["situation"].id === "situation" &&
+    hasFactTextSlotShape(value["complication"]) &&
+    value["complication"].id === "complication" &&
     hasTextSlotShape(value["question"]) &&
-    hasTextSlotShape(value["answer"])
+    value["question"].id === "question" &&
+    hasTextSlotShape(value["answer"]) &&
+    value["answer"].id === "answer"
+  );
+}
+
+function hasGatheredFactShape(value: unknown): value is ArgumentBoard["gatheredFacts"][number] {
+  return (
+    hasTextSlotShape(value) &&
+    typeof value["evidenceLink"] === "string" &&
+    isDataType(value["dataType"])
   );
 }
 
 function hasSupportingArgumentShape(value: unknown): value is ArgumentBoard["supportingArguments"][number] {
-  if (!isRecord(value)) {
+  if (!hasFactTextSlotShape(value)) {
     return false;
   }
 
-  const mode = value["mode"];
-  const data = value["data"];
-
-  return hasTextSlotShape(value) && isSupportMode(mode) && Array.isArray(data) && data.every(hasSupportingDataFactShape);
+  return isSupportMode((value as unknown as Record<string, unknown>)["mode"]);
 }
 
-function hasSupportingDataFactShape(value: unknown): value is ArgumentBoard["supportingArguments"][number]["data"][number] {
-  if (!isRecord(value)) {
-    return false;
-  }
-
-  const record: Record<string, unknown> = value;
-
-  if (!hasTextSlotShape(record)) {
-    return false;
-  }
-
-  return typeof value["evidenceLink"] === "string" && isDataType(value["dataType"]);
+function hasFactTextSlotShape(value: unknown): value is { id: string; text: string; touched: boolean; factIds: string[] } {
+  return hasTextSlotShape(value) && Array.isArray(value["factIds"]) && value["factIds"].every((id) => typeof id === "string");
 }
 
-function hasTextSlotShape(value: unknown): value is { id: string; text: string; touched: boolean } {
-  return isRecord(value) && typeof value["id"] === "string" && typeof value["text"] === "string" && typeof value["touched"] === "boolean";
+function hasTextSlotShape(value: unknown): value is Record<string, unknown> & { id: string; text: string; touched: boolean } {
+  return (
+    isRecord(value) &&
+    typeof value["id"] === "string" &&
+    value["id"].trim().length > 0 &&
+    typeof value["text"] === "string" &&
+    typeof value["touched"] === "boolean"
+  );
 }
 
 function isSupportMode(value: unknown): value is SupportMode {
@@ -142,8 +163,5 @@ function slugify(value: string): string {
 }
 
 function reject(message: string): ExportFileImportResult {
-  return {
-    ok: false,
-    message,
-  };
+  return { ok: false, message };
 }

@@ -1,44 +1,99 @@
 import { describe, expect, test } from "bun:test";
-import {
-  createDefaultBoard,
-  updateScqaField,
-  updateSupportingArgument,
-  updateSupportingDataFact,
-} from "./argument-board";
+import { applyArgumentBoardCommand, createDefaultBoard, type ArgumentBoard } from "./argument-board";
 import { projectArgumentPreview } from "./argument-preview-projection";
 
 describe("Argument Preview projection", () => {
-  test("concentrates active structure, readiness labels, Mermaid source, and outline data", () => {
-    let board = createDefaultBoard();
-    board = updateScqaField(board, "situation", "A group needs a dinner venue.");
-    board = updateScqaField(board, "complication", "Shared meals need to be good value.");
-    board = updateScqaField(board, "question", "Should we recommend it?");
-    board = updateScqaField(board, "answer", "Yes, for group dinners.");
+  test("projects attached facts in each destination order and omits unused facts", () => {
+    let board = completeFrame(createDefaultBoard());
+    board = addCompleteFact(board, "First fact", "https://example.com/first", "fact");
+    const firstId = board.gatheredFacts.at(-1)!.id;
+    board = addCompleteFact(board, "Second fact", "https://example.com/second", "observation");
+    const secondId = board.gatheredFacts.at(-1)!.id;
+    board = addCompleteFact(board, "Unused fact", "https://example.com/unused", "");
     const argumentId = board.supportingArguments[0]!.id;
-    board = updateSupportingArgument(board, argumentId, {
-      text: "The menu supports sharing.",
-      mode: "evidence-backed",
-    });
-    const dataId = board.supportingArguments[0]!.data[0]!.id;
-    board = updateSupportingDataFact(board, argumentId, dataId, {
-      text: "A platter serves four people.",
-      evidenceLink: "not-a-url",
-      dataType: "fact",
+
+    for (const factId of [firstId, secondId]) {
+      board = applyArgumentBoardCommand(board, { type: "attach-fact", destinationId: "situation", factId });
+      board = applyArgumentBoardCommand(board, { type: "attach-fact", destinationId: argumentId, factId });
+    }
+    board = applyArgumentBoardCommand(board, {
+      type: "move-attached-fact",
+      destinationId: argumentId,
+      factId: secondId,
+      direction: "up",
     });
 
     const preview = projectArgumentPreview(board);
 
-    expect(preview.chain.map((item) => item.label)).toEqual(["Situation", "Complication", "Question", "Answer"]);
-    expect(preview.arguments).toHaveLength(1);
-    expect(preview.arguments[0]!.label).toBe("Supporting Argument 1");
-    expect(preview.arguments[0]!.supportMode).toBe("Evidence-backed");
-    expect(preview.arguments[0]!.data[0]).toMatchObject({
-      label: "A platter serves four people. [invalid evidence link]",
-      formattedDataType: "Fact",
-      evidenceState: "invalid-link",
+    expect(preview.chain[0]!.facts.map((fact) => fact.id)).toEqual([firstId, secondId]);
+    expect(preview.arguments[0]!.facts.map((fact) => fact.id)).toEqual([secondId, firstId]);
+    expect(preview.evidenceGroups.map((group) => group.label)).toEqual(["Situation", "Supporting Argument 1"]);
+    expect(preview.mermaid).toContain('Fact: First fact');
+    expect(preview.mermaid).toContain('Observation: Second fact');
+    expect(preview.mermaid).not.toContain("Unused fact");
+    expect(preview.mermaid).not.toContain("https://");
+    expect((preview.mermaid.match(/First fact/g) ?? [])).toHaveLength(2);
+  });
+
+  test("keeps attached incomplete facts visible with explicit markers", () => {
+    let board = completeFrame(createDefaultBoard());
+    board = applyArgumentBoardCommand(board, { type: "create-gathered-fact", destinationId: "complication" });
+    const blankId = board.gatheredFacts[0]!.id;
+    board = applyArgumentBoardCommand(board, {
+      type: "create-gathered-fact",
+      destinationId: board.supportingArguments[0]!.id,
+      evidenceLink: "not-a-url",
     });
-    expect(preview.mermaid).toContain("flowchart TD");
-    expect(preview.mermaid).toContain("The menu supports sharing.");
-    expect(preview.mermaid).not.toContain("argument_2");
+    const invalidId = board.gatheredFacts[1]!.id;
+    board = applyArgumentBoardCommand(board, {
+      type: "update-gathered-fact",
+      factId: invalidId,
+      changes: { text: "A sourced claim" },
+    });
+
+    const preview = projectArgumentPreview(board);
+
+    expect(preview.chain[1]!.facts[0]).toMatchObject({
+      id: blankId,
+      markers: ["[Needs fact text]", "[Needs evidence link]"],
+      evidenceLinkIsValid: false,
+    });
+    expect(preview.arguments[0]!.facts[0]).toMatchObject({
+      id: invalidId,
+      markers: ["[Invalid evidence link]"],
+      evidenceLinkIsValid: false,
+    });
+    expect(preview.mermaid).toContain("[Needs fact text]");
+    expect(preview.mermaid).toContain("[Invalid evidence link]");
   });
 });
+
+function completeFrame(initial: ArgumentBoard): ArgumentBoard {
+  let board = initial;
+  board = applyArgumentBoardCommand(board, { type: "update-scqa", field: "situation", text: "Demand is rising." });
+  board = applyArgumentBoardCommand(board, { type: "update-scqa", field: "complication", text: "Capacity is fixed." });
+  board = applyArgumentBoardCommand(board, { type: "update-scqa", field: "question", text: "What should change?" });
+  board = applyArgumentBoardCommand(board, { type: "update-scqa", field: "answer", text: "Expand capacity." });
+  board = applyArgumentBoardCommand(board, {
+    type: "update-supporting-argument",
+    argumentId: board.supportingArguments[0]!.id,
+    changes: { text: "The gap is material." },
+  });
+  return board;
+}
+
+function addCompleteFact(
+  board: ArgumentBoard,
+  text: string,
+  evidenceLink: string,
+  dataType: ArgumentBoard["gatheredFacts"][number]["dataType"],
+): ArgumentBoard {
+  let updated = applyArgumentBoardCommand(board, { type: "create-gathered-fact", evidenceLink });
+  const factId = updated.gatheredFacts.at(-1)!.id;
+  updated = applyArgumentBoardCommand(updated, {
+    type: "update-gathered-fact",
+    factId,
+    changes: { text, dataType },
+  });
+  return updated;
+}

@@ -1,5 +1,7 @@
 export type SupportMode = "reasoning" | "evidence-backed";
 export type DataType = "" | "fact" | "observation" | "example" | "estimate";
+export type FactIncompleteReason = "needs-text" | "needs-link" | "invalid-link";
+export type FactDestinationId = "situation" | "complication" | string;
 
 export interface TextSlot {
   id: string;
@@ -7,29 +9,29 @@ export interface TextSlot {
   touched: boolean;
 }
 
-export interface EvidenceTextSlot extends TextSlot {
-  evidenceLink?: string;
+export interface FactTextSlot extends TextSlot {
+  factIds: string[];
 }
 
-export interface SupportingDataFact extends TextSlot {
+export interface GatheredFact extends TextSlot {
   evidenceLink: string;
   dataType: DataType;
 }
 
-export interface SupportingArgument extends TextSlot {
+export interface SupportingArgument extends FactTextSlot {
   mode: SupportMode;
-  data: SupportingDataFact[];
 }
 
 export interface ArgumentBoard {
-  schemaVersion: 1;
+  schemaVersion: 2;
   appName: "Argument Maker";
   title: string;
   createdAt: string;
   updatedAt: string;
+  gatheredFacts: GatheredFact[];
   scqa: {
-    situation: EvidenceTextSlot;
-    complication: EvidenceTextSlot;
+    situation: FactTextSlot;
+    complication: FactTextSlot;
     question: TextSlot;
     answer: TextSlot;
   };
@@ -39,43 +41,43 @@ export interface ArgumentBoard {
 export type ArgumentBoardCommand =
   | { type: "update-title"; title: string }
   | { type: "update-scqa"; field: keyof ArgumentBoard["scqa"]; text: string }
-  | { type: "update-scqa-evidence"; field: "situation" | "complication"; evidenceLink: string }
   | { type: "update-supporting-argument"; argumentId: string; changes: Partial<Pick<SupportingArgument, "text" | "mode">> }
-  | {
-      type: "update-supporting-data-fact";
-      argumentId: string;
-      dataId: string;
-      changes: Partial<Pick<SupportingDataFact, "text" | "evidenceLink" | "dataType">>;
-    }
   | { type: "add-supporting-argument" }
-  | { type: "add-supporting-data-fact"; argumentId: string }
   | { type: "delete-supporting-argument"; argumentId: string }
-  | { type: "delete-supporting-data-fact"; argumentId: string; dataId: string }
   | { type: "move-supporting-argument"; argumentId: string; direction: "up" | "down" }
-  | { type: "move-supporting-data-fact"; argumentId: string; dataId: string; direction: "up" | "down" }
   | { type: "duplicate-supporting-argument"; argumentId: string }
-  | { type: "duplicate-supporting-data-fact"; argumentId: string; dataId: string };
+  | { type: "create-gathered-fact"; evidenceLink?: string; destinationId?: FactDestinationId }
+  | {
+      type: "update-gathered-fact";
+      factId: string;
+      changes: Partial<Pick<GatheredFact, "text" | "evidenceLink" | "dataType">>;
+    }
+  | { type: "move-gathered-fact"; factId: string; direction: "up" | "down" }
+  | { type: "delete-gathered-fact"; factId: string }
+  | { type: "attach-fact"; destinationId: FactDestinationId; factId: string }
+  | { type: "detach-fact"; destinationId: FactDestinationId; factId: string }
+  | { type: "move-attached-fact"; destinationId: FactDestinationId; factId: string; direction: "up" | "down" };
 
 const DEFAULT_SUPPORTING_ARGUMENT_COUNT = 3;
-const DEFAULT_SUPPORTING_DATA_COUNT = 3;
 
 export function createDefaultBoard(now = new Date()): ArgumentBoard {
   const timestamp = now.toISOString();
 
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     appName: "Argument Maker",
     title: "",
     createdAt: timestamp,
     updatedAt: timestamp,
+    gatheredFacts: [],
     scqa: {
-      situation: { ...createTextSlot("situation"), evidenceLink: "" },
-      complication: { ...createTextSlot("complication"), evidenceLink: "" },
+      situation: createFactTextSlot("situation"),
+      complication: createFactTextSlot("complication"),
       question: createTextSlot("question"),
       answer: createTextSlot("answer"),
     },
-    supportingArguments: Array.from({ length: DEFAULT_SUPPORTING_ARGUMENT_COUNT }, (_, argumentIndex) =>
-      createSupportingArgument(argumentIndex),
+    supportingArguments: Array.from({ length: DEFAULT_SUPPORTING_ARGUMENT_COUNT }, (_, index) =>
+      createSupportingArgument(`argument-${index + 1}`),
     ),
   };
 }
@@ -87,274 +89,147 @@ export function applyArgumentBoardCommand(
 ): ArgumentBoard {
   switch (command.type) {
     case "update-title":
-      return updateBoardTitle(board, command.title, now);
+      return touchBoard({ ...board, title: command.title }, now);
     case "update-scqa":
-      return updateScqaField(board, command.field, command.text, now);
-    case "update-scqa-evidence":
-      return updateScqaEvidenceLink(board, command.field, command.evidenceLink, now);
+      return updateScqa(board, command.field, command.text, now);
     case "update-supporting-argument":
       return updateSupportingArgument(board, command.argumentId, command.changes, now);
-    case "update-supporting-data-fact":
-      return updateSupportingDataFact(board, command.argumentId, command.dataId, command.changes, now);
     case "add-supporting-argument":
       return addSupportingArgument(board, now);
-    case "add-supporting-data-fact":
-      return addSupportingDataFact(board, command.argumentId, now);
     case "delete-supporting-argument":
       return deleteSupportingArgument(board, command.argumentId, now);
-    case "delete-supporting-data-fact":
-      return deleteSupportingDataFact(board, command.argumentId, command.dataId, now);
     case "move-supporting-argument":
       return moveSupportingArgument(board, command.argumentId, command.direction, now);
-    case "move-supporting-data-fact":
-      return moveSupportingDataFact(board, command.argumentId, command.dataId, command.direction, now);
     case "duplicate-supporting-argument":
       return duplicateSupportingArgument(board, command.argumentId, now);
-    case "duplicate-supporting-data-fact":
-      return duplicateSupportingDataFact(board, command.argumentId, command.dataId, now);
+    case "create-gathered-fact":
+      return createGatheredFact(board, command.evidenceLink ?? "", command.destinationId, now);
+    case "update-gathered-fact":
+      return updateGatheredFact(board, command.factId, command.changes, now);
+    case "move-gathered-fact":
+      return moveGatheredFact(board, command.factId, command.direction, now);
+    case "delete-gathered-fact":
+      return deleteGatheredFact(board, command.factId, now);
+    case "attach-fact":
+      return attachFact(board, command.destinationId, command.factId, now);
+    case "detach-fact":
+      return updateDestinationFactIds(
+        board,
+        command.destinationId,
+        (factIds) => removeValue(factIds, command.factId),
+        now,
+      );
+    case "move-attached-fact":
+      return updateDestinationFactIds(
+        board,
+        command.destinationId,
+        (factIds) => moveValue(factIds, command.factId, command.direction),
+        now,
+      );
   }
 }
 
+export function factCompleteness(fact: Pick<GatheredFact, "text" | "evidenceLink">): FactIncompleteReason[] {
+  const reasons: FactIncompleteReason[] = [];
+
+  if (!fact.text.trim()) {
+    reasons.push("needs-text");
+  }
+
+  if (!fact.evidenceLink.trim()) {
+    reasons.push("needs-link");
+  } else if (!isValidEvidenceLink(fact.evidenceLink)) {
+    reasons.push("invalid-link");
+  }
+
+  return reasons;
+}
+
+export function isGatheredFactComplete(fact: Pick<GatheredFact, "text" | "evidenceLink">): boolean {
+  return factCompleteness(fact).length === 0;
+}
+
+export function isValidEvidenceLink(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return url.protocol === "http:" || url.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+export function getDestinationFactIds(board: ArgumentBoard, destinationId: FactDestinationId): string[] | undefined {
+  if (destinationId === "situation" || destinationId === "complication") {
+    return board.scqa[destinationId].factIds;
+  }
+
+  return board.supportingArguments.find((argument) => argument.id === destinationId)?.factIds;
+}
+
+export function destinationLabel(board: ArgumentBoard, destinationId: FactDestinationId): string {
+  if (destinationId === "situation") {
+    return "Situation";
+  }
+
+  if (destinationId === "complication") {
+    return "Complication";
+  }
+
+  const index = board.supportingArguments.findIndex((argument) => argument.id === destinationId);
+  return index < 0 ? destinationId : `Supporting Argument ${index + 1}`;
+}
+
+export function factUsageLabels(board: ArgumentBoard, factId: string): string[] {
+  const destinationIds: FactDestinationId[] = ["situation", "complication", ...board.supportingArguments.map(({ id }) => id)];
+
+  return destinationIds
+    .filter((destinationId) => getDestinationFactIds(board, destinationId)?.includes(factId))
+    .map((destinationId) => destinationLabel(board, destinationId));
+}
+
 function createTextSlot(id: string): TextSlot {
-  return {
-    id,
-    text: "",
-    touched: false,
-  };
+  return { id, text: "", touched: false };
 }
 
-function createSupportingArgument(argumentIndex: number): SupportingArgument {
-  const id = `argument-${argumentIndex + 1}`;
-
-  return createSupportingArgumentWithId(id);
+function createFactTextSlot(id: string): FactTextSlot {
+  return { ...createTextSlot(id), factIds: [] };
 }
 
-function createSupportingArgumentWithId(id: string): SupportingArgument {
+function createSupportingArgument(id: string): SupportingArgument {
+  return { ...createFactTextSlot(id), mode: "reasoning" };
+}
+
+function createGatheredFactWithId(id: string, evidenceLink: string): GatheredFact {
   return {
     ...createTextSlot(id),
-    mode: "reasoning",
-    data: Array.from({ length: DEFAULT_SUPPORTING_DATA_COUNT }, (_, dataIndex) => createSupportingDataFact(id, dataIndex)),
-  };
-}
-
-function createSupportingDataFact(argumentId: string, dataIndex: number): SupportingDataFact {
-  return {
-    ...createTextSlot(`${argumentId}-data-${dataIndex + 1}`),
-    evidenceLink: "",
+    touched: true,
+    evidenceLink,
     dataType: "",
   };
 }
 
-export function updateScqaField(
+function updateScqa(
   board: ArgumentBoard,
   field: keyof ArgumentBoard["scqa"],
   text: string,
-  now = new Date(),
+  now: Date,
 ): ArgumentBoard {
   return touchBoard(
     {
       ...board,
       scqa: {
         ...board.scqa,
-        [field]: {
-          ...board.scqa[field],
-          text,
-          touched: true,
-        },
+        [field]: { ...board.scqa[field], text, touched: true },
       },
     },
     now,
   );
 }
 
-export function updateScqaEvidenceLink(
-  board: ArgumentBoard,
-  field: "situation" | "complication",
-  evidenceLink: string,
-  now = new Date(),
-): ArgumentBoard {
-  return touchBoard(
-    {
-      ...board,
-      scqa: {
-        ...board.scqa,
-        [field]: { ...board.scqa[field], evidenceLink },
-      },
-    },
-    now,
-  );
-}
-
-export function updateBoardTitle(board: ArgumentBoard, title: string, now = new Date()): ArgumentBoard {
-  return touchBoard(
-    {
-      ...board,
-      title,
-    },
-    now,
-  );
-}
-
-export function updateSupportingArgument(
+function updateSupportingArgument(
   board: ArgumentBoard,
   argumentId: string,
   changes: Partial<Pick<SupportingArgument, "text" | "mode">>,
-  now = new Date(),
-): ArgumentBoard {
-  return touchBoard(
-    {
-      ...board,
-      supportingArguments: board.supportingArguments.map((argument) =>
-        argument.id === argumentId
-          ? {
-              ...argument,
-              ...changes,
-              touched: changes.text === undefined ? argument.touched : true,
-            }
-          : argument,
-      ),
-    },
-    now,
-  );
-}
-
-export function updateSupportingDataFact(
-  board: ArgumentBoard,
-  argumentId: string,
-  dataId: string,
-  changes: Partial<Pick<SupportingDataFact, "text" | "evidenceLink" | "dataType">>,
-  now = new Date(),
-): ArgumentBoard {
-  return touchBoard(
-    {
-      ...board,
-      supportingArguments: board.supportingArguments.map((argument) =>
-        argument.id === argumentId
-          ? {
-              ...argument,
-              data: argument.data.map((item) =>
-                item.id === dataId
-                  ? {
-                      ...item,
-                      ...changes,
-                      touched: changes.text === undefined ? item.touched : true,
-                    }
-                  : item,
-              ),
-            }
-          : argument,
-      ),
-    },
-    now,
-  );
-}
-
-export function addSupportingArgument(board: ArgumentBoard, now = new Date()): ArgumentBoard {
-  const id = makeIndexedId(
-    "argument",
-    board.supportingArguments.map((argument) => argument.id),
-  );
-
-  return touchBoard(
-    {
-      ...board,
-      supportingArguments: [...board.supportingArguments, createSupportingArgumentWithId(id)],
-    },
-    now,
-  );
-}
-
-export function addSupportingDataFact(board: ArgumentBoard, argumentId: string, now = new Date()): ArgumentBoard {
-  return touchBoard(
-    {
-      ...board,
-      supportingArguments: board.supportingArguments.map((argument) =>
-        argument.id === argumentId
-          ? {
-              ...argument,
-              data: [
-                ...argument.data,
-                {
-                  ...createSupportingDataFact(argument.id, argument.data.length),
-                  id: makeIndexedId(
-                    `${argument.id}-data`,
-                    argument.data.map((item) => item.id),
-                  ),
-                },
-              ],
-            }
-          : argument,
-      ),
-    },
-    now,
-  );
-}
-
-export function deleteSupportingArgument(board: ArgumentBoard, argumentId: string, now = new Date()): ArgumentBoard {
-  return touchBoard(
-    {
-      ...board,
-      supportingArguments: removeById(board.supportingArguments, argumentId),
-    },
-    now,
-  );
-}
-
-export function deleteSupportingDataFact(
-  board: ArgumentBoard,
-  argumentId: string,
-  dataId: string,
-  now = new Date(),
-): ArgumentBoard {
-  return updateArgumentData(board, argumentId, (data) => removeById(data, dataId), now);
-}
-
-export function moveSupportingDataFact(
-  board: ArgumentBoard,
-  argumentId: string,
-  dataId: string,
-  direction: "up" | "down",
-  now = new Date(),
-): ArgumentBoard {
-  return updateArgumentData(board, argumentId, (data) => moveById(data, dataId, direction), now);
-}
-
-export function duplicateSupportingDataFact(
-  board: ArgumentBoard,
-  argumentId: string,
-  dataId: string,
-  now = new Date(),
-): ArgumentBoard {
-  return updateArgumentData(board, argumentId, (data) => duplicateById(data, dataId, (item, id) => ({ ...item, id })), now);
-}
-
-export function moveSupportingArgument(
-  board: ArgumentBoard,
-  argumentId: string,
-  direction: "up" | "down",
-  now = new Date(),
-): ArgumentBoard {
-  const supportingArguments = moveById(board.supportingArguments, argumentId, direction);
-  return supportingArguments === board.supportingArguments ? board : touchBoard({ ...board, supportingArguments }, now);
-}
-
-export function duplicateSupportingArgument(board: ArgumentBoard, argumentId: string, now = new Date()): ArgumentBoard {
-  const supportingArguments = duplicateById(board.supportingArguments, argumentId, (argument, id) => ({
-    ...argument,
-    id,
-    data: argument.data.map((item, index) => ({
-      ...item,
-      id: `${id}-data-${index + 1}`,
-    })),
-  }));
-
-  return supportingArguments === board.supportingArguments ? board : touchBoard({ ...board, supportingArguments }, now);
-}
-
-function updateArgumentData(
-  board: ArgumentBoard,
-  argumentId: string,
-  update: (data: SupportingDataFact[]) => SupportingDataFact[],
   now: Date,
 ): ArgumentBoard {
   let changed = false;
@@ -363,12 +238,174 @@ function updateArgumentData(
       return argument;
     }
 
-    const data = update(argument.data);
-    changed = changed || data !== argument.data;
-    return data === argument.data ? argument : { ...argument, data };
+    changed = true;
+    return {
+      ...argument,
+      ...changes,
+      touched: changes.text === undefined ? argument.touched : true,
+    };
   });
 
   return changed ? touchBoard({ ...board, supportingArguments }, now) : board;
+}
+
+function addSupportingArgument(board: ArgumentBoard, now: Date): ArgumentBoard {
+  const id = makeIndexedId("argument", allBoardIds(board));
+  return touchBoard({ ...board, supportingArguments: [...board.supportingArguments, createSupportingArgument(id)] }, now);
+}
+
+function deleteSupportingArgument(board: ArgumentBoard, argumentId: string, now: Date): ArgumentBoard {
+  const supportingArguments = removeById(board.supportingArguments, argumentId);
+  return supportingArguments === board.supportingArguments ? board : touchBoard({ ...board, supportingArguments }, now);
+}
+
+function moveSupportingArgument(
+  board: ArgumentBoard,
+  argumentId: string,
+  direction: "up" | "down",
+  now: Date,
+): ArgumentBoard {
+  const supportingArguments = moveById(board.supportingArguments, argumentId, direction);
+  return supportingArguments === board.supportingArguments ? board : touchBoard({ ...board, supportingArguments }, now);
+}
+
+function duplicateSupportingArgument(board: ArgumentBoard, argumentId: string, now: Date): ArgumentBoard {
+  const supportingArguments = duplicateById(board.supportingArguments, argumentId, (argument, id) => ({
+    ...argument,
+    id,
+    factIds: [...argument.factIds],
+  }), allBoardIds(board));
+
+  return supportingArguments === board.supportingArguments ? board : touchBoard({ ...board, supportingArguments }, now);
+}
+
+function createGatheredFact(
+  board: ArgumentBoard,
+  evidenceLink: string,
+  destinationId: FactDestinationId | undefined,
+  now: Date,
+): ArgumentBoard {
+  const id = makeIndexedId("fact", allBoardIds(board));
+  let nextBoard = {
+    ...board,
+    gatheredFacts: [...board.gatheredFacts, createGatheredFactWithId(id, evidenceLink)],
+  };
+
+  if (destinationId !== undefined) {
+    nextBoard = updateDestinationFactIdsUntouched(nextBoard, destinationId, (factIds) => [...factIds, id]);
+  }
+
+  return touchBoard(nextBoard, now);
+}
+
+function updateGatheredFact(
+  board: ArgumentBoard,
+  factId: string,
+  changes: Partial<Pick<GatheredFact, "text" | "evidenceLink" | "dataType">>,
+  now: Date,
+): ArgumentBoard {
+  let changed = false;
+  const gatheredFacts = board.gatheredFacts.map((fact) => {
+    if (fact.id !== factId) {
+      return fact;
+    }
+
+    changed = true;
+    return { ...fact, ...changes, touched: true };
+  });
+
+  return changed ? touchBoard({ ...board, gatheredFacts }, now) : board;
+}
+
+function moveGatheredFact(board: ArgumentBoard, factId: string, direction: "up" | "down", now: Date): ArgumentBoard {
+  const gatheredFacts = moveById(board.gatheredFacts, factId, direction);
+  return gatheredFacts === board.gatheredFacts ? board : touchBoard({ ...board, gatheredFacts }, now);
+}
+
+function deleteGatheredFact(board: ArgumentBoard, factId: string, now: Date): ArgumentBoard {
+  const gatheredFacts = removeById(board.gatheredFacts, factId);
+  if (gatheredFacts === board.gatheredFacts) {
+    return board;
+  }
+
+  const supportingArguments = board.supportingArguments.map((argument) => ({
+    ...argument,
+    factIds: argument.factIds.filter((id) => id !== factId),
+  }));
+
+  return touchBoard(
+    {
+      ...board,
+      gatheredFacts,
+      scqa: {
+        ...board.scqa,
+        situation: { ...board.scqa.situation, factIds: board.scqa.situation.factIds.filter((id) => id !== factId) },
+        complication: {
+          ...board.scqa.complication,
+          factIds: board.scqa.complication.factIds.filter((id) => id !== factId),
+        },
+      },
+      supportingArguments,
+    },
+    now,
+  );
+}
+
+function attachFact(board: ArgumentBoard, destinationId: FactDestinationId, factId: string, now: Date): ArgumentBoard {
+  const fact = board.gatheredFacts.find(({ id }) => id === factId);
+  if (!fact || !isGatheredFactComplete(fact)) {
+    return board;
+  }
+
+  return updateDestinationFactIds(
+    board,
+    destinationId,
+    (factIds) => (factIds.includes(factId) ? factIds : [...factIds, factId]),
+    now,
+  );
+}
+
+function updateDestinationFactIds(
+  board: ArgumentBoard,
+  destinationId: FactDestinationId,
+  update: (factIds: string[]) => string[],
+  now: Date,
+): ArgumentBoard {
+  const nextBoard = updateDestinationFactIdsUntouched(board, destinationId, update);
+  return nextBoard === board ? board : touchBoard(nextBoard, now);
+}
+
+function updateDestinationFactIdsUntouched(
+  board: ArgumentBoard,
+  destinationId: FactDestinationId,
+  update: (factIds: string[]) => string[],
+): ArgumentBoard {
+  if (destinationId === "situation" || destinationId === "complication") {
+    const slot = board.scqa[destinationId];
+    const factIds = update(slot.factIds);
+    return factIds === slot.factIds
+      ? board
+      : {
+          ...board,
+          scqa: {
+            ...board.scqa,
+            [destinationId]: { ...slot, factIds },
+          },
+        };
+  }
+
+  let changed = false;
+  const supportingArguments = board.supportingArguments.map((argument) => {
+    if (argument.id !== destinationId) {
+      return argument;
+    }
+
+    const factIds = update(argument.factIds);
+    changed = factIds !== argument.factIds;
+    return changed ? { ...argument, factIds } : argument;
+  });
+
+  return changed ? { ...board, supportingArguments } : board;
 }
 
 function removeById<T extends { id: string }>(items: T[], id: string): T[] {
@@ -385,35 +422,63 @@ function moveById<T extends { id: string }>(items: T[], id: string, direction: "
   }
 
   const nextItems = [...items];
-  const current = nextItems[currentIndex]!;
-  nextItems[currentIndex] = nextItems[targetIndex]!;
-  nextItems[targetIndex] = current;
-
+  [nextItems[currentIndex], nextItems[targetIndex]] = [nextItems[targetIndex]!, nextItems[currentIndex]!];
   return nextItems;
 }
 
-function duplicateById<T extends { id: string }>(items: T[], id: string, copy: (item: T, id: string) => T): T[] {
-  const currentIndex = items.findIndex((item) => item.id === id);
+function removeValue(items: string[], value: string): string[] {
+  const nextItems = items.filter((item) => item !== value);
+  return nextItems.length === items.length ? items : nextItems;
+}
 
+function moveValue(items: string[], value: string, direction: "up" | "down"): string[] {
+  const currentIndex = items.indexOf(value);
+  const targetIndex = direction === "up" ? currentIndex - 1 : currentIndex + 1;
+
+  if (currentIndex < 0 || targetIndex < 0 || targetIndex >= items.length) {
+    return items;
+  }
+
+  const nextItems = [...items];
+  [nextItems[currentIndex], nextItems[targetIndex]] = [nextItems[targetIndex]!, nextItems[currentIndex]!];
+  return nextItems;
+}
+
+function duplicateById<T extends { id: string }>(
+  items: T[],
+  id: string,
+  copy: (item: T, id: string) => T,
+  reservedIds = items.map((item) => item.id),
+): T[] {
+  const currentIndex = items.findIndex((item) => item.id === id);
   if (currentIndex < 0) {
     return items;
   }
 
   const original = items[currentIndex]!;
-  const copyId = makeCopyId(original.id, items.map((item) => item.id));
   const nextItems = [...items];
-  nextItems.splice(currentIndex + 1, 0, copy(original, copyId));
-
+  nextItems.splice(currentIndex + 1, 0, copy(original, makeCopyId(original.id, reservedIds)));
   return nextItems;
 }
 
+function allBoardIds(board: ArgumentBoard): string[] {
+  return [
+    board.scqa.situation.id,
+    board.scqa.complication.id,
+    board.scqa.question.id,
+    board.scqa.answer.id,
+    ...board.gatheredFacts.map((fact) => fact.id),
+    ...board.supportingArguments.map((argument) => argument.id),
+  ];
+}
+
 function makeCopyId(baseId: string, existingIds: string[]): string {
-  let copyIndex = 1;
+  let index = 1;
   let candidate = `${baseId}-copy`;
 
   while (existingIds.includes(candidate)) {
-    copyIndex += 1;
-    candidate = `${baseId}-copy-${copyIndex}`;
+    index += 1;
+    candidate = `${baseId}-copy-${index}`;
   }
 
   return candidate;
@@ -422,19 +487,14 @@ function makeCopyId(baseId: string, existingIds: string[]): string {
 function makeIndexedId(prefix: string, existingIds: string[]): string {
   const existing = new Set(existingIds);
   let index = 1;
-  let candidate = `${prefix}-${index}`;
 
-  while (existing.has(candidate)) {
+  while (existing.has(`${prefix}-${index}`)) {
     index += 1;
-    candidate = `${prefix}-${index}`;
   }
 
-  return candidate;
+  return `${prefix}-${index}`;
 }
 
 function touchBoard(board: ArgumentBoard, now: Date): ArgumentBoard {
-  return {
-    ...board,
-    updatedAt: now.toISOString(),
-  };
+  return { ...board, updatedAt: now.toISOString() };
 }

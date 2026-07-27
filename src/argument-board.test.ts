@@ -1,140 +1,170 @@
 import { describe, expect, test } from "bun:test";
 import {
-  addSupportingArgument,
-  addSupportingDataFact,
+  applyArgumentBoardCommand,
   createDefaultBoard,
-  deleteSupportingArgument,
-  deleteSupportingDataFact,
-  duplicateSupportingArgument,
-  duplicateSupportingDataFact,
-  moveSupportingArgument,
-  moveSupportingDataFact,
-  updateScqaField,
-  updateScqaEvidenceLink,
-  updateSupportingArgument,
-  updateSupportingDataFact,
+  factCompleteness,
+  factUsageLabels,
+  isGatheredFactComplete,
 } from "./argument-board";
 
 describe("Argument Board", () => {
-  test("creates a clean default board with one SCQA frame and empty support slots", () => {
-    const board = createDefaultBoard();
+  test("starts as an empty version-2 fact library with three reasoning slots", () => {
+    const board = createDefaultBoard(new Date("2026-07-27T00:00:00.000Z"));
 
-    expect(board.schemaVersion).toBe(1);
-    expect(board.title).toBe("");
-    expect(board.scqa.situation.text).toBe("");
-    expect(board.scqa.complication.text).toBe("");
-    expect(board.scqa.situation.evidenceLink).toBe("");
-    expect(board.scqa.complication.evidenceLink).toBe("");
-    expect(board.scqa.question.text).toBe("");
-    expect(board.scqa.answer.text).toBe("");
+    expect(board.schemaVersion).toBe(2);
+    expect(board.gatheredFacts).toEqual([]);
+    expect(board.scqa.situation.factIds).toEqual([]);
+    expect(board.scqa.complication.factIds).toEqual([]);
     expect(board.supportingArguments).toHaveLength(3);
     expect(board.supportingArguments.every((argument) => argument.mode === "reasoning")).toBe(true);
-    expect(board.supportingArguments.every((argument) => argument.data.length === 3)).toBe(true);
-    expect(board.supportingArguments.flatMap((argument) => argument.data).every((item) => item.evidenceLink === "")).toBe(true);
+    expect(board.supportingArguments.every((argument) => argument.factIds.length === 0)).toBe(true);
   });
 
-  test("adds evidence links to Situation and Complication without changing their text", () => {
-    const board = updateScqaField(createDefaultBoard(), "situation", "Demand is growing.");
-    const updated = updateScqaEvidenceLink(board, "situation", "https://example.com/demand");
-
-    expect(updated.scqa.situation.text).toBe("Demand is growing.");
-    expect(updated.scqa.situation.evidenceLink).toBe("https://example.com/demand");
-    expect(board.scqa.situation.evidenceLink).toBe("");
-  });
-
-  test("edits SCQA, Supporting Arguments, and Supporting Data or Facts without mutating the original board", () => {
-    const board = createDefaultBoard();
-    const withQuestion = updateScqaField(board, "question", "Should we recommend this restaurant?");
-    const argumentId = withQuestion.supportingArguments[0]!.id;
-    const withArgument = updateSupportingArgument(withQuestion, argumentId, {
-      text: "It is practical for group dinners.",
-      mode: "evidence-backed",
-    });
-    const dataId = withArgument.supportingArguments[0]!.data[0]!.id;
-    const withData = updateSupportingDataFact(withArgument, argumentId, dataId, {
-      text: "The shared platter serves four people.",
-      evidenceLink: "https://example.com/menu",
-      dataType: "fact",
-    });
-
-    expect(board.scqa.question.text).toBe("");
-    expect(withData.scqa.question.text).toBe("Should we recommend this restaurant?");
-    expect(withData.scqa.question.touched).toBe(true);
-    expect(withData.supportingArguments[0]!.text).toBe("It is practical for group dinners.");
-    expect(withData.supportingArguments[0]!.mode).toBe("evidence-backed");
-    expect(withData.supportingArguments[0]!.data[0]!.text).toBe("The shared platter serves four people.");
-    expect(withData.supportingArguments[0]!.data[0]!.evidenceLink).toBe("https://example.com/menu");
-    expect(withData.supportingArguments[0]!.data[0]!.dataType).toBe("fact");
-    expect(withData.supportingArguments[0]!.data[0]!.touched).toBe(true);
-  });
-
-  test("adds, reorders, and duplicates Supporting Argument branches", () => {
-    const board = createDefaultBoard();
-    const added = addSupportingArgument(board);
-    const addedArgument = added.supportingArguments[3]!;
-    const named = updateSupportingArgument(added, addedArgument.id, { text: "Service is consistent." });
-    const moved = moveSupportingArgument(named, addedArgument.id, "up");
-    const duplicated = duplicateSupportingArgument(moved, addedArgument.id);
-
-    expect(added.supportingArguments).toHaveLength(4);
-    expect(moved.supportingArguments[2]!.id).toBe(addedArgument.id);
-    expect(duplicated.supportingArguments).toHaveLength(5);
-    expect(duplicated.supportingArguments[3]!.text).toBe("Service is consistent.");
-    expect(duplicated.supportingArguments[3]!.id).not.toBe(addedArgument.id);
-    expect(duplicated.supportingArguments[3]!.data).toHaveLength(3);
-    expect(moveSupportingArgument(board, "missing", "up")).toBe(board);
-  });
-
-  test("adds Supporting Data or Facts under a specific Supporting Argument", () => {
-    const board = createDefaultBoard();
-    const argumentId = board.supportingArguments[0]!.id;
-    const updated = addSupportingDataFact(board, argumentId);
-
-    expect(updated.supportingArguments[0]!.data).toHaveLength(4);
-    expect(updated.supportingArguments[1]!.data).toHaveLength(3);
-  });
-
-  test("keeps newly added IDs unique after delete gaps so controls affect one target", () => {
+  test("creates, completes, copies the source of, edits, and reorders canonical facts", () => {
     let board = createDefaultBoard();
-    const secondArgumentId = board.supportingArguments[1]!.id;
-    board = deleteSupportingArgument(board, secondArgumentId);
-    board = addSupportingArgument(board);
+    board = applyArgumentBoardCommand(board, { type: "create-gathered-fact" });
+    const firstId = board.gatheredFacts[0]!.id;
+    board = applyArgumentBoardCommand(board, {
+      type: "update-gathered-fact",
+      factId: firstId,
+      changes: {
+        text: "Demand increased by 20%.",
+        evidenceLink: "https://example.com/report",
+        dataType: "fact",
+      },
+    });
+    board = applyArgumentBoardCommand(board, {
+      type: "create-gathered-fact",
+      evidenceLink: board.gatheredFacts[0]!.evidenceLink,
+    });
+    const secondId = board.gatheredFacts[1]!.id;
+    board = applyArgumentBoardCommand(board, {
+      type: "update-gathered-fact",
+      factId: secondId,
+      changes: { text: "A second finding." },
+    });
+    board = applyArgumentBoardCommand(board, {
+      type: "move-gathered-fact",
+      factId: secondId,
+      direction: "up",
+    });
 
-    expect(new Set(board.supportingArguments.map((argument) => argument.id)).size).toBe(board.supportingArguments.length);
-
-    const argumentId = board.supportingArguments[0]!.id;
-    const secondDataId = board.supportingArguments[0]!.data[1]!.id;
-    board = deleteSupportingDataFact(board, argumentId, secondDataId);
-    board = addSupportingDataFact(board, argumentId);
-
-    const dataIds = board.supportingArguments[0]!.data.map((item) => item.id);
-    expect(new Set(dataIds).size).toBe(dataIds.length);
-
-    const lastDataId = dataIds.at(-1)!;
-    const duplicated = duplicateSupportingDataFact(board, argumentId, lastDataId);
-    const deleted = deleteSupportingDataFact(duplicated, argumentId, lastDataId);
-
-    expect(duplicated.supportingArguments[0]!.data).toHaveLength(board.supportingArguments[0]!.data.length + 1);
-    expect(deleted.supportingArguments[0]!.data).toHaveLength(duplicated.supportingArguments[0]!.data.length - 1);
+    expect(board.gatheredFacts.map((fact) => fact.id)).toEqual([secondId, firstId]);
+    expect(board.gatheredFacts[0]).toMatchObject({
+      text: "A second finding.",
+      evidenceLink: "https://example.com/report",
+      dataType: "",
+    });
+    expect(isGatheredFactComplete(board.gatheredFacts[1]!)).toBe(true);
+    expect(factCompleteness(board.gatheredFacts[0]!)).toEqual([]);
   });
 
-  test("reorders, duplicates, and deletes within the structured support hierarchy", () => {
+  test("attaches complete facts, reuses them, and keeps destination orders independent", () => {
     let board = createDefaultBoard();
+    board = applyArgumentBoardCommand(board, {
+      type: "create-gathered-fact",
+      evidenceLink: "https://example.com/one",
+    });
+    const firstId = board.gatheredFacts[0]!.id;
+    board = applyArgumentBoardCommand(board, {
+      type: "update-gathered-fact",
+      factId: firstId,
+      changes: { text: "First fact" },
+    });
+    board = applyArgumentBoardCommand(board, {
+      type: "create-gathered-fact",
+      evidenceLink: "https://example.com/two",
+    });
+    const secondId = board.gatheredFacts[1]!.id;
+    board = applyArgumentBoardCommand(board, {
+      type: "update-gathered-fact",
+      factId: secondId,
+      changes: { text: "Second fact" },
+    });
     const argumentId = board.supportingArguments[0]!.id;
-    const firstDataId = board.supportingArguments[0]!.data[0]!.id;
-    const secondDataId = board.supportingArguments[0]!.data[1]!.id;
-    board = updateSupportingDataFact(board, argumentId, firstDataId, { text: "First fact" });
-    board = updateSupportingDataFact(board, argumentId, secondDataId, { text: "Second fact" });
 
-    const moved = moveSupportingDataFact(board, argumentId, secondDataId, "up");
-    const duplicated = duplicateSupportingDataFact(moved, argumentId, secondDataId);
-    const deletedData = deleteSupportingDataFact(duplicated, argumentId, firstDataId);
-    const deletedArgument = deleteSupportingArgument(deletedData, argumentId);
+    for (const factId of [firstId, secondId]) {
+      board = applyArgumentBoardCommand(board, { type: "attach-fact", destinationId: "situation", factId });
+      board = applyArgumentBoardCommand(board, { type: "attach-fact", destinationId: argumentId, factId });
+    }
+    board = applyArgumentBoardCommand(board, {
+      type: "move-attached-fact",
+      destinationId: argumentId,
+      factId: secondId,
+      direction: "up",
+    });
+    board = applyArgumentBoardCommand(board, { type: "attach-fact", destinationId: "situation", factId: firstId });
 
-    expect(moved.supportingArguments[0]!.data[0]!.id).toBe(secondDataId);
-    expect(duplicated.supportingArguments[0]!.data[1]!.text).toBe("Second fact");
-    expect(duplicated.supportingArguments[0]!.data[1]!.id).not.toBe(secondDataId);
-    expect(deletedData.supportingArguments[0]!.data.some((item) => item.id === firstDataId)).toBe(false);
-    expect(deletedArgument.supportingArguments.some((argument) => argument.id === argumentId)).toBe(false);
+    expect(board.scqa.situation.factIds).toEqual([firstId, secondId]);
+    expect(board.supportingArguments[0]!.factIds).toEqual([secondId, firstId]);
+    expect(factUsageLabels(board, firstId)).toEqual(["Situation", "Supporting Argument 1"]);
+  });
+
+  test("creates and attaches an incomplete fact atomically, then detaches without deleting it", () => {
+    let board = createDefaultBoard();
+    board = applyArgumentBoardCommand(board, {
+      type: "create-gathered-fact",
+      destinationId: "complication",
+    });
+    const factId = board.gatheredFacts[0]!.id;
+
+    expect(board.scqa.complication.factIds).toEqual([factId]);
+    expect(factCompleteness(board.gatheredFacts[0]!)).toEqual(["needs-text", "needs-link"]);
+
+    board = applyArgumentBoardCommand(board, {
+      type: "detach-fact",
+      destinationId: "complication",
+      factId,
+    });
+
+    expect(board.scqa.complication.factIds).toEqual([]);
+    expect(board.gatheredFacts.map((fact) => fact.id)).toEqual([factId]);
+  });
+
+  test("deleting a used fact removes every reference and undo-ready state stays immutable", () => {
+    let board = createDefaultBoard();
+    board = applyArgumentBoardCommand(board, {
+      type: "create-gathered-fact",
+      destinationId: "situation",
+      evidenceLink: "https://example.com/source",
+    });
+    const factId = board.gatheredFacts[0]!.id;
+    board = applyArgumentBoardCommand(board, {
+      type: "update-gathered-fact",
+      factId,
+      changes: { text: "Shared fact" },
+    });
+    const beforeDelete = applyArgumentBoardCommand(board, {
+      type: "attach-fact",
+      destinationId: board.supportingArguments[0]!.id,
+      factId,
+    });
+    const deleted = applyArgumentBoardCommand(beforeDelete, { type: "delete-gathered-fact", factId });
+
+    expect(deleted.gatheredFacts).toEqual([]);
+    expect(deleted.scqa.situation.factIds).toEqual([]);
+    expect(deleted.supportingArguments[0]!.factIds).toEqual([]);
+    expect(beforeDelete.gatheredFacts[0]!.text).toBe("Shared fact");
+  });
+
+  test("preserves supporting argument editing, movement, duplication, and deletion", () => {
+    let board = createDefaultBoard();
+    const firstId = board.supportingArguments[0]!.id;
+    board = applyArgumentBoardCommand(board, {
+      type: "update-supporting-argument",
+      argumentId: firstId,
+      changes: { text: "A reason", mode: "evidence-backed" },
+    });
+    board = applyArgumentBoardCommand(board, { type: "duplicate-supporting-argument", argumentId: firstId });
+    const copyId = board.supportingArguments[1]!.id;
+    board = applyArgumentBoardCommand(board, {
+      type: "move-supporting-argument",
+      argumentId: copyId,
+      direction: "down",
+    });
+    board = applyArgumentBoardCommand(board, { type: "delete-supporting-argument", argumentId: firstId });
+
+    expect(board.supportingArguments.some((argument) => argument.id === firstId)).toBe(false);
+    expect(board.supportingArguments.some((argument) => argument.id === copyId)).toBe(true);
   });
 });

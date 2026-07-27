@@ -10,7 +10,7 @@ A structured line of reasoning that connects a communication goal to a clear rec
 
 ## Answer
 
-The single main response to the board's Question. Version 1 allows exactly one Answer per Argument Board.
+The single main response to the board's Question. An Argument Board has exactly one Answer.
 
 ## SCQA
 
@@ -30,19 +30,27 @@ A reasoning point under the SCQA Answer. A Supporting Argument explains why the 
 
 ## Support Mode
 
-The status of a Supporting Argument. Reasoning or Interpretation mode can stand alone without Supporting Data or Facts. Evidence-backed mode expects at least one Supporting Data or Facts item.
+The status of a Supporting Argument. Reasoning or Interpretation mode can stand alone without evidence. Evidence-backed mode expects at least one complete Gathered Fact.
 
 ## Data Type
 
-An optional classification for a Supporting Data or Facts item. Version 1 data types are Fact, Observation, Example, and Estimate.
+An optional classification for a Gathered Fact: Fact, Observation, Example, or Estimate.
 
-## Supporting Data
+## Gathered Fact
 
-Facts, observations, examples, or source-backed evidence attached to a specific Supporting Argument. Supporting Data or Facts require both a written data/fact statement and an attached Evidence Link to be complete, but can exist as incomplete drafts before a link is added.
+A canonical, board-scoped research item containing fact text, an Evidence Link, and an optional Data Type. A Gathered Fact requires non-empty text and a valid HTTP or HTTPS Evidence Link to be complete, but may remain an incomplete draft in Gather Facts.
+
+## Fact Attachment
+
+An ordered live reference from Situation, Complication, or a Supporting Argument to a canonical Gathered Fact. One fact may be reused in several destinations, and edits to the canonical fact update every placement.
+
+## Gather Facts
+
+The default first workflow stage where users collect, revise, order, and review the usage of Gathered Facts before constructing the argument.
 
 ## Evidence Link
 
-A URL attached to Supporting Data or Facts. The app records the link for review and traceability but does not treat the link as proof unless the user verifies it.
+A URL stored on a Gathered Fact. The app checks HTTP or HTTPS format for traceability but does not verify source quality or factual accuracy.
 
 ## Export File
 
@@ -50,7 +58,7 @@ A local file downloaded by the user that contains the board state needed to reop
 
 ## Export File Contract
 
-The schema metadata, filename policy, validation result shape, and migration entrypoint for `.argument.json` files. It preserves unknown future fields when they pass the current board shape so exported files remain inspectable and forward-compatible.
+The schema metadata, filename policy, validation result shape, and compatibility boundary for `.argument.json` files. Version 2 stores canonical Gathered Facts once and destinations as ordered fact references. Valid unknown future fields are preserved.
 
 ## Argument Preview
 
