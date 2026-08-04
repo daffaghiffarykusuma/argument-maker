@@ -5,6 +5,7 @@ import {
   factCompleteness,
   factUsageLabels,
   isGatheredFactComplete,
+  readFactAttachments,
 } from "./argument-board";
 
 describe("Argument Board", () => {
@@ -98,6 +99,30 @@ describe("Argument Board", () => {
     expect(board.scqa.situation.factIds).toEqual([firstId, secondId]);
     expect(board.supportingArguments[0]!.factIds).toEqual([secondId, firstId]);
     expect(factUsageLabels(board, firstId)).toEqual(["Situation", "Supporting Argument 1"]);
+  });
+
+  test("reads ordered attachments and attachable canonical facts through one seam", () => {
+    const initial = createDefaultBoard();
+    const destinationId = initial.supportingArguments[0]!.id;
+    const facts = [
+      { id: "fact-1", text: "First", touched: true, evidenceLink: "https://example.com/1", dataType: "fact" as const },
+      { id: "fact-2", text: "Second", touched: true, evidenceLink: "https://example.com/2", dataType: "fact" as const },
+      { id: "fact-3", text: "Draft", touched: true, evidenceLink: "", dataType: "" as const },
+      { id: "fact-4", text: "Available", touched: true, evidenceLink: "https://example.com/4", dataType: "" as const },
+    ];
+    const board = {
+      ...initial,
+      gatheredFacts: facts,
+      supportingArguments: initial.supportingArguments.map((argument) =>
+        argument.id === destinationId ? { ...argument, factIds: ["fact-2", "missing-fact", "fact-1"] } : argument,
+      ),
+    };
+
+    const attachments = readFactAttachments(board, destinationId);
+
+    expect(attachments.label).toBe("Supporting Argument 1");
+    expect(attachments.attachedFacts).toEqual([facts[1]!, facts[0]!]);
+    expect(attachments.attachableFacts).toEqual([facts[3]!]);
   });
 
   test("creates and attaches an incomplete fact atomically, then detaches without deleting it", () => {

@@ -1,6 +1,7 @@
 import {
   factCompleteness,
   isValidEvidenceLink,
+  readFactAttachments,
   type ArgumentBoard,
   type DataType,
   type FactIncompleteReason,
@@ -53,13 +54,13 @@ export function projectArgumentPreview(board: ArgumentBoard): ArgumentPreviewPro
       id: "situation",
       label: "Situation",
       text: board.scqa.situation.text,
-      facts: projectFacts(board, board.scqa.situation.factIds),
+      facts: projectFacts(board, "situation"),
     },
     {
       id: "complication",
       label: "Complication",
       text: board.scqa.complication.text,
-      facts: projectFacts(board, board.scqa.complication.factIds),
+      facts: projectFacts(board, "complication"),
     },
     { id: "question", label: "Question", text: board.scqa.question.text, facts: [] },
     { id: "answer", label: "Answer", text: board.scqa.answer.text, facts: [] },
@@ -69,7 +70,7 @@ export function projectArgumentPreview(board: ArgumentBoard): ArgumentPreviewPro
     label: `Supporting Argument ${index + 1}`,
     text: argument.text,
     supportMode: formatSupportMode(argument.mode),
-    facts: projectFacts(board, argument.factIds),
+    facts: projectFacts(board, argument.id),
   }));
   const evidenceGroups = [
     ...chain.filter((item) => item.facts.length > 0).map(({ id, label, facts }) => ({ id, label, facts })),
@@ -92,13 +93,8 @@ function activeArguments(board: ArgumentBoard): Array<{ argument: SupportingArgu
     .filter(({ argument }) => argument.text.trim() || argument.touched || argument.factIds.length > 0);
 }
 
-function projectFacts(board: ArgumentBoard, factIds: string[]): ArgumentPreviewFact[] {
-  const factsById = new Map(board.gatheredFacts.map((fact) => [fact.id, fact]));
-
-  return factIds.flatMap((factId) => {
-    const fact = factsById.get(factId);
-    return fact ? [projectFact(fact)] : [];
-  });
+function projectFacts(board: ArgumentBoard, destinationId: string): ArgumentPreviewFact[] {
+  return readFactAttachments(board, destinationId).attachedFacts.map(projectFact);
 }
 
 function projectFact(fact: GatheredFact): ArgumentPreviewFact {

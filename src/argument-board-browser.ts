@@ -1,10 +1,8 @@
 import {
-  destinationLabel,
   factCompleteness,
   factUsageLabels,
-  getDestinationFactIds,
   isGatheredFactComplete,
-  isValidEvidenceLink,
+  readFactAttachments,
   type ArgumentBoard,
   type DataType,
   type FactDestinationId,
@@ -317,16 +315,7 @@ function renderModeControl(argumentId: string, mode: SupportMode): string {
 }
 
 function renderDestinationFacts(board: ArgumentBoard, destinationId: FactDestinationId): string {
-  const factIds = getDestinationFactIds(board, destinationId) ?? [];
-  const factsById = new Map(board.gatheredFacts.map((fact) => [fact.id, fact]));
-  const facts = factIds.flatMap((factId) => {
-    const fact = factsById.get(factId);
-    return fact ? [fact] : [];
-  });
-  const available = board.gatheredFacts.filter(
-    (fact) => isGatheredFactComplete(fact) && !factIds.includes(fact.id),
-  );
-  const label = destinationLabel(board, destinationId);
+  const { attachedFacts: facts, attachableFacts: available, label } = readFactAttachments(board, destinationId);
 
   return `
     <section class="destination-facts" aria-label="Facts supporting ${escapeAttr(label)}">

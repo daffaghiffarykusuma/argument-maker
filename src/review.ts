@@ -2,6 +2,7 @@ import {
   factCompleteness,
   factUsageLabels,
   isGatheredFactComplete,
+  readFactAttachments,
   type ArgumentBoard,
   type FactIncompleteReason,
   type SupportingArgument,
@@ -40,18 +41,13 @@ export function reviewBoard(board: ArgumentBoard): ReviewIssue[] {
     });
   }
 
-  const factsById = new Map(board.gatheredFacts.map((fact) => [fact.id, fact]));
-
   for (const argument of board.supportingArguments) {
     addTouchedEmptyIssue(issues, argument);
 
     if (
       argument.mode === "evidence-backed" &&
       hasText(argument.text) &&
-      !argument.factIds.some((factId) => {
-        const fact = factsById.get(factId);
-        return fact !== undefined && isGatheredFactComplete(fact);
-      })
+      !readFactAttachments(board, argument.id).attachedFacts.some(isGatheredFactComplete)
     ) {
       issues.push({
         code: "needs-complete-fact",

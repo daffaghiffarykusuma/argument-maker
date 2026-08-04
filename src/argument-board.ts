@@ -158,7 +158,23 @@ export function isValidEvidenceLink(value: string): boolean {
   }
 }
 
-export function getDestinationFactIds(board: ArgumentBoard, destinationId: FactDestinationId): string[] | undefined {
+export function readFactAttachments(board: ArgumentBoard, destinationId: FactDestinationId) {
+  const factIds = getDestinationFactIds(board, destinationId) ?? [];
+  const attachedIds = new Set(factIds);
+  const factsById = new Map(board.gatheredFacts.map((fact) => [fact.id, fact]));
+
+  // ponytail: board-scoped linear reads; add a persistent index only if large Gathered Fact libraries make this measurable.
+  return {
+    label: destinationLabel(board, destinationId),
+    attachedFacts: factIds.flatMap((factId) => {
+      const fact = factsById.get(factId);
+      return fact ? [fact] : [];
+    }),
+    attachableFacts: board.gatheredFacts.filter((fact) => isGatheredFactComplete(fact) && !attachedIds.has(fact.id)),
+  };
+}
+
+function getDestinationFactIds(board: ArgumentBoard, destinationId: FactDestinationId): string[] | undefined {
   if (destinationId === "situation" || destinationId === "complication") {
     return board.scqa[destinationId].factIds;
   }
@@ -166,7 +182,7 @@ export function getDestinationFactIds(board: ArgumentBoard, destinationId: FactD
   return board.supportingArguments.find((argument) => argument.id === destinationId)?.factIds;
 }
 
-export function destinationLabel(board: ArgumentBoard, destinationId: FactDestinationId): string {
+function destinationLabel(board: ArgumentBoard, destinationId: FactDestinationId): string {
   if (destinationId === "situation") {
     return "Situation";
   }
