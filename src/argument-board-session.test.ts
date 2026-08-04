@@ -50,7 +50,7 @@ describe("Argument Board session", () => {
     expect(session.snapshot().board.supportingArguments[0]!.factIds).toEqual([factId]);
   });
 
-  test("makes Clear Board and valid import replacement undoable while failed import preserves history", () => {
+  test("makes Clear Board and valid import replacement undoable while rejected imports preserve history", () => {
     const session = createArgumentBoardSession();
     session.dispatch({ type: "update-scqa", field: "answer", text: "Current answer" });
     session.clear();
@@ -58,17 +58,27 @@ describe("Argument Board session", () => {
     session.undo();
     expect(session.snapshot().board.scqa.answer.text).toBe("Current answer");
 
-    const failed = session.importFile("{");
-    expect(failed.ok).toBe(false);
+    let confirmationCount = 0;
+    const rejectReplacement = () => {
+      confirmationCount += 1;
+      return false;
+    };
+    const failed = session.importFile("{", rejectReplacement);
+    expect(failed).toEqual({ ok: false, message: "This is not a readable Argument Board file." });
+    expect(confirmationCount).toBe(0);
     expect(session.snapshot().board.scqa.answer.text).toBe("Current answer");
     expect(session.snapshot().canRedo).toBe(true);
-    session.redo();
 
     const importedFile = createExportFile({ ...createDefaultBoard(), title: "Imported board" });
-    expect(session.importFile(importedFile.contents).ok).toBe(true);
+    expect(session.importFile(importedFile.contents, rejectReplacement)).toBeUndefined();
+    expect(confirmationCount).toBe(1);
+    expect(session.snapshot().board.scqa.answer.text).toBe("Current answer");
+    expect(session.snapshot().canRedo).toBe(true);
+
+    expect(session.importFile(importedFile.contents, () => true)?.ok).toBe(true);
     expect(session.snapshot().board.title).toBe("Imported board");
     session.undo();
-    expect(session.snapshot().board.title).toBe("");
+    expect(session.snapshot().board.scqa.answer.text).toBe("Current answer");
     session.redo();
     expect(session.snapshot().board.title).toBe("Imported board");
   });

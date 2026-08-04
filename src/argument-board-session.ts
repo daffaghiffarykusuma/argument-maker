@@ -66,14 +66,17 @@ export function createArgumentBoardSession(initialBoard = createDefaultBoard()) 
       commit(createDefaultBoard());
       return { cleared: true };
     },
-    replaceBoard(nextBoard: ArgumentBoard) {
-      commit(nextBoard);
-    },
-    importFile(contents: string) {
+    importFile(contents: string, confirmReplacement: () => boolean) {
       const result = parseExportFile(contents);
-      if (result.ok) {
-        commit(result.board);
+      if (!result.ok) {
+        return result;
       }
+
+      if (hasTouchedContent(board) && !confirmReplacement()) {
+        return;
+      }
+
+      commit(result.board);
       return result;
     },
     exportFile() {

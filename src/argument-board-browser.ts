@@ -12,7 +12,6 @@ import {
 import { createArgumentBoardSession, type ArgumentBoardSession, type WorkflowStage } from "./argument-board-session";
 import { projectArgumentPreview, type ArgumentPreviewFact } from "./argument-preview-projection";
 import { commandDeskActions, type CommandDeskActionControl } from "./command-desk-actions";
-import { parseExportFile } from "./export-file-contract";
 import { renderIcon, renderIconButton } from "./icon-controls";
 
 let renderVersion = 0;
@@ -664,17 +663,19 @@ async function handleUpload(appRoot: HTMLDivElement, session: ArgumentBoardSessi
   input.value = "";
   if (!file) return;
 
-  const result = parseExportFile(await file.text());
+  const result = session.importFile(
+    await file.text(),
+    () => confirm("Replace this board? Download it first if you want to keep it."),
+  );
+  if (!result) {
+    return;
+  }
+
   if (!result.ok) {
     alert(result.message);
     return;
   }
 
-  if (session.hasTouchedContent() && !confirm("Replace this board? Download it first if you want to keep it.")) {
-    return;
-  }
-
-  session.replaceBoard(result.board);
   session.setStage("gather");
   renderAndFocus(appRoot, session, "stage-heading-gather");
 }
