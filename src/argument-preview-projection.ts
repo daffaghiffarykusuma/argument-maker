@@ -14,6 +14,7 @@ export interface ArgumentPreviewProjection {
   arguments: ArgumentPreviewArgument[];
   evidenceGroups: ArgumentPreviewEvidenceGroup[];
   mermaid: string;
+  outline: string;
 }
 
 export interface ArgumentPreviewChainItem {
@@ -84,7 +85,65 @@ export function projectArgumentPreview(board: ArgumentBoard): ArgumentPreviewPro
     arguments: argumentsView,
     evidenceGroups,
     mermaid: generateMermaid(chain, argumentsView),
+    outline: generateOutline(board.title, chain, argumentsView),
   };
+}
+
+function generateOutline(
+  title: string,
+  chain: ArgumentPreviewChainItem[],
+  argumentsView: ArgumentPreviewArgument[],
+): string {
+  const lines: string[] = [`# ${title.trim() || "Untitled argument"}`, ""];
+  const incompleteEvidence: string[] = [];
+
+  for (const item of chain) {
+    lines.push(`${item.label}: ${item.text}`);
+    appendFacts(lines, incompleteEvidence, item.label, item.facts);
+  }
+
+  lines.push("");
+
+  for (const argument of argumentsView) {
+    lines.push(`${argument.label}: ${argument.text}`);
+    lines.push(`Support Mode: ${argument.supportMode}`);
+    appendFacts(lines, incompleteEvidence, argument.label, argument.facts);
+    lines.push("");
+  }
+
+  if (incompleteEvidence.length > 0) {
+    lines.push("Incomplete Evidence", ...incompleteEvidence);
+  }
+
+  return lines.join("\n").trimEnd();
+}
+
+function appendFacts(
+  lines: string[],
+  incompleteEvidence: string[],
+  destinationLabel: string,
+  facts: ArgumentPreviewFact[],
+) {
+  for (const fact of facts) {
+    const displayText = [fact.text.trim(), ...fact.markers].filter(Boolean).join(" ");
+    lines.push(`- ${displayText}`);
+
+    if (fact.dataType) {
+      lines.push(`  Data Type: ${fact.formattedDataType}`);
+    }
+
+    if (fact.evidenceLinkIsValid) {
+      lines.push(`  Evidence Link: ${fact.evidenceLink}`);
+    } else if (fact.evidenceLink.trim()) {
+      lines.push("  Evidence Link: [Invalid evidence link]");
+    } else {
+      lines.push("  Evidence Link: [Needs evidence link]");
+    }
+
+    if (fact.markers.length > 0) {
+      incompleteEvidence.push(`- ${destinationLabel}: ${displayText}`);
+    }
+  }
 }
 
 function activeArguments(board: ArgumentBoard): Array<{ argument: SupportingArgument; index: number }> {

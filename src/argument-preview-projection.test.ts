@@ -66,6 +66,44 @@ describe("Argument Preview projection", () => {
     expect(preview.mermaid).toContain("[Needs fact text]");
     expect(preview.mermaid).toContain("[Invalid evidence link]");
   });
+
+  test("generates the outline from the same ordered evidence projection", () => {
+    let board = { ...completeFrame(createDefaultBoard()), title: "Capacity case" };
+    const argumentId = board.supportingArguments[0]!.id;
+    board = applyArgumentBoardCommand(board, {
+      type: "update-supporting-argument",
+      argumentId,
+      changes: { mode: "evidence-backed" },
+    });
+    board = addCompleteFact(board, "Demand rose 20%.", "https://example.com/report", "fact");
+    const reusedId = board.gatheredFacts[0]!.id;
+    board = applyArgumentBoardCommand(board, { type: "attach-fact", destinationId: "situation", factId: reusedId });
+    board = applyArgumentBoardCommand(board, { type: "attach-fact", destinationId: argumentId, factId: reusedId });
+    board = addCompleteFact(board, "Unused research", "https://example.com/unused", "");
+    board = applyArgumentBoardCommand(board, {
+      type: "create-gathered-fact",
+      destinationId: "complication",
+      evidenceLink: "not-a-url",
+    });
+    const incompleteId = board.gatheredFacts.at(-1)!.id;
+    board = applyArgumentBoardCommand(board, {
+      type: "update-gathered-fact",
+      factId: incompleteId,
+      changes: { text: "Capacity has not changed.", dataType: "observation" },
+    });
+
+    const outline = projectArgumentPreview(board).outline;
+
+    expect(outline).toContain("# Capacity case");
+    expect(outline).toContain("Situation: Demand is rising.");
+    expect(outline).toContain("- Demand rose 20%.");
+    expect(outline).toContain("  Data Type: Fact");
+    expect(outline).toContain("  Evidence Link: https://example.com/report");
+    expect(outline).toContain("- Capacity has not changed. [Invalid evidence link]");
+    expect(outline).toContain("Incomplete Evidence");
+    expect(outline).not.toContain("Unused research");
+    expect((outline.match(/Demand rose 20%\./g) ?? [])).toHaveLength(2);
+  });
 });
 
 function completeFrame(initial: ArgumentBoard): ArgumentBoard {

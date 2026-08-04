@@ -6,7 +6,6 @@ import {
 } from "./argument-board";
 import { projectArgumentPreview } from "./argument-preview-projection";
 import { createExportFile, parseExportFile } from "./export-file-contract";
-import { generateOutline } from "./output";
 import { reviewBoard } from "./review";
 
 export type WorkflowStage = "gather" | "construct" | "preview";
@@ -83,7 +82,7 @@ export function createArgumentBoardSession(initialBoard = createDefaultBoard()) 
       return createExportFile(board);
     },
     copyOutline() {
-      return generateOutline(board);
+      return projectArgumentPreview(board).outline;
     },
     copyMermaid() {
       return projectArgumentPreview(board).mermaid;
