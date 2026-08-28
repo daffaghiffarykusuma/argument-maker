@@ -63,7 +63,6 @@ export function createArgumentBoardSession(initialBoard = createDefaultBoard()) 
     },
     clear() {
       commit(createDefaultBoard());
-      return { cleared: true };
     },
     importFile(contents: string, confirmReplacement: () => boolean) {
       const result = parseExportFile(contents);

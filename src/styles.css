@@ -269,7 +269,6 @@ textarea {
   pointer-events: none;
 }
 
-.board-view,
 .preview-view {
   display: grid;
   gap: 16px;

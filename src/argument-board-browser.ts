@@ -640,7 +640,7 @@ function deleteFact(appRoot: HTMLDivElement, session: ArgumentBoardSession, fact
   const usage = factUsageLabels(board, factId);
   if (
     usage.length > 0 &&
-    !confirm(`Delete this fact? It will be removed from ${formatList(usage)}.`)
+    !confirm(`Delete this fact? It will be removed from ${new Intl.ListFormat("en").format(usage)}.`)
   ) {
     return;
   }
@@ -806,12 +806,6 @@ function incompleteGuidance(reason: ReturnType<typeof factCompleteness>[number])
     "invalid-link": "Use a valid http:// or https:// evidence link.",
   };
   return messages[reason];
-}
-
-function formatList(items: string[]): string {
-  if (items.length < 2) return items[0] ?? "";
-  if (items.length === 2) return `${items[0]} and ${items[1]}`;
-  return `${items.slice(0, -1).join(", ")}, and ${items.at(-1)}`;
 }
 
 function safeDomId(value: string): string {

@@ -15,5 +15,5 @@
     "noImplicitOverride": true
   },
   "include": ["src/**/*.ts"],
-  "exclude": ["dist", "prototype", ".browser-check", ".browser-smoke", "node_modules"]
+  "exclude": ["dist", "prototype", ".browser-smoke", "node_modules"]
 }

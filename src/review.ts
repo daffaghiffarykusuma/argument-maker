@@ -67,7 +67,7 @@ export function reviewBoard(board: ArgumentBoard): ReviewIssue[] {
 
     issues.push({
       code: "incomplete-attached-fact",
-      message: `Complete this fact; it is used in ${formatList(usageLabels)}.`,
+      message: `Complete this fact; it is used in ${new Intl.ListFormat("en").format(usageLabels)}.`,
       targetId: fact.id,
       fieldMessages: incompleteReasons.map(fieldMessage),
     });
@@ -107,18 +107,6 @@ function fieldMessage(reason: FactIncompleteReason): string {
   };
 
   return messages[reason];
-}
-
-function formatList(items: string[]): string {
-  if (items.length < 2) {
-    return items[0] ?? "";
-  }
-
-  if (items.length === 2) {
-    return `${items[0]} and ${items[1]}`;
-  }
-
-  return `${items.slice(0, -1).join(", ")}, and ${items.at(-1)}`;
 }
 
 function hasText(value: string): boolean {
