@@ -104,18 +104,19 @@ function render(appRoot: HTMLDivElement, session: ArgumentBoardSession) {
 function renderCommandRail(canUndo: boolean, canRedo: boolean): string {
   return `
     <aside class="command-rail" aria-label="Board tools">
-      <div class="mark" aria-label="Argument Maker">AM</div>
-      <div class="rail-actions">
+      <div class="brand"><div class="mark" aria-hidden="true">a.</div><span>Argument<br>Maker<span class="brand-caption">A studio for clear thinking</span></span></div>
+      <p class="rail-label">YOUR WORKSPACE</p><div class="rail-actions">
         ${renderCommandButton(commandDeskActions.copyOutline)}
         ${renderCommandButton(commandDeskActions.download)}
         <label class="icon-button file-button" aria-label="${commandDeskActions.upload.label}" title="${commandDeskActions.upload.label}" data-tooltip="${commandDeskActions.upload.label}" tabindex="0">
-          ${renderIcon(commandDeskActions.upload.icon)}
+          ${renderIcon(commandDeskActions.upload.icon)}<span class="tool-label">Upload Board</span>
           <input type="file" accept=".json,.argument.json,application/json" data-action="upload" />
         </label>
         ${renderCommandButton({ ...commandDeskActions.undo, disabled: !canUndo })}
         ${renderCommandButton({ ...commandDeskActions.redo, disabled: !canRedo })}
         ${renderCommandButton(commandDeskActions.clear)}
       </div>
+      <div class="rail-note"><span class="local-dot"></span> Private by design<p>Your ideas stay in this tab.<br>Download your board to keep it.</p></div>
     </aside>
   `;
 }
@@ -126,13 +127,12 @@ function renderTopbar(board: ArgumentBoard): string {
   return `
     <header class="topbar" aria-label="Argument board status">
       <div class="title-group">
-        <p class="eyebrow">Argument Board</p>
-        <input id="board-title" class="title-input" aria-label="Board title" value="${escapeAttr(board.title)}" placeholder="Command Desk" data-action="title" />
-        <p class="subtitle">Gather source-linked facts, construct the argument, then inspect the evidence story.</p>
+        <p class="eyebrow">THE THINKING STUDIO <span class="edition">/ YOUR ARGUMENT BOARD</span></p>
+        <input id="board-title" class="title-input" aria-label="Board title" value="${escapeAttr(board.title)}" placeholder="A good argument starts here." data-action="title" />
+        <p class="subtitle">Make sense of your research. Build a case worth making.</p>
       </div>
       <div class="desk-status">
-        <span>${board.gatheredFacts.length} gathered</span>
-        <strong>${usedCount} used</strong>
+        <div><strong>${String(board.gatheredFacts.length).padStart(2, "0")}</strong><span>facts gathered</span></div><div><strong>${String(usedCount).padStart(2, "0")}</strong><span>in your argument</span></div>
       </div>
     </header>
   `;
@@ -158,7 +158,7 @@ function renderStageNavigation(stage: WorkflowStage): string {
               data-action="stage"
               data-stage="${id}"
               class="${stage === id ? "active" : ""}"
-            ><span>${index + 1}</span>${label}</button>
+            ><span class="step-number">0${index + 1}</span><span>${label}<small>${["Collect the evidence", "Connect your thinking", "See the whole picture"][index]}</small></span><b aria-hidden="true">${stage === id ? "&#8599;" : "&#8594;"}</b></button>
           `,
         )
         .join("")}
@@ -188,20 +188,20 @@ function renderGatherStage(board: ArgumentBoard): string {
     <section id="stage-panel-gather" class="workflow-stage" role="tabpanel" aria-labelledby="stage-heading-gather">
       <div class="section-heading">
         <div>
-          <p class="eyebrow">Stage 1</p>
+          <p class="eyebrow">01 / THE RESEARCH</p>
           <h2 id="stage-heading-gather" tabindex="-1">Gather Facts</h2>
-          <span>Capture one source-linked claim per row before deciding where it belongs.</span>
+          <span>Every strong argument begins with something you can point to.</span>
         </div>
         <button id="add-fact" type="button" data-action="add-fact">+ Add fact</button>
       </div>
       <p class="verification-note">Link format checked; source quality and factual accuracy are not verified.</p>
-      <div class="fact-library">
+      <div class="research-layout"><div class="fact-library">
         ${
           board.gatheredFacts.length === 0
-            ? `<div class="empty-state"><strong>No gathered facts yet.</strong><span>Add a fact or continue to Construct Argument.</span></div>`
+            ? `<div class="empty-state"><div class="paper-stack" aria-hidden="true"><div class="paper-back"></div><div class="paper-front"><span>FIELD NOTE / 001</span><i></i><i></i><i></i><b>Every idea needs<br>a starting point.</b></div><span class="paper-seal">&#10035;</span></div><h3>A little evidence.<br>A world of possibility.</h3><p>Collect a finding, an observation, or a telling example.<br>Give it a source. You can connect the dots later.</p><button type="button" data-action="add-fact">Create your first fact <span aria-hidden="true">&#8599;</span></button><span class="empty-hint">Or open an existing board with Upload Board.</span></div>`
             : board.gatheredFacts.map((fact, index) => renderFactCard(board, fact, index)).join("")
         }
-      </div>
+      </div><aside class="research-guide" aria-label="Research guidance"><p class="eyebrow">A NOTE ON METHOD</p><h3>Collect first.<br>Connect later.</h3><p>You don't need the whole argument yet. Start with what you know.</p><ol><li><strong>One idea per fact</strong><span>Keep each finding focused so it can support more than one point.</span></li><li><strong>Keep the source close</strong><span>Add the original link. Your future self will thank you.</span></li><li><strong>Leave room to think</strong><span>Drafts are welcome. Complete the details as you go.</span></li></ol><div class="guide-footer">FACTS &#8594; REASONING &#8594; CLARITY</div></aside></div>
     </section>
   `;
 }
@@ -260,7 +260,7 @@ function renderConstructStage(
     <section id="stage-panel-construct" class="workflow-stage" role="tabpanel" aria-labelledby="stage-heading-construct">
       <div class="section-heading">
         <div>
-          <p class="eyebrow">Stage 2</p>
+          <p class="eyebrow">02 / THE REASONING</p>
           <h2 id="stage-heading-construct" tabindex="-1">Construct Argument</h2>
           <span>Shape the SCQA story and deliberately choose evidence for each destination.</span>
         </div>
@@ -463,7 +463,7 @@ function renderPreviewStage(preview: ReturnType<typeof projectArgumentPreview>):
     <section id="stage-panel-preview" class="workflow-stage preview-view" role="tabpanel" aria-labelledby="stage-heading-preview">
       <div class="section-heading">
         <div>
-          <p class="eyebrow">Stage 3</p>
+          <p class="eyebrow">03 / THE BIG PICTURE</p>
           <h2 id="stage-heading-preview" tabindex="-1">Argument Preview</h2>
           <span>Read-only structure and destination-grouped evidence</span>
         </div>
@@ -473,6 +473,7 @@ function renderPreviewStage(preview: ReturnType<typeof projectArgumentPreview>):
       <div class="mermaid-diagram" role="img" aria-label="Rendered Argument Board workflow">
         <div class="mermaid-status">Rendering workflow...</div>
       </div>
+      <p class="diagram-hint">Scroll across the diagram to follow each branch.</p>
       <section class="evidence-list" aria-labelledby="evidence-list-heading">
         <h3 id="evidence-list-heading">Evidence by destination</h3>
         ${
@@ -744,15 +745,17 @@ function loadMermaid() {
     mermaid.initialize({
       startOnLoad: false,
       securityLevel: "strict",
-      theme: "dark",
+      theme: "base",
       themeVariables: {
-        background: "#02080d",
-        primaryColor: "#06131d",
-        primaryTextColor: "#f4ffe4",
-        primaryBorderColor: "#d9ed92",
-        lineColor: "#b5e48c",
-        secondaryColor: "#123f61",
-        tertiaryColor: "#000000",
+        background: "#111111",
+        primaryColor: "#242424",
+        primaryTextColor: "#ededed",
+        darkMode: true,
+        textColor: "#ededed",
+        primaryBorderColor: "#616161",
+        lineColor: "#a0a0a0",
+        secondaryColor: "#1c1c1c",
+        tertiaryColor: "#151515",
         fontFamily: "Inter, ui-sans-serif, system-ui, sans-serif",
       },
     });
@@ -773,7 +776,7 @@ function renderIconButton(options: IconButtonOptions): string {
       ${options.attrs ?? ""}
       ${options.disabled ? "disabled" : ""}
     >
-      ${renderIcon(options.icon)}
+      ${renderIcon(options.icon)}<span class="tool-label">${escapeHtml(options.label)}</span>
     </button>
   `;
 }
