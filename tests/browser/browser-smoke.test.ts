@@ -4,12 +4,12 @@ import { join } from "node:path";
 import { chromium, type Page } from "playwright";
 
 const appUrl = "http://127.0.0.1:3000";
-const smokeDir = join(import.meta.dir, "..", ".browser-smoke");
+const smokeDir = join(import.meta.dir, "../..", "output", "browser-smoke");
 const screenshotPath = join(smokeDir, "gather-first.png");
 
 test("supports the gather-first Argument Maker workflow in Chromium", async () => {
   const server = Bun.spawn(["bun", "run", "dev", "--", "--strictPort", "--port", "3000"], {
-    cwd: join(import.meta.dir, ".."),
+    cwd: join(import.meta.dir, "../.."),
     stdout: "ignore",
     stderr: "ignore",
   });

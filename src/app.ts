@@ -1,4 +1,4 @@
-import { mountArgumentBoardApp } from "./argument-board-browser";
+import { mountArgumentBoardApp } from "./ui/argument-board-browser";
 
 const app = document.querySelector<HTMLDivElement>("#app");
 

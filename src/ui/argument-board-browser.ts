@@ -8,9 +8,9 @@ import {
   type FactDestinationId,
   type GatheredFact,
   type SupportMode,
-} from "./argument-board";
-import { createArgumentBoardSession, type ArgumentBoardSession, type WorkflowStage } from "./argument-board-session";
-import { projectArgumentPreview, type ArgumentPreviewFact } from "./argument-preview-projection";
+} from "../board/argument-board";
+import { createArgumentBoardSession, type ArgumentBoardSession, type WorkflowStage } from "../board/argument-board-session";
+import { projectArgumentPreview, type ArgumentPreviewFact } from "../board/argument-preview-projection";
 
 type IconName = "copy" | "download" | "upload" | "undo" | "redo" | "trash" | "up" | "down" | "eye" | "eyeOff";
 
