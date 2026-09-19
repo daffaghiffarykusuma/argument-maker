@@ -104,8 +104,8 @@ function render(appRoot: HTMLDivElement, session: ArgumentBoardSession) {
 function renderCommandRail(canUndo: boolean, canRedo: boolean): string {
   return `
     <aside class="command-rail" aria-label="Board tools">
-      <div class="brand"><div class="mark" aria-hidden="true">a.</div><span>Argument<br>Maker<span class="brand-caption">A studio for clear thinking</span></span></div>
-      <p class="rail-label">YOUR WORKSPACE</p><div class="rail-actions">
+      <div class="brand"><div class="mark" aria-hidden="true">a.</div><span>Argument<br>Maker</span></div>
+      <div class="rail-actions">
         ${renderCommandButton(commandDeskActions.copyOutline)}
         ${renderCommandButton(commandDeskActions.download)}
         <label class="icon-button file-button" aria-label="${commandDeskActions.upload.label}" title="${commandDeskActions.upload.label}" data-tooltip="${commandDeskActions.upload.label}" tabindex="0">
@@ -127,9 +127,7 @@ function renderTopbar(board: ArgumentBoard): string {
   return `
     <header class="topbar" aria-label="Argument board status">
       <div class="title-group">
-        <p class="eyebrow">THE THINKING STUDIO <span class="edition">/ YOUR ARGUMENT BOARD</span></p>
         <input id="board-title" class="title-input" aria-label="Board title" value="${escapeAttr(board.title)}" placeholder="A good argument starts here." data-action="title" />
-        <p class="subtitle">Make sense of your research. Build a case worth making.</p>
       </div>
       <div class="desk-status">
         <div><strong>${String(board.gatheredFacts.length).padStart(2, "0")}</strong><span>facts gathered</span></div><div><strong>${String(usedCount).padStart(2, "0")}</strong><span>in your argument</span></div>
@@ -158,7 +156,7 @@ function renderStageNavigation(stage: WorkflowStage): string {
               data-action="stage"
               data-stage="${id}"
               class="${stage === id ? "active" : ""}"
-            ><span class="step-number">0${index + 1}</span><span>${label}<small>${["Collect the evidence", "Connect your thinking", "See the whole picture"][index]}</small></span><b aria-hidden="true">${stage === id ? "&#8599;" : "&#8594;"}</b></button>
+            ><span class="step-number">0${index + 1}</span><span>${label}</span><b aria-hidden="true">${stage === id ? "&#8599;" : "&#8594;"}</b></button>
           `,
         )
         .join("")}
@@ -188,20 +186,18 @@ function renderGatherStage(board: ArgumentBoard): string {
     <section id="stage-panel-gather" class="workflow-stage" role="tabpanel" aria-labelledby="stage-heading-gather">
       <div class="section-heading">
         <div>
-          <p class="eyebrow">01 / THE RESEARCH</p>
           <h2 id="stage-heading-gather" tabindex="-1">Gather Facts</h2>
-          <span>Every strong argument begins with something you can point to.</span>
         </div>
         <button id="add-fact" type="button" data-action="add-fact">+ Add fact</button>
       </div>
       <p class="verification-note">Link format checked; source quality and factual accuracy are not verified.</p>
-      <div class="research-layout"><div class="fact-library">
+      <div class="fact-library">
         ${
           board.gatheredFacts.length === 0
-            ? `<div class="empty-state"><div class="paper-stack" aria-hidden="true"><div class="paper-back"></div><div class="paper-front"><span>FIELD NOTE / 001</span><i></i><i></i><i></i><b>Every idea needs<br>a starting point.</b></div><span class="paper-seal">&#10035;</span></div><h3>A little evidence.<br>A world of possibility.</h3><p>Collect a finding, an observation, or a telling example.<br>Give it a source. You can connect the dots later.</p><button type="button" data-action="add-fact">Create your first fact <span aria-hidden="true">&#8599;</span></button><span class="empty-hint">Or open an existing board with Upload Board.</span></div>`
+            ? `<div class="empty-state"><div class="paper-stack" aria-hidden="true"><div class="paper-back"></div><div class="paper-front"><span>FIELD NOTE / 001</span><i></i><i></i><i></i></div><span class="paper-seal">&#10035;</span></div><h3>No facts yet</h3><p>Add a finding and its source to get started.</p><button type="button" data-action="add-fact">Create your first fact <span aria-hidden="true">&#8599;</span></button></div>`
             : board.gatheredFacts.map((fact, index) => renderFactCard(board, fact, index)).join("")
         }
-      </div><aside class="research-guide" aria-label="Research guidance"><p class="eyebrow">A NOTE ON METHOD</p><h3>Collect first.<br>Connect later.</h3><p>You don't need the whole argument yet. Start with what you know.</p><ol><li><strong>One idea per fact</strong><span>Keep each finding focused so it can support more than one point.</span></li><li><strong>Keep the source close</strong><span>Add the original link. Your future self will thank you.</span></li><li><strong>Leave room to think</strong><span>Drafts are welcome. Complete the details as you go.</span></li></ol><div class="guide-footer">FACTS &#8594; REASONING &#8594; CLARITY</div></aside></div>
+      </div>
     </section>
   `;
 }
@@ -260,9 +256,7 @@ function renderConstructStage(
     <section id="stage-panel-construct" class="workflow-stage" role="tabpanel" aria-labelledby="stage-heading-construct">
       <div class="section-heading">
         <div>
-          <p class="eyebrow">02 / THE REASONING</p>
           <h2 id="stage-heading-construct" tabindex="-1">Construct Argument</h2>
-          <span>Shape the SCQA story and deliberately choose evidence for each destination.</span>
         </div>
       </div>
       <section class="scqa-grid" aria-label="Argument frame">
@@ -275,7 +269,6 @@ function renderConstructStage(
         <div class="section-heading">
           <div>
             <h2 id="supporting-arguments">Supporting Arguments</h2>
-            <span>Reasoning claims with deliberately selected facts</span>
           </div>
           <button type="button" data-action="add-argument">+ Argument</button>
         </div>
@@ -463,9 +456,7 @@ function renderPreviewStage(preview: ReturnType<typeof projectArgumentPreview>):
     <section id="stage-panel-preview" class="workflow-stage preview-view" role="tabpanel" aria-labelledby="stage-heading-preview">
       <div class="section-heading">
         <div>
-          <p class="eyebrow">03 / THE BIG PICTURE</p>
           <h2 id="stage-heading-preview" tabindex="-1">Argument Preview</h2>
-          <span>Read-only structure and destination-grouped evidence</span>
         </div>
         ${renderCommandButton(commandDeskActions.copyMermaid)}
       </div>

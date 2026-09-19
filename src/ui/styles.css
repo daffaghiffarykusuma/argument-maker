@@ -120,23 +120,8 @@ a {
   font-size: 49px;
   line-height: 0.9;
 }
-.brand-caption {
-  display: block;
-  margin-top: 12px;
-  font:
-    10px/1.5 "Segoe UI",
-    sans-serif;
-  letter-spacing: 0.1px;
-  color: #969696;
-}
-.rail-label {
-  font-size: 9px;
-  letter-spacing: 1.8px;
-  color: #969696;
-  margin: 58px 12px 13px;
-  font-weight: 700;
-}
 .rail-actions {
+  margin-top: 40px;
   display: grid;
   gap: 5px;
 }
@@ -230,18 +215,6 @@ a {
   min-width: 0;
   flex: 1;
 }
-.eyebrow {
-  margin: 0 0 12px;
-  color: var(--ink);
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 1.7px;
-}
-.edition {
-  color: #939393;
-  letter-spacing: 1px;
-  margin-left: 8px;
-}
 .title-input {
   display: block;
   background: transparent;
@@ -260,11 +233,6 @@ a {
 }
 .title-input::placeholder {
   color: #ededed;
-}
-.subtitle {
-  color: var(--muted);
-  font-size: 13px;
-  margin: 8px 0 0;
 }
 .desk-status {
   display: flex;
@@ -313,12 +281,6 @@ a {
     sans-serif;
   color: #939393;
 }
-.stage-tabs small {
-  display: block;
-  font-size: 10px;
-  font-weight: 400;
-  margin-top: 3px;
-}
 .stage-tabs b {
   margin-left: auto;
   font-size: 18px;
@@ -357,15 +319,7 @@ a {
     34px/1.15 "Segoe UI",
     sans-serif;
   letter-spacing: -0.8px;
-  margin: 0 0 10px;
-}
-.section-heading > div > span {
-  font-size: 12px;
-  color: var(--muted);
-  display: block;
-}
-.section-heading .eyebrow {
-  margin-bottom: 9px;
+  margin: 0;
 }
 #add-fact,
 [data-action="add-argument"],
@@ -386,12 +340,6 @@ a {
   font-size: 11px;
   padding-left: 14px;
   border-left: 2px solid #444444;
-}
-.research-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 240px;
-  gap: 26px;
-  align-items: start;
 }
 .fact-library,
 .attached-list,
@@ -455,14 +403,6 @@ a {
 .paper-front i:nth-of-type(3) {
   width: 60%;
 }
-.paper-front b {
-  display: block;
-  color: var(--ink);
-  font:
-    italic 14px/1.2 "Segoe UI",
-    sans-serif;
-  margin-top: 12px;
-}
 .paper-seal {
   position: absolute;
   right: 0;
@@ -487,71 +427,6 @@ a {
 }
 .empty-state button span {
   margin-left: 18px;
-}
-.empty-hint {
-  color: #969696;
-  font-size: 10px;
-  margin-top: 15px;
-}
-.research-guide {
-  border-top: 3px solid #444444;
-  padding: 24px 4px 0;
-}
-.research-guide .eyebrow {
-  color: #a0a0a0;
-  font-size: 9px;
-}
-.research-guide h3 {
-  font:
-    italic 29px/1.15 "Segoe UI",
-    sans-serif;
-  margin: 18px 0;
-  letter-spacing: -0.6px;
-}
-.research-guide p {
-  font-size: 12px;
-  line-height: 1.8;
-  color: var(--muted);
-}
-.research-guide ol {
-  counter-reset: notes;
-  list-style: none;
-  padding: 5px 0 0;
-  margin: 0;
-}
-.research-guide li {
-  counter-increment: notes;
-  position: relative;
-  padding: 16px 0 16px 30px;
-  border-bottom: 1px solid var(--line);
-}
-.research-guide li::before {
-  content: "0" counter(notes);
-  position: absolute;
-  left: 0;
-  top: 18px;
-  font:
-    11px "Segoe UI",
-    sans-serif;
-  color: #939393;
-}
-.research-guide strong {
-  display: block;
-  font-size: 12px;
-  font-weight: 600;
-  margin-bottom: 5px;
-}
-.research-guide li span {
-  display: block;
-  font-size: 11px;
-  line-height: 1.65;
-  color: var(--muted);
-}
-.guide-footer {
-  font: 8px monospace;
-  letter-spacing: 1px;
-  color: #939393;
-  margin-top: 22px;
 }
 .fact-card,
 .panel,
@@ -919,10 +794,6 @@ label small {
   .command-rail {
     padding-inline: 14px;
   }
-  .research-layout {
-    grid-template-columns: minmax(0, 1fr) 200px;
-    gap: 20px;
-  }
   .title-input {
     font-size: 34px;
   }
@@ -956,8 +827,6 @@ label small {
   .brand {
     font-size: 19px;
   }
-  .brand-caption,
-  .rail-label,
   .rail-note {
     display: none;
   }
@@ -967,6 +836,7 @@ label small {
     height: 36px;
   }
   .rail-actions {
+    margin-top: 0;
     display: flex;
     gap: 5px;
     margin-left: auto;
@@ -979,9 +849,6 @@ label small {
   .rail-actions .tool-label {
     display: none;
   }
-  .research-layout {
-    grid-template-columns: minmax(0, 1fr) 220px;
-  }
   .title-input {
     font-size: 38px;
   }
@@ -990,34 +857,10 @@ label small {
   .desk-main {
     padding: 26px 18px;
   }
-  .research-layout {
-    grid-template-columns: 1fr;
-  }
-  .research-guide {
-    padding-top: 20px;
-  }
-  .research-guide ol {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 15px;
-  }
-  .research-guide li {
-    padding-left: 0;
-    padding-top: 35px;
-  }
-  .research-guide li::before {
-    top: 12px;
-  }
-  .research-guide h3 br {
-    display: none;
-  }
   .topbar {
     align-items: flex-start;
   }
   .desk-status {
-    display: none;
-  }
-  .edition {
     display: none;
   }
   .stage-tabs button {
@@ -1025,7 +868,6 @@ label small {
     gap: 8px;
     font-size: 11px;
   }
-  .stage-tabs small,
   .stage-tabs b {
     display: none;
   }
@@ -1037,9 +879,6 @@ label small {
   }
   .section-heading h2 {
     font-size: 30px;
-  }
-  .section-heading > div > span {
-    font-size: 11px;
   }
   .section-heading {
     gap: 10px;
@@ -1100,16 +939,6 @@ label small {
   }
   .title-input {
     font-size: 30px;
-  }
-  .research-guide ol {
-    grid-template-columns: 1fr;
-    gap: 0;
-  }
-  .research-guide li {
-    padding: 14px 0 14px 30px;
-  }
-  .research-guide li::before {
-    top: 17px;
   }
 }
 @media (prefers-reduced-motion: reduce) {
