@@ -3,7 +3,7 @@ import { applyArgumentBoardCommand, createDefaultBoard, type ArgumentBoard } fro
 import { projectArgumentPreview } from "./argument-preview-projection";
 
 describe("Argument Preview projection", () => {
-  test("projects attached facts in each destination order and omits unused facts", () => {
+  test("projects reused facts in independent destination order without duplicate attachments or unused facts", () => {
     let board = completeFrame(createDefaultBoard());
     board = addCompleteFact(board, "First fact", "https://example.com/first", "fact");
     const firstId = board.gatheredFacts.at(-1)!.id;
@@ -22,6 +22,7 @@ describe("Argument Preview projection", () => {
       factId: secondId,
       direction: "up",
     });
+    board = applyArgumentBoardCommand(board, { type: "attach-fact", destinationId: "situation", factId: firstId });
 
     const preview = projectArgumentPreview(board);
 

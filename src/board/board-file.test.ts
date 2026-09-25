@@ -57,7 +57,7 @@ describe("Argument Board file persistence", () => {
     expect(createExportFile(result.board).contents).not.toContain('"data"');
   });
 
-  test("rejects version 1 and every invalid identity or reference relationship", () => {
+  test("rejects version 1, non-object data, and invalid identity or reference relationships", () => {
     expect(parseExportFile(JSON.stringify({ schemaVersion: 1, appName: "Argument Maker" }))).toEqual({
       ok: false,
       message: "Unsupported Argument Board file version.",
@@ -72,6 +72,7 @@ describe("Argument Board file persistence", () => {
       dataType: "",
     } as const;
     const cases: unknown[] = [
+      null,
       { ...valid, gatheredFacts: [fact, fact] },
       {
         ...valid,
@@ -102,16 +103,5 @@ describe("Argument Board file persistence", () => {
         message: "This Argument Board file is missing required data.",
       });
     }
-  });
-
-  test("rejects malformed input without inventing a board", () => {
-    expect(parseExportFile("{")).toEqual({
-      ok: false,
-      message: "This is not a readable Argument Board file.",
-    });
-    expect(parseExportFile("null")).toEqual({
-      ok: false,
-      message: "This Argument Board file is missing required data.",
-    });
   });
 });

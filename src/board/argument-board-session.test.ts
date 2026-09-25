@@ -4,21 +4,30 @@ import { createArgumentBoardSession } from "./argument-board-session";
 import { createExportFile } from "./export-file-contract";
 
 describe("Argument Board session", () => {
-  test("opens in Gather Facts and treats create-and-attach as one history action", () => {
+  test("tracks local content through atomic create-and-attach, undo/redo, and detach", () => {
     const session = createArgumentBoardSession();
 
     expect(session.snapshot().stage).toBe("gather");
+    expect(session.hasTouchedContent()).toBe(false);
     session.dispatch({ type: "create-gathered-fact", destinationId: "situation" });
+    const factId = session.snapshot().board.gatheredFacts[0]!.id;
+    expect(session.hasTouchedContent()).toBe(true);
     expect(session.snapshot().board.gatheredFacts).toHaveLength(1);
-    expect(session.snapshot().board.scqa.situation.factIds).toHaveLength(1);
+    expect(session.snapshot().board.scqa.situation.factIds).toEqual([factId]);
 
     session.undo();
     expect(session.snapshot().board.gatheredFacts).toEqual([]);
     expect(session.snapshot().board.scqa.situation.factIds).toEqual([]);
+    expect(session.hasTouchedContent()).toBe(false);
 
     session.redo();
     expect(session.snapshot().board.gatheredFacts).toHaveLength(1);
-    expect(session.snapshot().board.scqa.situation.factIds).toHaveLength(1);
+    expect(session.snapshot().board.scqa.situation.factIds).toEqual([factId]);
+
+    session.dispatch({ type: "detach-fact", destinationId: "situation", factId });
+    expect(session.snapshot().board.scqa.situation.factIds).toEqual([]);
+    expect(session.snapshot().board.gatheredFacts.map((fact) => fact.id)).toEqual([factId]);
+    expect(session.hasTouchedContent()).toBe(true);
   });
 
   test("restores every placement when a cascading delete is undone", () => {
@@ -43,6 +52,9 @@ describe("Argument Board session", () => {
 
     session.dispatch({ type: "delete-gathered-fact", factId });
     expect(session.snapshot().board.gatheredFacts).toEqual([]);
+    expect(session.snapshot().board.scqa.situation.factIds).toEqual([]);
+    expect(session.snapshot().board.supportingArguments[0]!.factIds).toEqual([]);
+    expect(board.gatheredFacts[0]!.text).toBe("Shared fact");
 
     session.undo();
     expect(session.snapshot().board.gatheredFacts[0]!.id).toBe(factId);
@@ -81,12 +93,5 @@ describe("Argument Board session", () => {
     expect(session.snapshot().board.scqa.answer.text).toBe("Current answer");
     session.redo();
     expect(session.snapshot().board.title).toBe("Imported board");
-  });
-
-  test("recognizes gathered facts and references as touched local content", () => {
-    const session = createArgumentBoardSession();
-    expect(session.hasTouchedContent()).toBe(false);
-    session.dispatch({ type: "create-gathered-fact" });
-    expect(session.hasTouchedContent()).toBe(true);
   });
 });

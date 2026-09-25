@@ -3,7 +3,6 @@ import {
   applyArgumentBoardCommand,
   createDefaultBoard,
   factCompleteness,
-  factUsageLabels,
   isGatheredFactComplete,
   readFactAttachments,
 } from "./argument-board";
@@ -60,47 +59,6 @@ describe("Argument Board", () => {
     expect(factCompleteness(board.gatheredFacts[0]!)).toEqual([]);
   });
 
-  test("attaches complete facts, reuses them, and keeps destination orders independent", () => {
-    let board = createDefaultBoard();
-    board = applyArgumentBoardCommand(board, {
-      type: "create-gathered-fact",
-      evidenceLink: "https://example.com/one",
-    });
-    const firstId = board.gatheredFacts[0]!.id;
-    board = applyArgumentBoardCommand(board, {
-      type: "update-gathered-fact",
-      factId: firstId,
-      changes: { text: "First fact" },
-    });
-    board = applyArgumentBoardCommand(board, {
-      type: "create-gathered-fact",
-      evidenceLink: "https://example.com/two",
-    });
-    const secondId = board.gatheredFacts[1]!.id;
-    board = applyArgumentBoardCommand(board, {
-      type: "update-gathered-fact",
-      factId: secondId,
-      changes: { text: "Second fact" },
-    });
-    const argumentId = board.supportingArguments[0]!.id;
-
-    for (const factId of [firstId, secondId]) {
-      board = applyArgumentBoardCommand(board, { type: "attach-fact", destinationId: "situation", factId });
-      board = applyArgumentBoardCommand(board, { type: "attach-fact", destinationId: argumentId, factId });
-    }
-    board = applyArgumentBoardCommand(board, {
-      type: "move-attached-fact",
-      destinationId: argumentId,
-      factId: secondId,
-      direction: "up",
-    });
-    board = applyArgumentBoardCommand(board, { type: "attach-fact", destinationId: "situation", factId: firstId });
-
-    expect(board.scqa.situation.factIds).toEqual([firstId, secondId]);
-    expect(board.supportingArguments[0]!.factIds).toEqual([secondId, firstId]);
-    expect(factUsageLabels(board, firstId)).toEqual(["Situation", "Supporting Argument 1"]);
-  });
-
   test("reads ordered attachments and attachable canonical facts through one seam", () => {
     const initial = createDefaultBoard();
     const destinationId = initial.supportingArguments[0]!.id;
@@ -123,53 +81,6 @@ describe("Argument Board", () => {
     expect(attachments.label).toBe("Supporting Argument 1");
     expect(attachments.attachedFacts).toEqual([facts[1]!, facts[0]!]);
     expect(attachments.attachableFacts).toEqual([facts[3]!]);
-  });
-
-  test("creates and attaches an incomplete fact atomically, then detaches without deleting it", () => {
-    let board = createDefaultBoard();
-    board = applyArgumentBoardCommand(board, {
-      type: "create-gathered-fact",
-      destinationId: "complication",
-    });
-    const factId = board.gatheredFacts[0]!.id;
-
-    expect(board.scqa.complication.factIds).toEqual([factId]);
-    expect(factCompleteness(board.gatheredFacts[0]!)).toEqual(["needs-text", "needs-link"]);
-
-    board = applyArgumentBoardCommand(board, {
-      type: "detach-fact",
-      destinationId: "complication",
-      factId,
-    });
-
-    expect(board.scqa.complication.factIds).toEqual([]);
-    expect(board.gatheredFacts.map((fact) => fact.id)).toEqual([factId]);
-  });
-
-  test("deleting a used fact removes every reference and undo-ready state stays immutable", () => {
-    let board = createDefaultBoard();
-    board = applyArgumentBoardCommand(board, {
-      type: "create-gathered-fact",
-      destinationId: "situation",
-      evidenceLink: "https://example.com/source",
-    });
-    const factId = board.gatheredFacts[0]!.id;
-    board = applyArgumentBoardCommand(board, {
-      type: "update-gathered-fact",
-      factId,
-      changes: { text: "Shared fact" },
-    });
-    const beforeDelete = applyArgumentBoardCommand(board, {
-      type: "attach-fact",
-      destinationId: board.supportingArguments[0]!.id,
-      factId,
-    });
-    const deleted = applyArgumentBoardCommand(beforeDelete, { type: "delete-gathered-fact", factId });
-
-    expect(deleted.gatheredFacts).toEqual([]);
-    expect(deleted.scqa.situation.factIds).toEqual([]);
-    expect(deleted.supportingArguments[0]!.factIds).toEqual([]);
-    expect(beforeDelete.gatheredFacts[0]!.text).toBe("Shared fact");
   });
 
   test("preserves supporting argument editing, movement, duplication, and deletion", () => {
