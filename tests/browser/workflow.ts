@@ -48,6 +48,24 @@ test("supports the gather-first Argument Maker workflow in Chromium", { timeout:
     expect(await page.locator(".fact-card").count()).toBe(2);
 
     await fillAndCommit(page, "#board-title", "Capacity case");
+    await page.locator('[data-action="fact-text"][data-fact-id="fact-1"]').fill("");
+    await page.locator("#fact-filter").selectOption("incomplete");
+    const filteredEditor = page.locator('[data-action="fact-text"][data-fact-id="fact-1"]');
+    await filteredEditor.fill("Demand rose 20%.");
+    await filteredEditor.press("Tab");
+    expect(await page.evaluate(() => document.activeElement?.getAttribute("data-action"))).toBe("fact-link");
+    expect(await page.locator("#fact-results").innerText()).toBe("0 of 2 facts");
+    await page.locator("#board-title").focus();
+    await page.locator('.fact-card[data-fact-id="fact-1"]').waitFor({ state: "detached" });
+    expect(await page.locator(".fact-card").count()).toBe(0);
+    await page.locator("#fact-filter").selectOption("all");
+    await page.getByRole("searchbox", { name: "Search facts" }).fill("Demand");
+    await page.locator('[data-action="fact-text"][data-fact-id="fact-1"]').fill("Updated finding");
+    await page.locator("#board-title").focus();
+    await page.locator('.fact-card[data-fact-id="fact-1"]').waitFor({ state: "detached" });
+    await page.getByRole("searchbox", { name: "Search facts" }).fill("");
+    await fillAndCommit(page, '[data-action="fact-text"][data-fact-id="fact-1"]', "Demand rose 20%.");
+    console.log("browser-smoke: reconciled edited filters without interrupting Tab focus");
     console.log("browser-smoke: gathered two complete facts");
     await page.getByRole("tab", { name: /Construct Argument/ }).click();
     expect(await page.evaluate(() => document.activeElement?.id)).toBe("stage-heading-construct");

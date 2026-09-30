@@ -33,9 +33,15 @@ describe("Local draft recovery", () => {
     const draft = createLocalDraft(storage);
     const board = createExampleBoard();
     draft.setEnabled(true, board);
-    draft.pause();
+    const otherTab = createLocalDraft(storage);
+    expect(otherTab.load()).toEqual(board);
+    const otherBoard = { ...board, title: "Other tab revision" };
+    expect(otherTab.save(otherBoard)).toBe(true);
     expect(draft.save({ ...board, title: "Competing edit" })).toBe(false);
-    expect(JSON.parse(storage.getItem(localDraftKey)!).title).toBe(board.title);
+    expect(draft.paused).toBe(true);
+    expect(JSON.parse(storage.getItem(localDraftKey)!).title).toBe(otherBoard.title);
+    expect(draft.setEnabled(true, board)).toBe(true);
+    expect(draft.save({ ...board, title: "Deliberately kept board" })).toBe(true);
     storage.setItem(localDraftKey, "{bad");
     const corrupt = createLocalDraft(storage);
     expect(corrupt.load()).toBeUndefined();

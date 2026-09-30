@@ -849,16 +849,41 @@ function incompleteGuidance(reason: ReturnType<typeof factCompleteness>[number])
 }
 
 
-function updateFactResults(appRoot: HTMLDivElement, session: ArgumentBoardSession) {
+function updateFactResults(appRoot: HTMLDivElement, session: ArgumentBoardSession, preserveEditor = false) {
   const view = views.get(appRoot)!;
   const board = session.snapshot().board;
   const outline = appRoot.querySelector(".construction-outline-content");
   if (outline) { outline.innerHTML = renderCompactOutline(board); return; }
   const facts = filterFacts(board, view.query, view.filter);
   const library = appRoot.querySelector(".fact-library");
-  if (library && board.gatheredFacts.length) library.innerHTML = facts.length ? facts.map((fact) => renderFactCard(board, fact, board.gatheredFacts.indexOf(fact))).join("") : "<p>No matching facts. Change the search or filter.</p>";
-  for (const details of library?.querySelectorAll<HTMLDetailsElement>("details[data-disclosure]") ?? []) {
-    details.open = view.disclosures.get(details.dataset.disclosure!) ?? false;
+  if (library && board.gatheredFacts.length) {
+    if (!preserveEditor) library.innerHTML = facts.map((fact) => renderFactCard(board, fact, board.gatheredFacts.indexOf(fact))).join("");
+    else {
+      // Keep the current editor intact until focus leaves its card, including native undo.
+      const cards = new Map([...library.querySelectorAll<HTMLElement>(".fact-card")].map((card) => [card.dataset.factId!, card]));
+      const activeCard = document.activeElement?.closest<HTMLElement>(".fact-card");
+      const visible = board.gatheredFacts.filter((fact) => facts.includes(fact) || cards.get(fact.id) === activeCard);
+      for (const [id, card] of cards) if (!visible.some((fact) => fact.id === id)) card.remove();
+      let previous: HTMLElement | undefined;
+      for (const fact of visible) {
+        let card = cards.get(fact.id);
+        if (!card) {
+          const template = document.createElement("template");
+          template.innerHTML = renderFactCard(board, fact, board.gatheredFacts.indexOf(fact));
+          card = template.content.firstElementChild as HTMLElement;
+          for (const details of card.querySelectorAll<HTMLDetailsElement>("details[data-disclosure]")) details.open = view.disclosures.get(details.dataset.disclosure!) ?? false;
+          library.insertBefore(card, previous ? previous.nextSibling : library.firstChild);
+        }
+        previous = card;
+      }
+    }
+    library.querySelector(".fact-no-results")?.remove();
+    if (!library.querySelector(".fact-card")) library.innerHTML = '<p class="fact-no-results">No matching facts. Change the search or filter.</p>';
+  }
+  if (!preserveEditor) {
+    for (const details of library?.querySelectorAll<HTMLDetailsElement>("details[data-disclosure]") ?? []) {
+      details.open = view.disclosures.get(details.dataset.disclosure!) ?? false;
+    }
   }
   const status = appRoot.querySelector("#fact-results");
   if (status) status.textContent = `${facts.length} of ${board.gatheredFacts.length} facts`;
@@ -900,4 +925,5 @@ function refreshEditingState(appRoot: HTMLDivElement, session: ArgumentBoardSess
       if (editor.dataset.action === "fact-link") editor.value = fact.evidenceLink;
     }
   }
+  updateFactResults(appRoot, session, true);
 }

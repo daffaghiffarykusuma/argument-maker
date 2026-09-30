@@ -118,6 +118,12 @@ export function saveDraft(root: HTMLDivElement, session: ArgumentBoardSession) {
   view.saveTimer = undefined;
   const board = session.snapshot().board;
   if (view.lastSavedBoard !== board && view.draft.save(board)) view.lastSavedBoard = board;
+  if (view.draft.paused && !view.conflict) {
+    view.conflict = true;
+    view.lastSavedBoard = undefined;
+    const region = root.querySelector(".draft-controls");
+    if (region) region.innerHTML = renderDraftControls(view);
+  }
   updateSaveStatus(root, view.draft.status);
 }
 

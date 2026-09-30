@@ -8,13 +8,16 @@ type DraftStorage = Pick<Storage, "getItem" | "setItem" | "removeItem">;
 export function createLocalDraft(storage: DraftStorage) {
   let enabled = false;
   let paused = false;
+  let persisted: string | null = null;
   let status = "Temporary session. Download your board to keep it.";
   return {
     get enabled() { return enabled; },
+    get paused() { return paused; },
     get status() { return status; },
     load(): ArgumentBoard | undefined {
       try {
         const contents = storage.getItem(localDraftKey);
+        persisted = contents;
         if (!contents) return;
         const result = parseExportFile(contents);
         if (!result.ok) {
@@ -32,8 +35,10 @@ export function createLocalDraft(storage: DraftStorage) {
     },
     setEnabled(next: boolean, board: ArgumentBoard): boolean {
       try {
-        if (next) storage.setItem(localDraftKey, JSON.stringify(board));
+        const contents = next ? JSON.stringify(board) : null;
+        if (contents !== null) storage.setItem(localDraftKey, contents);
         else storage.removeItem(localDraftKey);
+        persisted = contents;
         enabled = next;
         paused = false;
         status = next ? "Saved in this browser." : "Temporary session. Download your board to keep it.";
@@ -46,7 +51,13 @@ export function createLocalDraft(storage: DraftStorage) {
     save(board: ArgumentBoard): boolean {
       if (!enabled || paused) return false;
       try {
-        storage.setItem(localDraftKey, JSON.stringify(board));
+        if (storage.getItem(localDraftKey) !== persisted) {
+          this.pause();
+          return false;
+        }
+        const contents = JSON.stringify(board);
+        storage.setItem(localDraftKey, contents);
+        persisted = contents;
         status = "Saved in this browser.";
         return true;
       } catch {

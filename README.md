@@ -80,7 +80,7 @@ bun run typecheck      # Application and test TypeScript
 bun run build          # Production bundle in dist/
 ```
 
-Install the browser once with `bunx playwright install chromium`. Node.js 22.6 or
+Install the browser once with `bunx playwright install chromium`. Node.js 22.18 or
 newer is required for the Playwright workflow. The Bun browser test runs that
 workflow in Node because Chromium's pipe hangs under Bun on Windows. `bun test`
 runs both test suites. The browser test starts its own Vite server on port 3000;
