@@ -2,7 +2,7 @@
 
 ## Argument Board
 
-A temporary visual workspace where a user constructs an argument. The board starts empty each session by default, and users can export a board file to local storage or import a previous board file to continue work.
+A visual workspace where a user constructs an argument. The board starts empty with one supporting argument unless optional local draft saving restores it. Users can download a board file or import one to continue work.
 
 ## Argument
 
@@ -51,6 +51,22 @@ The default first workflow stage where users collect, revise, order, and review 
 ## Evidence Link
 
 A URL stored on a Gathered Fact. The app checks HTTP or HTTPS format for traceability but does not verify source quality or factual accuracy.
+
+## Source details
+
+Optional source title, source date, and quotation stored on a canonical Gathered Fact. Source dates may contain the known precision rather than an invented full date. These details appear in writing exports and survive board downloads.
+
+## Reasoning notes
+
+Optional notes on a Supporting Argument covering its connection to the Answer, assumptions, possible objections, and evidence that would weaken the claim. They support reflection and do not affect structural readiness or verify accuracy.
+
+## Local draft
+
+An opt-in board copy in this browser's local storage. Saving is off by default. A saved draft restores on the next visit. Another tab's changes pause autosave until the user selects which board to keep saving. Turning saving off removes the stored copy without clearing the current board.
+
+## Writing export
+
+A readable outline with attached facts and numbered sources, available as Markdown, text, or a print layout. A reused canonical fact has one source number across its placements. Unused research remains in board JSON.
 
 ## Export File
 

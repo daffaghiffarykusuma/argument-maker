@@ -8,14 +8,14 @@ import {
 } from "./argument-board";
 
 describe("Argument Board", () => {
-  test("starts as an empty version-2 fact library with three reasoning slots", () => {
+  test("starts as an empty version-2 fact library with one reasoning slot", () => {
     const board = createDefaultBoard(new Date("2026-07-27T00:00:00.000Z"));
 
     expect(board.schemaVersion).toBe(2);
     expect(board.gatheredFacts).toEqual([]);
     expect(board.scqa.situation.factIds).toEqual([]);
     expect(board.scqa.complication.factIds).toEqual([]);
-    expect(board.supportingArguments).toHaveLength(3);
+    expect(board.supportingArguments).toHaveLength(1);
     expect(board.supportingArguments.every((argument) => argument.mode === "reasoning")).toBe(true);
     expect(board.supportingArguments.every((argument) => argument.factIds.length === 0)).toBe(true);
   });

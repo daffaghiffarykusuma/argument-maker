@@ -16,10 +16,17 @@ export interface FactTextSlot extends TextSlot {
 export interface GatheredFact extends TextSlot {
   evidenceLink: string;
   dataType: DataType;
+  sourceTitle?: string;
+  sourceDate?: string;
+  quotation?: string;
 }
 
 export interface SupportingArgument extends FactTextSlot {
   mode: SupportMode;
+  connection?: string;
+  assumptions?: string;
+  objection?: string;
+  weakensClaim?: string;
 }
 
 export interface ArgumentBoard {
@@ -41,7 +48,7 @@ export interface ArgumentBoard {
 export type ArgumentBoardCommand =
   | { type: "update-title"; title: string }
   | { type: "update-scqa"; field: keyof ArgumentBoard["scqa"]; text: string }
-  | { type: "update-supporting-argument"; argumentId: string; changes: Partial<Pick<SupportingArgument, "text" | "mode">> }
+  | { type: "update-supporting-argument"; argumentId: string; changes: Partial<Pick<SupportingArgument, "text" | "mode" | "connection" | "assumptions" | "objection" | "weakensClaim">> }
   | { type: "add-supporting-argument" }
   | { type: "delete-supporting-argument"; argumentId: string }
   | { type: "move-supporting-argument"; argumentId: string; direction: "up" | "down" }
@@ -50,7 +57,7 @@ export type ArgumentBoardCommand =
   | {
       type: "update-gathered-fact";
       factId: string;
-      changes: Partial<Pick<GatheredFact, "text" | "evidenceLink" | "dataType">>;
+      changes: Partial<Pick<GatheredFact, "text" | "evidenceLink" | "dataType" | "sourceTitle" | "sourceDate" | "quotation">>;
     }
   | { type: "move-gathered-fact"; factId: string; direction: "up" | "down" }
   | { type: "delete-gathered-fact"; factId: string }
@@ -58,7 +65,7 @@ export type ArgumentBoardCommand =
   | { type: "detach-fact"; destinationId: FactDestinationId; factId: string }
   | { type: "move-attached-fact"; destinationId: FactDestinationId; factId: string; direction: "up" | "down" };
 
-const DEFAULT_SUPPORTING_ARGUMENT_COUNT = 3;
+const DEFAULT_SUPPORTING_ARGUMENT_COUNT = 1;
 
 export function createDefaultBoard(now = new Date()): ArgumentBoard {
   const timestamp = now.toISOString();
@@ -245,7 +252,7 @@ function updateScqa(
 function updateSupportingArgument(
   board: ArgumentBoard,
   argumentId: string,
-  changes: Partial<Pick<SupportingArgument, "text" | "mode">>,
+  changes: Extract<ArgumentBoardCommand, { type: "update-supporting-argument" }>["changes"],
   now: Date,
 ): ArgumentBoard {
   let changed = false;
@@ -258,7 +265,7 @@ function updateSupportingArgument(
     return {
       ...argument,
       ...changes,
-      touched: changes.text === undefined ? argument.touched : true,
+      touched: true,
     };
   });
 
@@ -317,7 +324,7 @@ function createGatheredFact(
 function updateGatheredFact(
   board: ArgumentBoard,
   factId: string,
-  changes: Partial<Pick<GatheredFact, "text" | "evidenceLink" | "dataType">>,
+  changes: Extract<ArgumentBoardCommand, { type: "update-gathered-fact" }>["changes"],
   now: Date,
 ): ArgumentBoard {
   let changed = false;

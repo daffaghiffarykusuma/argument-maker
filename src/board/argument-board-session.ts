@@ -15,13 +15,15 @@ export function createArgumentBoardSession(initialBoard = createDefaultBoard()) 
   let stage: WorkflowStage = "gather";
   const undoStack: ArgumentBoard[] = [];
   const redoStack: ArgumentBoard[] = [];
+  let editGroup: string | undefined;
 
-  function commit(nextBoard: ArgumentBoard) {
+  function commit(nextBoard: ArgumentBoard, group?: string) {
     if (nextBoard === board) {
       return;
     }
 
-    undoStack.push(board);
+    if (!group || group !== editGroup) undoStack.push(board);
+    editGroup = group;
     redoStack.length = 0;
     board = nextBoard;
   }
@@ -39,11 +41,15 @@ export function createArgumentBoardSession(initialBoard = createDefaultBoard()) 
     setStage(nextStage: WorkflowStage) {
       stage = nextStage;
     },
-    dispatch(command: ArgumentBoardCommand) {
-      commit(applyArgumentBoardCommand(board, command));
+    dispatch(command: ArgumentBoardCommand, group?: string) {
+      commit(applyArgumentBoardCommand(board, command), group);
       return board;
     },
+    finishEdit() {
+      editGroup = undefined;
+    },
     undo() {
+      editGroup = undefined;
       const previous = undoStack.pop();
       if (!previous) {
         return;
@@ -53,6 +59,7 @@ export function createArgumentBoardSession(initialBoard = createDefaultBoard()) 
       board = previous;
     },
     redo() {
+      editGroup = undefined;
       const next = redoStack.pop();
       if (!next) {
         return;

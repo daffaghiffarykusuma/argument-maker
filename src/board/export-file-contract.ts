@@ -114,7 +114,8 @@ function hasGatheredFactShape(value: unknown): value is ArgumentBoard["gatheredF
   return (
     hasTextSlotShape(value) &&
     typeof value["evidenceLink"] === "string" &&
-    isDataType(value["dataType"])
+    isDataType(value["dataType"]) &&
+    optionalStrings(value, ["sourceTitle", "sourceDate", "quotation"])
   );
 }
 
@@ -123,7 +124,12 @@ function hasSupportingArgumentShape(value: unknown): value is ArgumentBoard["sup
     return false;
   }
 
-  return isSupportMode((value as unknown as Record<string, unknown>)["mode"]);
+  const record = value as unknown as Record<string, unknown>;
+  return isSupportMode(record["mode"]) && optionalStrings(record, ["connection", "assumptions", "objection", "weakensClaim"]);
+}
+
+function optionalStrings(value: Record<string, unknown>, fields: string[]): boolean {
+  return fields.every((field) => value[field] === undefined || typeof value[field] === "string");
 }
 
 function hasFactTextSlotShape(value: unknown): value is { id: string; text: string; touched: boolean; factIds: string[] } {

@@ -9,7 +9,7 @@ import {
   type GatheredFact,
   type SupportMode,
 } from "../board/argument-board";
-import { createArgumentBoardSession, type ArgumentBoardSession, type WorkflowStage } from "../board/argument-board-session";
+import { type ArgumentBoardSession, type WorkflowStage } from "../board/argument-board-session";
 import { projectArgumentPreview, type ArgumentPreviewFact } from "../board/argument-preview-projection";
 
 type IconName = "copy" | "download" | "upload" | "undo" | "redo" | "trash" | "up" | "down" | "eye" | "eyeOff";
@@ -46,40 +46,27 @@ const commandDeskActions = {
   copyMermaid: { action: "copy-mermaid", label: "Copy Mermaid", icon: "copy" },
 } as const satisfies Record<string, CommandDeskActionControl>;
 
+import { createExampleBoard } from "../board/example-board";
+import { createWritingExport } from "../board/writing-export";
+import { filterFacts } from "../board/fact-library";
+import { views, type ViewState } from "./board-view-state";
+import { mountBoardControls, renderDraftControls, renderPreservingFocus, saveDraft, updateSaveStatus } from "./board-controls";
+import { renderLibraryTools, renderSourceDetails, renderReasoningPrompts, renderCompactOutline, renderPreview, sizeDiagram, renderPrintDocument, safeDomId } from "./enhancement-view";
+import { escapeHtml, escapeAttr } from "./html";
+
 let renderVersion = 0;
 let mermaidPromise: Promise<typeof import("mermaid")["default"]> | undefined;
 
-export function mountArgumentBoardApp(appRoot: HTMLDivElement, session = createArgumentBoardSession()) {
-  window.addEventListener("beforeunload", (event) => {
-    if (session.hasTouchedContent()) {
-      event.preventDefault();
-      event.returnValue = "";
-    }
-  });
-
-  appRoot.addEventListener("change", (event) => {
-    const target = event.target;
-    if (target instanceof HTMLInputElement && target.type === "file") {
-      void handleUpload(appRoot, session, target);
-      return;
-    }
-
-    if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement) {
-      handleChange(appRoot, session, target);
-    }
-  });
-
-  appRoot.addEventListener("click", (event) => {
-    const target = (event.target as HTMLElement).closest<HTMLElement>("[data-action]");
-    if (target) {
-      handleAction(appRoot, session, target);
-    }
-  });
-
+export function mountArgumentBoardApp(appRoot: HTMLDivElement, initialSession?: ArgumentBoardSession) {
+  const session = mountBoardControls(appRoot, initialSession, { render, change: handleChange, action: handleAction, upload: handleUpload, filter: updateFactResults, refresh: refreshEditingState });
+  new ResizeObserver(() => sizeDiagram(appRoot)).observe(appRoot);
   render(appRoot, session);
 }
 
 function render(appRoot: HTMLDivElement, session: ArgumentBoardSession) {
+  const view = views.get(appRoot)!;
+  for (const details of appRoot.querySelectorAll<HTMLDetailsElement>('details[data-disclosure]')) view.disclosures.set(details.dataset.disclosure!, details.open);
+  saveDraft(appRoot, session);
   renderVersion += 1;
   const currentRender = renderVersion;
   const snapshot = session.snapshot();
@@ -90,13 +77,18 @@ function render(appRoot: HTMLDivElement, session: ArgumentBoardSession) {
       ${renderCommandRail(snapshot.canUndo, snapshot.canRedo)}
       <div class="desk-main">
         ${renderTopbar(snapshot.board)}
+        <div class="draft-controls">${renderDraftControls(view)}</div>
         ${renderStageNavigation(snapshot.stage)}
-        ${renderStage(snapshot.board, snapshot.stage, snapshot.issues, preview)}
+        ${renderStage(snapshot.board, snapshot.stage, snapshot.issues, preview, view)}
+        ${renderPrintDocument(snapshot.board)}
       </div>
     </main>
   `;
 
-  if (preview) {
+  for (const details of appRoot.querySelectorAll<HTMLDetailsElement>('details[data-disclosure]')) {
+    if (view.disclosures.has(details.dataset.disclosure!)) details.open = view.disclosures.get(details.dataset.disclosure!)!;
+  }
+  if (preview && view.previewMode === "diagram") {
     void renderMermaidPreview(appRoot, preview.mermaid, currentRender);
   }
 }
@@ -110,13 +102,13 @@ function renderCommandRail(canUndo: boolean, canRedo: boolean): string {
         ${renderCommandButton(commandDeskActions.download)}
         <label class="icon-button file-button" aria-label="${commandDeskActions.upload.label}" title="${commandDeskActions.upload.label}" data-tooltip="${commandDeskActions.upload.label}" tabindex="0">
           ${renderIcon(commandDeskActions.upload.icon)}<span class="tool-label">Upload Board</span>
-          <input type="file" accept=".json,.argument.json,application/json" data-action="upload" />
+          <input type="file" tabindex="-1" accept=".json,.argument.json,application/json" data-action="upload" />
         </label>
         ${renderCommandButton({ ...commandDeskActions.undo, disabled: !canUndo })}
         ${renderCommandButton({ ...commandDeskActions.redo, disabled: !canRedo })}
         ${renderCommandButton(commandDeskActions.clear)}
       </div>
-      <div class="rail-note"><span class="local-dot"></span> Private by design<p>Your ideas stay in this tab.<br>Download your board to keep it.</p></div>
+      <div class="rail-note"><span class="local-dot"></span> Private by design<p>Local drafts are optional.<br>Download a board for a backup.</p></div>
     </aside>
   `;
 }
@@ -152,6 +144,8 @@ function renderStageNavigation(stage: WorkflowStage): string {
               type="button"
               role="tab"
               aria-selected="${stage === id}"
+              id="stage-tab-${id}"
+              tabindex="${stage === id ? 0 : -1}"
               aria-controls="stage-panel-${id}"
               data-action="stage"
               data-stage="${id}"
@@ -169,21 +163,22 @@ function renderStage(
   stage: WorkflowStage,
   issues: ReturnType<ArgumentBoardSession["snapshot"]>["issues"],
   preview: ReturnType<typeof projectArgumentPreview> | undefined,
+  view: ViewState,
 ): string {
   if (stage === "gather") {
-    return renderGatherStage(board);
+    return renderGatherStage(board, view);
   }
 
   if (stage === "construct") {
     return renderConstructStage(board, issues);
   }
 
-  return renderPreviewStage(preview ?? projectArgumentPreview(board));
+  return renderPreviewStage(preview ?? projectArgumentPreview(board), board, view);
 }
 
-function renderGatherStage(board: ArgumentBoard): string {
+function renderGatherStage(board: ArgumentBoard, view: ViewState): string {
   return `
-    <section id="stage-panel-gather" class="workflow-stage" role="tabpanel" aria-labelledby="stage-heading-gather">
+    <section id="stage-panel-gather" class="workflow-stage" role="tabpanel" aria-labelledby="stage-tab-gather">
       <div class="section-heading">
         <div>
           <h2 id="stage-heading-gather" tabindex="-1">Gather Facts</h2>
@@ -191,11 +186,12 @@ function renderGatherStage(board: ArgumentBoard): string {
         <button id="add-fact" type="button" data-action="add-fact">+ Add fact</button>
       </div>
       <p class="verification-note">Link format checked; source quality and factual accuracy are not verified.</p>
+      ${renderLibraryTools(board, view)}
       <div class="fact-library">
         ${
           board.gatheredFacts.length === 0
             ? `<div class="empty-state"><div class="paper-stack" aria-hidden="true"><div class="paper-back"></div><div class="paper-front"><span>FIELD NOTE / 001</span><i></i><i></i><i></i></div><span class="paper-seal">&#10035;</span></div><h3>No facts yet</h3><p>Add a finding and its source to get started.</p><button type="button" data-action="add-fact">Create your first fact <span aria-hidden="true">&#8599;</span></button></div>`
-            : board.gatheredFacts.map((fact, index) => renderFactCard(board, fact, index)).join("")
+            : filterFacts(board, view.query, view.filter).length ? filterFacts(board, view.query, view.filter).map((fact) => renderFactCard(board, fact, board.gatheredFacts.indexOf(fact))).join("") : '<p>No matching facts. Change the search or filter.</p>'
         }
       </div>
     </section>
@@ -219,7 +215,7 @@ function renderFactCard(board: ArgumentBoard, fact: GatheredFact, index: number)
           ${usage.map((label) => `<span class="usage-badge">${escapeHtml(label)}</span>`).join("")}
         </div>
       </div>
-      ${usage.length === 0 ? "" : `<p class="shared-warning">Used in ${usage.length} place${usage.length === 1 ? "" : "s"}—changes update all uses.</p>`}
+      ${usage.length === 0 ? "" : `<p class="shared-warning">Used in ${usage.length} place${usage.length === 1 ? "" : "s"}. Changes update all uses.</p>`}
       <div class="fact-fields">
         ${renderDataTypeField(fact, `${prefix}-type`)}
         <label for="${prefix}-text">
@@ -231,6 +227,7 @@ function renderFactCard(board: ArgumentBoard, fact: GatheredFact, index: number)
           <input id="${prefix}-link" data-action="fact-link" data-fact-id="${escapeAttr(fact.id)}" type="url" value="${escapeAttr(fact.evidenceLink)}" placeholder="https://example.com/source" />
         </label>
       </div>
+      ${renderSourceDetails(fact, prefix)}
       ${
         incomplete.length === 0
           ? ""
@@ -253,12 +250,14 @@ function renderConstructStage(
   issues: ReturnType<ArgumentBoardSession["snapshot"]>["issues"],
 ): string {
   return `
-    <section id="stage-panel-construct" class="workflow-stage" role="tabpanel" aria-labelledby="stage-heading-construct">
+    <section id="stage-panel-construct" class="workflow-stage" role="tabpanel" aria-labelledby="stage-tab-construct">
       <div class="section-heading">
         <div>
           <h2 id="stage-heading-construct" tabindex="-1">Construct Argument</h2>
         </div>
       </div>
+      ${renderChecklist(issues)}
+      <div class="construction-layout"><div class="construction-editor">
       <section class="scqa-grid" aria-label="Argument frame">
         ${renderTextPanel(board, "situation", "What is happening?", "Situation")}
         ${renderTextPanel(board, "complication", "What changed or makes this matter?", "Complication")}
@@ -268,7 +267,7 @@ function renderConstructStage(
       <section class="support-section" aria-label="Supporting argument structure">
         <div class="section-heading">
           <div>
-            <h2 id="supporting-arguments">Supporting Arguments</h2>
+            <h2 id="supporting-arguments" tabindex="-1">Supporting Arguments</h2>
           </div>
           <button type="button" data-action="add-argument">+ Argument</button>
         </div>
@@ -276,7 +275,7 @@ function renderConstructStage(
           ${board.supportingArguments.map((argument, index) => renderArgument(board, argument, index)).join("")}
         </div>
       </section>
-      ${renderChecklist(issues)}
+      </div><aside class="construction-outline" aria-label="Live argument outline"><h3>Argument outline</h3><div class="construction-outline-content">${renderCompactOutline(board)}</div></aside></div>
     </section>
   `;
 }
@@ -323,6 +322,7 @@ function renderArgument(board: ArgumentBoard, argument: ArgumentBoard["supportin
         </div>
       </div>
       ${renderDestinationFacts(board, argument.id)}
+      ${renderReasoningPrompts(argument)}
     </article>
   `;
 }
@@ -342,7 +342,7 @@ function renderDestinationFacts(board: ArgumentBoard, destinationId: FactDestina
   const { attachedFacts: facts, attachableFacts: available, label } = readFactAttachments(board, destinationId);
 
   return `
-    <section class="destination-facts" aria-label="Facts supporting ${escapeAttr(label)}">
+    <details class="destination-facts" data-disclosure="destination-${escapeAttr(destinationId)}" aria-label="Facts supporting ${escapeAttr(label)}"><summary>Supporting Facts <span>${facts.length} attached</span></summary>
       <div class="destination-heading">
         <div>
           <strong>Supporting Facts</strong>
@@ -366,7 +366,7 @@ function renderDestinationFacts(board: ArgumentBoard, destinationId: FactDestina
             : facts.map((fact, index) => renderAttachedFact(board, destinationId, fact, index)).join("")
         }
       </div>
-    </section>
+    </details>
   `;
 }
 
@@ -383,7 +383,7 @@ function renderAttachedFact(
     <article class="attached-fact ${isGatheredFactComplete(fact) ? "" : "incomplete"}">
       <div class="attached-fact-heading">
         <strong>Fact ${index + 1}</strong>
-        <span>Used in ${usage.length} place${usage.length === 1 ? "" : "s"}—changes update all uses</span>
+        <span>Used in ${usage.length} place${usage.length === 1 ? "" : "s"}. Changes update all uses</span>
       </div>
       <div class="attached-fields">
         ${renderDataTypeField(fact, `${prefix}-type`)}
@@ -431,7 +431,7 @@ function renderChecklist(issues: ReturnType<ArgumentBoardSession["snapshot"]>["i
     <aside class="checklist" aria-label="Review checklist">
       <h2>Readiness Check</h2>
       <p>${issues.length === 0 ? "Ready to preview, copy, or download." : `${issues.length} item${issues.length === 1 ? "" : "s"} need attention.`}</p>
-      <ul>
+      <details data-disclosure="readiness" open><summary>Review ${issues.length} structural issue${issues.length === 1 ? "" : "s"}</summary><ul>
         ${
           issues.length === 0
             ? "<li>No structural issues found.</li>"
@@ -446,14 +446,14 @@ function renderChecklist(issues: ReturnType<ArgumentBoardSession["snapshot"]>["i
                 )
                 .join("")
         }
-      </ul>
+      </ul></details>
     </aside>
   `;
 }
 
-function renderPreviewStage(preview: ReturnType<typeof projectArgumentPreview>): string {
+function renderPreviewStage(preview: ReturnType<typeof projectArgumentPreview>, board: ArgumentBoard, view: ViewState): string {
   return `
-    <section id="stage-panel-preview" class="workflow-stage preview-view" role="tabpanel" aria-labelledby="stage-heading-preview">
+    <section id="stage-panel-preview" class="workflow-stage preview-view" role="tabpanel" aria-labelledby="stage-tab-preview">
       <div class="section-heading">
         <div>
           <h2 id="stage-heading-preview" tabindex="-1">Argument Preview</h2>
@@ -461,11 +461,12 @@ function renderPreviewStage(preview: ReturnType<typeof projectArgumentPreview>):
         ${renderCommandButton(commandDeskActions.copyMermaid)}
       </div>
       <p class="verification-note">Link format checked; source quality and factual accuracy are not verified.</p>
-      <div class="mermaid-diagram" role="img" aria-label="Rendered Argument Board workflow">
+      ${renderPreview(board, view)}
+      <div class="mermaid-diagram" ${view.previewMode === "diagram" ? "" : "hidden"} role="img" aria-label="Rendered Argument Board workflow">
         <div class="mermaid-status">Rendering workflow...</div>
       </div>
-      <p class="diagram-hint">Scroll across the diagram to follow each branch.</p>
-      <section class="evidence-list" aria-labelledby="evidence-list-heading">
+      <p class="diagram-hint" ${view.previewMode === "diagram" ? "" : "hidden"}>Zoom for detail, or use Readable outline for the full argument and citations.</p>
+      <section class="evidence-list" ${view.previewMode === "diagram" ? "" : "hidden"} aria-labelledby="evidence-list-heading">
         <h3 id="evidence-list-heading">Evidence by destination</h3>
         ${
           preview.evidenceGroups.length === 0
@@ -473,7 +474,7 @@ function renderPreviewStage(preview: ReturnType<typeof projectArgumentPreview>):
             : preview.evidenceGroups.map(renderEvidenceGroup).join("")
         }
       </section>
-      <details class="mermaid-source">
+      <details class="mermaid-source" data-disclosure="mermaid-source">
         <summary>Mermaid source</summary>
         <pre class="mermaid-box">${escapeHtml(preview.mermaid)}</pre>
       </details>
@@ -513,44 +514,52 @@ function handleChange(
   appRoot: HTMLDivElement,
   session: ArgumentBoardSession,
   target: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement,
+  refresh = true,
 ) {
   const action = target.dataset.action;
+  const dispatch = (command: Parameters<ArgumentBoardSession["dispatch"]>[0]) => session.dispatch(command, refresh ? undefined : target.id);
   const factId = target.dataset.factId;
   const argumentId = target.dataset.argumentId;
 
   if (action === "title") {
-    session.dispatch({ type: "update-title", title: target.value });
+    dispatch({ type: "update-title", title: target.value });
   } else if (action === "scqa" && target instanceof HTMLTextAreaElement) {
-    session.dispatch({
+    dispatch({
       type: "update-scqa",
       field: target.dataset.field as keyof ArgumentBoard["scqa"],
       text: target.value,
     });
   } else if (action === "argument-text" && argumentId && target instanceof HTMLTextAreaElement) {
-    session.dispatch({ type: "update-supporting-argument", argumentId, changes: { text: target.value } });
+    dispatch({ type: "update-supporting-argument", argumentId, changes: { text: target.value } });
   } else if (action === "mode-change" && argumentId && target instanceof HTMLInputElement) {
-    session.dispatch({
+    dispatch({
       type: "update-supporting-argument",
       argumentId,
       changes: { mode: target.value as SupportMode },
     });
   } else if (action === "fact-text" && factId && target instanceof HTMLTextAreaElement) {
-    session.dispatch({ type: "update-gathered-fact", factId, changes: { text: target.value } });
+    dispatch({ type: "update-gathered-fact", factId, changes: { text: target.value } });
   } else if (action === "fact-link" && factId && target instanceof HTMLInputElement) {
-    session.dispatch({ type: "update-gathered-fact", factId, changes: { evidenceLink: target.value } });
+    dispatch({ type: "update-gathered-fact", factId, changes: { evidenceLink: target.value } });
   } else if (action === "fact-data-type" && factId && target instanceof HTMLSelectElement) {
-    session.dispatch({ type: "update-gathered-fact", factId, changes: { dataType: target.value as DataType } });
+    dispatch({ type: "update-gathered-fact", factId, changes: { dataType: target.value as DataType } });
   } else if (action === "attach-fact" && target instanceof HTMLSelectElement && target.value) {
-    session.dispatch({
+    dispatch({
       type: "attach-fact",
       destinationId: target.dataset.destinationId ?? "",
       factId: target.value,
     });
+  } else if (action === "source-detail" && factId) {
+    const field = target.dataset.field as "sourceTitle" | "sourceDate" | "quotation";
+    dispatch({ type: "update-gathered-fact", factId, changes: { [field]: target.value } });
+  } else if (action === "reasoning-note" && argumentId) {
+    const field = target.dataset.field as "connection" | "assumptions" | "objection" | "weakensClaim";
+    dispatch({ type: "update-supporting-argument", argumentId, changes: { [field]: target.value } });
   } else {
     return;
   }
 
-  renderAndFocus(appRoot, session, target.id);
+  if (refresh) renderPreservingFocus(appRoot, session, render);
 }
 
 function handleAction(appRoot: HTMLDivElement, session: ArgumentBoardSession, target: HTMLElement) {
@@ -560,7 +569,32 @@ function handleAction(appRoot: HTMLDivElement, session: ArgumentBoardSession, ta
   const destinationId = target.dataset.destinationId;
   const direction = target.dataset.direction === "up" ? "up" : "down";
 
-  if (action === "stage") {
+  const view = views.get(appRoot)!;
+  if (action === "load-example") {
+    const result = session.importFile(JSON.stringify(createExampleBoard()), () => confirm("Replace this board with the worked example? You can undo this."));
+    if (result?.ok) { view.query = ""; view.filter = "all"; session.setStage("construct"); renderAndFocus(appRoot, session, "stage-heading-construct"); }
+  } else if (action === "preview-mode") {
+    view.previewMode = target.dataset.mode as ViewState["previewMode"];
+    renderPreservingFocus(appRoot, session, render);
+  } else if (action === "zoom") {
+    view.zoom = target.dataset.zoom === "fit" ? 1 : Math.max(0.5, Math.min(6, view.zoom * (target.dataset.zoom === "in" ? 1.25 : 0.8)));
+    sizeDiagram(appRoot);
+  } else if (action === "download-writing") {
+    downloadFile(createWritingExport(session.snapshot().board, target.dataset.format as "markdown" | "text"));
+  } else if (action === "print") {
+    appRoot.querySelector(".print-document")!.outerHTML = renderPrintDocument(session.snapshot().board);
+    window.print();
+  } else if (action === "keep-this-draft") {
+    if (view.draft.setEnabled(true, session.snapshot().board)) { view.lastSavedBoard = session.snapshot().board; view.conflict = false; }
+    renderPreservingFocus(appRoot, session, render);
+  } else if (action === "load-other-draft") {
+    const board = view.draft.load();
+    if (board) {
+      const result = session.importFile(JSON.stringify(board), () => confirm("Load the other tab's draft? You can undo this replacement."));
+      if (result?.ok) { view.lastSavedBoard = board; view.conflict = false; renderPreservingFocus(appRoot, session, render); }
+      else view.draft.pause();
+    } else { view.draft.pause(); updateSaveStatus(appRoot, "No readable draft found. Download this board or keep saving it."); }
+  } else if (action === "stage") {
     const stage = target.dataset.stage as WorkflowStage;
     session.setStage(stage);
     renderAndFocus(appRoot, session, `stage-heading-${stage}`);
@@ -594,6 +628,7 @@ function handleAction(appRoot: HTMLDivElement, session: ArgumentBoardSession, ta
   } else if (action === "create-fact-here" && destinationId) {
     const board = session.dispatch({ type: "create-gathered-fact", destinationId });
     const newFact = board.gatheredFacts.at(-1)!;
+    view.disclosures.set(`destination-${destinationId}`, true);
     renderAndFocus(appRoot, session, `attached-${safeDomId(destinationId)}-${safeDomId(newFact.id)}-text`);
   } else if (action === "focus-attached-fact") {
     document.getElementById(target.dataset.focusId ?? "")?.focus();
@@ -660,6 +695,7 @@ function openIssue(appRoot: HTMLDivElement, session: ArgumentBoardSession, targe
 }
 
 function focusCanonicalFact(appRoot: HTMLDivElement, session: ArgumentBoardSession, factId: string) {
+  const view = views.get(appRoot)!; view.query = ""; view.filter = "all";
   session.setStage("gather");
   renderAndFocus(appRoot, session, `fact-${safeDomId(factId)}-text`);
 }
@@ -667,19 +703,28 @@ function focusCanonicalFact(appRoot: HTMLDivElement, session: ArgumentBoardSessi
 function renderAndFocus(appRoot: HTMLDivElement, session: ArgumentBoardSession, focusId?: string) {
   render(appRoot, session);
   if (focusId) {
-    document.getElementById(focusId)?.focus();
+    const target = document.getElementById(focusId);
+    let ancestor = target?.parentElement;
+    while (ancestor) {
+      if (ancestor instanceof HTMLDetailsElement) ancestor.open = true;
+      ancestor = ancestor.parentElement;
+    }
+    target?.focus();
   }
 }
 
 function downloadBoard(session: ArgumentBoardSession) {
-  const file = session.exportFile();
+  downloadFile(session.exportFile());
+}
+
+function downloadFile(file: { contents: string; mimeType: string; name: string }) {
   const blob = new Blob([file.contents], { type: file.mimeType });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
   link.download = file.name;
   link.click();
-  URL.revokeObjectURL(url);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 async function handleUpload(appRoot: HTMLDivElement, session: ArgumentBoardSession, input: HTMLInputElement) {
@@ -723,6 +768,7 @@ async function renderMermaidPreview(appRoot: HTMLDivElement, source: string, cur
     const { svg } = await mermaid.render(`argument-preview-${currentRender}`, source);
     if (currentRender === renderVersion) {
       container.innerHTML = svg;
+      sizeDiagram(appRoot);
     }
   } catch {
     if (currentRender === renderVersion) {
@@ -802,18 +848,56 @@ function incompleteGuidance(reason: ReturnType<typeof factCompleteness>[number])
   return messages[reason];
 }
 
-function safeDomId(value: string): string {
-  return Array.from(value, (character) => character.codePointAt(0)!.toString(16)).join("-");
+
+function updateFactResults(appRoot: HTMLDivElement, session: ArgumentBoardSession) {
+  const view = views.get(appRoot)!;
+  const board = session.snapshot().board;
+  const outline = appRoot.querySelector(".construction-outline-content");
+  if (outline) { outline.innerHTML = renderCompactOutline(board); return; }
+  const facts = filterFacts(board, view.query, view.filter);
+  const library = appRoot.querySelector(".fact-library");
+  if (library && board.gatheredFacts.length) library.innerHTML = facts.length ? facts.map((fact) => renderFactCard(board, fact, board.gatheredFacts.indexOf(fact))).join("") : "<p>No matching facts. Change the search or filter.</p>";
+  for (const details of library?.querySelectorAll<HTMLDetailsElement>("details[data-disclosure]") ?? []) {
+    details.open = view.disclosures.get(details.dataset.disclosure!) ?? false;
+  }
+  const status = appRoot.querySelector("#fact-results");
+  if (status) status.textContent = `${facts.length} of ${board.gatheredFacts.length} facts`;
 }
 
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
-
-function escapeAttr(value: string): string {
-  return escapeHtml(value).replace(/'/g, "&#39;");
+function refreshEditingState(appRoot: HTMLDivElement, session: ArgumentBoardSession) {
+  const snapshot = session.snapshot();
+  const board = snapshot.board;
+  const outline = appRoot.querySelector(".construction-outline-content");
+  if (outline) outline.innerHTML = renderCompactOutline(board);
+  const checklist = appRoot.querySelector(".checklist");
+  if (checklist) {
+    const template = document.createElement("template");
+    template.innerHTML = renderChecklist(snapshot.issues);
+    const message = checklist.querySelector("p");
+    const list = checklist.querySelector("ul");
+    const summary = checklist.querySelector("summary");
+    if (message) message.textContent = template.content.querySelector("p")!.textContent;
+    if (list) list.innerHTML = template.content.querySelector("ul")!.innerHTML;
+    if (summary) summary.textContent = template.content.querySelector("summary")!.textContent;
+  }
+  for (const fact of board.gatheredFacts) {
+    const card = appRoot.querySelector<HTMLElement>(`.fact-card[data-fact-id="${CSS.escape(fact.id)}"]`);
+    if (card) {
+      const incomplete = factCompleteness(fact);
+      card.classList.toggle("incomplete", incomplete.length > 0);
+      card.querySelector(".fact-status")!.textContent = incomplete.length ? "Incomplete" : "Complete";
+      let guidance = card.querySelector<HTMLUListElement>(".field-guidance");
+      if (!incomplete.length) guidance?.remove();
+      else {
+        if (!guidance) { guidance = document.createElement("ul"); guidance.className = "field-guidance"; card.querySelector(".text-actions")!.before(guidance); }
+        guidance.innerHTML = incomplete.map((reason) => `<li>${escapeHtml(incompleteGuidance(reason))}</li>`).join("");
+      }
+    }
+    // Keep shared editors consistent without replacing the editor being typed into.
+    for (const editor of appRoot.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>(`[data-fact-id="${CSS.escape(fact.id)}"] input, input[data-fact-id="${CSS.escape(fact.id)}"], textarea[data-fact-id="${CSS.escape(fact.id)}"]`)) {
+      if (editor === document.activeElement) continue;
+      if (editor.dataset.action === "fact-text") editor.value = fact.text;
+      if (editor.dataset.action === "fact-link") editor.value = fact.evidenceLink;
+    }
+  }
 }
