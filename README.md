@@ -50,6 +50,11 @@ bun test
 
 Bun is the package manager, script runner, and primary test runner. Vite is the development server and production bundler.
 
+Use Node.js 24.x for Node-based tooling. The `.nvmrc` file selects major version 24
+for compatible version managers, and `package.json` pins `engines.node` to `24.x`
+so Vercel uses Node.js 24 for new deployments. Deploy the updated repository to
+apply this setting on Vercel.
+
 ## Project layout
 
 ```text
@@ -80,8 +85,8 @@ bun run typecheck      # Application and test TypeScript
 bun run build          # Production bundle in dist/
 ```
 
-Install the browser once with `bunx playwright install chromium`. Node.js 22.18 or
-newer is required for the Playwright workflow. The Bun browser test runs that
+Install the browser once with `bunx playwright install chromium`. Use Node.js 24.x
+for the Playwright workflow. The Bun browser test runs that
 workflow in Node because Chromium's pipe hangs under Bun on Windows. `bun test`
 runs both test suites. The browser test starts its own Vite server on port 3000;
 keep that port free. Temporary smoke-test files use `output/browser-smoke/`
