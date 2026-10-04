@@ -74,7 +74,7 @@ docs/
 Start with `src/board/argument-board.ts` for board data and commands,
 `src/board/argument-board-session.ts` for workflow state and undo/redo, or
 `src/ui/argument-board-browser.ts` for UI changes. Product terminology lives in
-[CONTEXT.md](CONTEXT.md).
+[GLOSSARY.md](GLOSSARY.md).
 
 ## Checks
 
