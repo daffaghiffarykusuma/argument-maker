@@ -9,6 +9,7 @@ export interface ViewState {
   query: string;
   filter: FactFilter;
   previewMode: "diagram" | "outline";
+  diagram?: { source: string; svg: Promise<string> };
   zoom: number;
   conflict: boolean;
   disclosures: Map<string, boolean>;

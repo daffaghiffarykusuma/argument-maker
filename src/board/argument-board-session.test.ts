@@ -4,6 +4,28 @@ import { createArgumentBoardSession } from "./argument-board-session";
 import { createExportFile } from "./export-file-contract";
 
 describe("Argument Board session", () => {
+  test("refreshes readiness after edits, undo, redo, clear, and import", () => {
+    const session = createArgumentBoardSession();
+    const incompleteFacts = () => session.snapshot().issues.filter((issue) => issue.code === "incomplete-attached-fact");
+    session.dispatch({ type: "create-gathered-fact", destinationId: "situation" });
+    const factId = session.snapshot().board.gatheredFacts[0]!.id;
+    expect(incompleteFacts()).toHaveLength(1);
+    session.setStage("construct");
+    expect(incompleteFacts()).toHaveLength(1);
+
+    session.dispatch({ type: "update-gathered-fact", factId, changes: { text: "Demand grew.", evidenceLink: "https://example.com/source" } });
+    expect(incompleteFacts()).toHaveLength(0);
+    session.undo();
+    expect(incompleteFacts()).toHaveLength(1);
+    const incompleteFile = session.exportFile();
+    session.redo();
+    expect(incompleteFacts()).toHaveLength(0);
+    session.importFile(incompleteFile.contents, () => true);
+    expect(incompleteFacts()).toHaveLength(1);
+    session.clear();
+    expect(incompleteFacts()).toHaveLength(0);
+  });
+
   test("tracks local content through atomic create-and-attach, undo/redo, and detach", () => {
     const session = createArgumentBoardSession();
 

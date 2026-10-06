@@ -763,14 +763,26 @@ async function renderMermaidPreview(appRoot: HTMLDivElement, source: string, cur
   const container = appRoot.querySelector<HTMLDivElement>(".mermaid-diagram");
   if (!container) return;
 
+  const view = views.get(appRoot)!;
+  // Keep only the latest source, including its pending render, for this app instance.
+  if (view.diagram?.source !== source) {
+    view.diagram = {
+      source,
+      svg: loadMermaid().then(async (mermaid) => {
+        const { svg } = await mermaid.render(`argument-preview-${currentRender}`, source);
+        return svg;
+      }),
+    };
+  }
+  const diagram = view.diagram;
   try {
-    const mermaid = await loadMermaid();
-    const { svg } = await mermaid.render(`argument-preview-${currentRender}`, source);
+    const svg = await diagram.svg;
     if (currentRender === renderVersion) {
       container.innerHTML = svg;
       sizeDiagram(appRoot);
     }
   } catch {
+    if (view.diagram === diagram) view.diagram = undefined;
     if (currentRender === renderVersion) {
       container.innerHTML = `<div class="mermaid-status error">The workflow could not be rendered. Check the Mermaid source below.</div>`;
     }
@@ -797,6 +809,9 @@ function loadMermaid() {
       },
     });
     return mermaid;
+  }).catch((error) => {
+    mermaidPromise = undefined;
+    throw error;
   }));
 }
 
@@ -852,18 +867,19 @@ function incompleteGuidance(reason: ReturnType<typeof factCompleteness>[number])
 function updateFactResults(appRoot: HTMLDivElement, session: ArgumentBoardSession, preserveEditor = false) {
   const view = views.get(appRoot)!;
   const board = session.snapshot().board;
-  const outline = appRoot.querySelector(".construction-outline-content");
-  if (outline) { outline.innerHTML = renderCompactOutline(board); return; }
-  const facts = filterFacts(board, view.query, view.filter);
   const library = appRoot.querySelector(".fact-library");
+  if (!library) return;
+  const facts = filterFacts(board, view.query, view.filter);
   if (library && board.gatheredFacts.length) {
     if (!preserveEditor) library.innerHTML = facts.map((fact) => renderFactCard(board, fact, board.gatheredFacts.indexOf(fact))).join("");
     else {
       // Keep the current editor intact until focus leaves its card, including native undo.
       const cards = new Map([...library.querySelectorAll<HTMLElement>(".fact-card")].map((card) => [card.dataset.factId!, card]));
       const activeCard = document.activeElement?.closest<HTMLElement>(".fact-card");
-      const visible = board.gatheredFacts.filter((fact) => facts.includes(fact) || cards.get(fact.id) === activeCard);
-      for (const [id, card] of cards) if (!visible.some((fact) => fact.id === id)) card.remove();
+      const matchingIds = new Set(facts.map((fact) => fact.id));
+      const visible = board.gatheredFacts.filter((fact) => matchingIds.has(fact.id) || cards.get(fact.id) === activeCard);
+      const visibleIds = new Set(visible.map((fact) => fact.id));
+      for (const [id, card] of cards) if (!visibleIds.has(id)) card.remove();
       let previous: HTMLElement | undefined;
       for (const fact of visible) {
         let card = cards.get(fact.id);
@@ -889,7 +905,7 @@ function updateFactResults(appRoot: HTMLDivElement, session: ArgumentBoardSessio
   if (status) status.textContent = `${facts.length} of ${board.gatheredFacts.length} facts`;
 }
 
-function refreshEditingState(appRoot: HTMLDivElement, session: ArgumentBoardSession) {
+function refreshEditingState(appRoot: HTMLDivElement, session: ArgumentBoardSession, factId?: string) {
   const snapshot = session.snapshot();
   const board = snapshot.board;
   const outline = appRoot.querySelector(".construction-outline-content");
@@ -905,7 +921,10 @@ function refreshEditingState(appRoot: HTMLDivElement, session: ArgumentBoardSess
     if (list) list.innerHTML = template.content.querySelector("ul")!.innerHTML;
     if (summary) summary.textContent = template.content.querySelector("summary")!.textContent;
   }
-  for (const fact of board.gatheredFacts) {
+  // Text edits can change one shared fact. Structural actions already render the board.
+  const changedFact = factId ? board.gatheredFacts.find((fact) => fact.id === factId) : undefined;
+  if (changedFact) {
+    const fact = changedFact;
     const card = appRoot.querySelector<HTMLElement>(`.fact-card[data-fact-id="${CSS.escape(fact.id)}"]`);
     if (card) {
       const incomplete = factCompleteness(fact);

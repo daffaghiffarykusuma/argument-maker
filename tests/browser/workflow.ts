@@ -94,12 +94,12 @@ test("supports the gather-first Argument Maker workflow in Chromium", { timeout:
 
     const sharedEditors = page.locator('[data-action="fact-text"][data-fact-id="fact-1"]');
     await sharedEditors.first().fill("Demand rose 25%.");
-    await sharedEditors.first().blur();
     expect(
       await page
         .locator('[data-action="fact-text"][data-fact-id="fact-1"]')
         .evaluateAll((elements) => elements.map((element) => (element as HTMLTextAreaElement).value)),
     ).toEqual(["Demand rose 25%.", "Demand rose 25%."]);
+    await sharedEditors.first().blur();
     console.log("browser-smoke: constructed and reused ordered facts");
 
     await page.locator('[data-disclosure="destination-complication"] > summary').click();
@@ -121,6 +121,35 @@ test("supports the gather-first Argument Maker workflow in Chromium", { timeout:
     expect(await page.getByRole("link", { name: /Open evidence source for Demand rose 25%/ }).count()).toBe(2);
     expect(await page.locator(".preview-view > .verification-note").innerText()).toContain("source quality and factual accuracy are not verified");
     console.log("browser-smoke: rendered Preview and evidence links");
+
+    const diagram = page.locator(".mermaid-diagram svg");
+    const originalDiagramId = await diagram.getAttribute("id");
+    await page.getByRole("tab", { name: /Construct Argument/ }).click();
+    await page.getByRole("tab", { name: /Preview/ }).click();
+    await diagram.waitFor();
+    expect(await diagram.getAttribute("id")).toBe(originalDiagramId);
+    await page.getByRole("button", { name: "Readable outline", exact: true }).click();
+    await page.getByRole("button", { name: "Diagram", exact: true }).click();
+    await diagram.waitFor();
+    expect(await diagram.getAttribute("id")).toBe(originalDiagramId);
+
+    await page.getByRole("tab", { name: /Construct Argument/ }).click();
+    await fillAndCommit(page, '[data-action="scqa"][data-field="answer"]', "Expand capacity safely.");
+    // Leave and return while the changed diagram is still rendering.
+    await page.evaluate(() => {
+      document.querySelector<HTMLButtonElement>("#stage-tab-preview")!.click();
+      document.querySelector<HTMLButtonElement>("#stage-tab-construct")!.click();
+      document.querySelector<HTMLButtonElement>("#stage-tab-preview")!.click();
+    });
+    await diagram.waitFor();
+    expect(await diagram.getAttribute("id") === originalDiagramId).toBe(false);
+    expect(await diagram.textContent()).toContain("Expand capacity safely.");
+    // Undo must invalidate the changed diagram even when the original source returns.
+    await page.getByRole("button", { name: "Undo", exact: true }).click();
+    await diagram.waitFor();
+    expect(await diagram.textContent()).toContain("Expand capacity.");
+    expect((await diagram.textContent())!.includes("Expand capacity safely.")).toBe(false);
+    console.log("browser-smoke: reused unchanged diagrams and refreshed edits and undo");
 
     mkdirSync(smokeDir, { recursive: true });
     await page.screenshot({ path: screenshotPath, fullPage: true });

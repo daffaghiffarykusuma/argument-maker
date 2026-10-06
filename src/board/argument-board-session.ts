@@ -16,6 +16,8 @@ export function createArgumentBoardSession(initialBoard = createDefaultBoard()) 
   const undoStack: ArgumentBoard[] = [];
   const redoStack: ArgumentBoard[] = [];
   let editGroup: string | undefined;
+  let reviewedBoard: ArgumentBoard | undefined;
+  let issues: ReturnType<typeof reviewBoard> = [];
 
   function commit(nextBoard: ArgumentBoard, group?: string) {
     if (nextBoard === board) {
@@ -30,12 +32,16 @@ export function createArgumentBoardSession(initialBoard = createDefaultBoard()) 
 
   return {
     snapshot() {
+      if (reviewedBoard !== board) {
+        issues = reviewBoard(board);
+        reviewedBoard = board;
+      }
       return {
         board,
         stage,
         canUndo: undoStack.length > 0,
         canRedo: redoStack.length > 0,
-        issues: reviewBoard(board),
+        issues,
       };
     },
     setStage(nextStage: WorkflowStage) {

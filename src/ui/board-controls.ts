@@ -10,7 +10,7 @@ interface Controls {
   action(root: HTMLDivElement, session: ArgumentBoardSession, target: HTMLElement): void;
   upload(root: HTMLDivElement, session: ArgumentBoardSession, input: HTMLInputElement): Promise<void>;
   filter(root: HTMLDivElement, session: ArgumentBoardSession): void;
-  refresh(root: HTMLDivElement, session: ArgumentBoardSession): void;
+  refresh(root: HTMLDivElement, session: ArgumentBoardSession, factId?: string): void;
 }
 
 export function mountBoardControls(root: HTMLDivElement, initial: ArgumentBoardSession | undefined, controls: Controls) {
@@ -57,7 +57,7 @@ export function mountBoardControls(root: HTMLDivElement, initial: ArgumentBoardS
       const button = root.querySelector<HTMLButtonElement>(`[data-action="${action}"]`);
       if (button) button.disabled = action === "undo" ? !snapshot.canUndo : !snapshot.canRedo;
     }
-    controls.refresh(root, session);
+    controls.refresh(root, session, target.dataset.factId);
   });
   root.addEventListener("change", (event) => {
     const target = event.target;
@@ -80,7 +80,7 @@ export function mountBoardControls(root: HTMLDivElement, initial: ArgumentBoardS
     // Let the browser finish Tab or the pointer click before replacing the DOM.
     renderTimer = setTimeout(() => {
       if (document.activeElement?.matches("input, textarea, select")) {
-        controls.refresh(root, session);
+        controls.refresh(root, session, target.dataset.factId);
         saveDraft(root, session);
       } else render();
     }, 0);
