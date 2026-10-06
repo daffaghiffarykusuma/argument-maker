@@ -1,58 +1,10 @@
-import { describe, expect, test } from "bun:test";
+import { expect, test } from "bun:test";
 import { createDefaultBoard, applyArgumentBoardCommand } from "./argument-board";
 import { createArgumentBoardSession } from "./argument-board-session";
 import { createExampleBoard } from "./example-board";
 import { createExportFile, parseExportFile } from "./export-file-contract";
-import { createLocalDraft, localDraftKey } from "./local-draft";
 import { filterFacts } from "./fact-library";
 import { createWritingExport, projectWritingDocument } from "./writing-export";
-
-function memoryStorage() {
-  const values = new Map<string, string>();
-  return { getItem: (key: string) => values.get(key) ?? null, setItem: (key: string, value: string) => { values.set(key, value); }, removeItem: (key: string) => { values.delete(key); } };
-}
-
-describe("Local draft recovery", () => {
-  test("requires opt-in, restores edits and clears persisted data on opt-out", () => {
-    const storage = memoryStorage();
-    const draft = createLocalDraft(storage);
-    const board = createExampleBoard();
-    expect(draft.save(board)).toBe(false);
-    expect(storage.getItem(localDraftKey)).toBeNull();
-    expect(draft.setEnabled(true, board)).toBe(true);
-    const edited = { ...board, title: "Updated title" };
-    expect(draft.save(edited)).toBe(true);
-    const nextSession = createLocalDraft(storage);
-    expect(nextSession.load()).toEqual(edited);
-    expect(nextSession.enabled).toBe(true);
-    expect(nextSession.setEnabled(false, edited)).toBe(true);
-    expect(createLocalDraft(storage).load()).toBeUndefined();
-  });
-  test("does not silently overwrite another tab, corrupt data, or a failed save", () => {
-    const storage = memoryStorage();
-    const draft = createLocalDraft(storage);
-    const board = createExampleBoard();
-    draft.setEnabled(true, board);
-    const otherTab = createLocalDraft(storage);
-    expect(otherTab.load()).toEqual(board);
-    const otherBoard = { ...board, title: "Other tab revision" };
-    expect(otherTab.save(otherBoard)).toBe(true);
-    expect(draft.save({ ...board, title: "Competing edit" })).toBe(false);
-    expect(draft.paused).toBe(true);
-    expect(JSON.parse(storage.getItem(localDraftKey)!).title).toBe(otherBoard.title);
-    expect(draft.setEnabled(true, board)).toBe(true);
-    expect(draft.save({ ...board, title: "Deliberately kept board" })).toBe(true);
-    storage.setItem(localDraftKey, "{bad");
-    const corrupt = createLocalDraft(storage);
-    expect(corrupt.load()).toBeUndefined();
-    expect(corrupt.enabled).toBe(false);
-    expect(corrupt.status).toContain("could not be read");
-    const blocked = createLocalDraft({ ...storage, setItem: () => { throw new Error("quota"); } });
-    expect(blocked.setEnabled(true, board)).toBe(false);
-    expect(blocked.enabled).toBe(false);
-    expect(blocked.status).toContain("could not be saved");
-  });
-});
 
 test("field typing is one board undo step without losing redo or later independent edits", () => {
   const session = createArgumentBoardSession();

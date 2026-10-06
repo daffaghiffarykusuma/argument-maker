@@ -30,6 +30,13 @@ test("supports the gather-first Argument Maker workflow in Chromium", { timeout:
     await page.getByRole("heading", { name: "Gather Facts" }).waitFor();
     console.log("browser-smoke: opened Gather Facts");
 
+    const previewChecks = await page.evaluate(async () => {
+      const modulePath = "/tests/browser/preview-lifecycle.ts";
+      const { verifyPreviewLifecycle } = await import(/* @vite-ignore */ modulePath);
+      return verifyPreviewLifecycle();
+    });
+    console.log(`browser-smoke: preview lifecycle checked ${previewChecks}`);
+
     expect(await page.getByRole("tab").count()).toBe(3);
     expect(await page.getByRole("tab", { name: /Gather Facts/ }).getAttribute("aria-selected")).toBe("true");
     expect(await page.locator(".fact-card").count()).toBe(0);
@@ -101,6 +108,40 @@ test("supports the gather-first Argument Maker workflow in Chromium", { timeout:
     ).toEqual(["Demand rose 25%.", "Demand rose 25%."]);
     await sharedEditors.first().blur();
     console.log("browser-smoke: constructed and reused ordered facts");
+
+    // Start with newly rendered editors so native undo belongs to this typing session.
+    await page.getByRole("tab", { name: /Construct Argument/ }).click();
+    await sharedEditors.first().focus();
+    await sharedEditors.first().press("End");
+    const activeFactEditor = await sharedEditors.first().elementHandle();
+    await sharedEditors.first().pressSequentially("!");
+    expect(await sharedEditors.evaluateAll((elements) => elements.map((element) => (element as HTMLTextAreaElement).value)))
+      .toEqual(["Demand rose 25%.!", "Demand rose 25%.!"]);
+    expect(await activeFactEditor!.evaluate((element) => element === document.activeElement)).toBe(true);
+    await sharedEditors.first().press(process.platform === "darwin" ? "Meta+z" : "Control+z");
+    expect(await sharedEditors.evaluateAll((elements) => elements.map((element) => (element as HTMLTextAreaElement).value)))
+      .toEqual(["Demand rose 25%.", "Demand rose 25%."]);
+    expect(await activeFactEditor!.evaluate((element) => element === document.activeElement)).toBe(true);
+    await activeFactEditor!.dispose();
+
+    const sharedLinks = page.locator('[data-action="fact-link"][data-fact-id="fact-1"]');
+    const picker = page.locator('[data-action="attach-fact"][data-destination-id="complication"]');
+    const pickerOptions = await picker.innerHTML();
+    await sharedLinks.first().fill("invalid-link");
+    expect(await sharedLinks.evaluateAll((elements) => elements.map((element) => (element as HTMLInputElement).value)))
+      .toEqual(["invalid-link", "invalid-link"]);
+    expect(await page.locator('.attached-fact.incomplete[data-fact-id="fact-1"]').count()).toBe(2);
+    expect(await picker.innerHTML()).toBe(pickerOptions);
+    expect(await page.evaluate(() => document.activeElement?.getAttribute("data-action"))).toBe("fact-link");
+    await sharedLinks.first().fill("https://example.com/report");
+    expect(await page.locator('.attached-fact.incomplete[data-fact-id="fact-1"]').count()).toBe(0);
+    await sharedLinks.first().blur();
+    const sharedTypes = page.locator('[data-action="fact-data-type"][data-fact-id="fact-1"]');
+    await sharedTypes.first().selectOption("observation");
+    expect(await sharedTypes.evaluateAll((elements) => elements.map((element) => (element as HTMLSelectElement).value)))
+      .toEqual(["observation", "observation"]);
+    await sharedTypes.first().selectOption("fact");
+    console.log("browser-smoke: preserved native undo and synchronized shared fields and completeness");
 
     await page.locator('[data-disclosure="destination-complication"] > summary').click();
     await page.locator('[data-action="create-fact-here"][data-destination-id="complication"]').click();
@@ -191,10 +232,25 @@ test("supports the gather-first Argument Maker workflow in Chromium", { timeout:
     await fillAndCommit(page, '[data-field="quotation"][data-fact-id="fact-1"]', "Illustrative quotation");
     await page.getByRole("searchbox", { name: "Search facts" }).fill("quotation September");
     expect(await page.locator(".fact-card").count()).toBe(1);
+    const sourceDate = page.locator('[data-field="sourceDate"][data-fact-id="fact-1"]');
+    const sourceDisclosure = page.locator('[data-disclosure="source-fact-1"]');
+    expect(await sourceDisclosure.evaluate((element) => (element as HTMLDetailsElement).open)).toBe(true);
+    await sourceDate.fill("October 2026");
+    expect(await page.locator("#fact-results").innerText()).toBe("0 of 3 facts");
+    expect(await page.locator(".fact-card").count()).toBe(1);
+    await sourceDate.press("Tab");
+    expect(await page.evaluate(() => document.activeElement?.getAttribute("data-field"))).toBe("quotation");
+    await page.locator("#board-title").focus();
+    await page.locator('.fact-card[data-fact-id="fact-1"]').waitFor({ state: "detached" });
+    await page.getByRole("searchbox", { name: "Search facts" }).fill("quotation October");
+    expect(await sourceDisclosure.evaluate((element) => (element as HTMLDetailsElement).open)).toBe(true);
+    expect(await sourceDate.inputValue()).toBe("October 2026");
+    await sourceDate.fill("September 2026");
     await page.locator("#fact-filter").selectOption("unused");
     expect(await page.locator(".fact-card").count()).toBe(0);
     await page.locator("#fact-filter").selectOption("all");
     await page.getByRole("searchbox", { name: "Search facts" }).fill("");
+    expect(await sourceDisclosure.evaluate((element) => (element as HTMLDetailsElement).open)).toBe(true);
     await page.getByRole("tab", { name: /Construct Argument/ }).click();
     await page.locator('[data-disclosure="reasoning-argument-1"] > summary').click();
     await fillAndCommit(page, '[data-field="objection"][data-argument-id="argument-1"]', "Demand may fall next year.");
@@ -240,11 +296,28 @@ test("supports the gather-first Argument Maker workflow in Chromium", { timeout:
     await page.getByRole("textbox", { name: "Board title" }).fill("Keep my case");
     // Deliberate conflict choice resumes saves without silently overwriting.
     await page.getByRole("button", { name: "Keep saving this board" }).click();
+    expect(await page.evaluate(() => document.activeElement?.id)).toBe("autosave");
     await page.reload();
+    expect(await page.getByRole("textbox", { name: "Board title" }).inputValue()).toBe("Keep my case");
+    // The other choice preserves the current board on cancellation and remains undoable on acceptance.
+    await otherTab.getByRole("button", { name: "Keep saving this board" }).click();
+    const loadOther = page.getByRole("button", { name: "Load other draft" });
+    await loadOther.waitFor();
+    page.once("dialog", (dialog) => dialog.dismiss());
+    await loadOther.click();
+    expect(await page.getByRole("textbox", { name: "Board title" }).inputValue()).toBe("Keep my case");
+    expect(await page.locator(".save-status").innerText()).toContain("Choose which board");
+    page.once("dialog", (dialog) => dialog.accept());
+    await loadOther.click();
+    expect(await page.getByRole("textbox", { name: "Board title" }).inputValue()).toBe("Other tab revision");
+    expect(await page.locator(".conflict-actions").count()).toBe(0);
+    expect(await page.locator(".save-status").innerText()).toContain("restored");
+    expect(await page.evaluate(() => document.activeElement?.id)).toBe("autosave");
+    await page.getByRole("button", { name: "Undo", exact: true }).click();
     expect(await page.getByRole("textbox", { name: "Board title" }).inputValue()).toBe("Keep my case");
     await otherTab.close();
     await page.getByRole("checkbox", { name: "Save draft in this browser" }).uncheck();
-    console.log("browser-smoke: verified recovery, Tab focus, and cross-tab conflict choice");
+    console.log("browser-smoke: verified recovery, Tab focus, both conflict choices, cancellation and undo");
 
     await page.setViewportSize({ width: 390, height: 900 });
     expect(await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth)).toBe(false);

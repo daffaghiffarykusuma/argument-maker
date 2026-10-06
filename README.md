@@ -76,6 +76,24 @@ Start with `src/board/argument-board.ts` for board data and commands,
 `src/ui/argument-board-browser.ts` for UI changes. Product terminology lives in
 [GLOSSARY.md](GLOSSARY.md).
 
+`src/board/local-draft.ts` owns draft restoration, save timing, conflict choices,
+and saved-board tracking. It coordinates the session's existing import and undo
+behavior. Browser controls forward events and display its snapshot; recovery
+tests use memory storage and a controlled clock through the same interface.
+
+`src/ui/gathered-fact-editing.ts` owns fact-field rendering and editing, shared
+editor updates, search/filter state, and filtered-card reconciliation. It keeps
+the active editor intact and refreshes completeness across Fact Attachments.
+Board commands and history remain in `src/board/`; browser workflow tests cover
+focus, native undo, filtering, and shared edits.
+
+`src/ui/argument-preview.ts` owns preview markup, mode, diagram caching, pending
+renders, failure recovery, zoom, and resize handling. After replacing the app
+markup, the browser calls `sync()` even when Preview is inactive, invalidating
+older insertion targets. Rendering stays lazy, with one cached source per app.
+The Chromium suite exercises this interface with a controlled renderer and
+checks actual Mermaid rendering in the complete workflow.
+
 ## Checks
 
 ```bash

@@ -75,6 +75,26 @@ function benchmark(count = 100) {
 [benchmark(), benchmark(), benchmark()];
 ```
 
+## Gathered Fact editing refactor check
+
+The same input benchmark was repeated on 2026-10-06 before and after moving fact
+editing into `src/ui/gathered-fact-editing.ts`, with Local draft recovery changes
+already present in both versions. Draft saving was disabled.
+
+| Board size | Before median | After median | Before p95 | After p95 |
+| --- | ---: | ---: | ---: | ---: |
+| 100 facts, three runs each | 0.8–1.1 ms | 0.6–0.9 ms | 1.1–2.3 ms | 1.0–1.4 ms |
+| 300 facts, one before and four after runs | 3.1 ms | 3.0–4.2 ms | 3.5 ms | 5.2–6.1 ms |
+
+Every run retained all cards and the active editor. The 300-fact timing samples
+are uneven and their tail latency varied; these local checks do not establish a
+speedup. They still exclude painting, input-device delay and autosave.
+
+The Chromium workflow also checks native undo, shared text and Evidence Link
+edits, immediate Fact Attachment completeness styling, and Source details
+filtering without losing Tab focus or disclosure state. Attachment-picker
+options retain their existing full-render refresh timing.
+
 ## Preview cache
 
 Each app instance retains one diagram promise keyed by its exact Mermaid source.
@@ -104,10 +124,17 @@ claimed. To repeat, load the worked example in a fresh tab for each revision,
 visit Preview once, then time six Construct Argument to Preview switches.
 
 The Chromium workflow checks SVG reuse across stage and mode switches, fresh
-content after editing and undo, and navigation during a pending render. Manual
-browser fault injection also verified retry after one rejected render, one
-render for repeated visits to a pending source, and preservation of the newest
-diagram and cache when an older render finishes later.
+content after editing and undo, and navigation during a pending render.
+`src/ui/argument-preview.ts` now owns this lifecycle. Each app tracks its own
+current render, while Mermaid render IDs remain unique across app instances.
+The shared Mermaid loader still imports and initializes only on demand.
+
+`tests/browser/preview-lifecycle.ts` runs in Chromium with a controlled renderer
+through the module's public interface. It checks pending-source reuse, stale
+successes and failures, retry on a later visit, navigation away during rendering,
+one-source eviction, zoom persistence and limits, resize fitting, independent
+app instances, and disposal during pending work. The cache timings above predate
+this ownership refactor; no additional speed improvement is claimed.
 
 ## Next candidate
 

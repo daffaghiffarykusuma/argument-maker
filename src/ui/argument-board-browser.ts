@@ -1,16 +1,9 @@
 import {
-  factCompleteness,
   factUsageLabels,
-  isGatheredFactComplete,
-  readFactAttachments,
   type ArgumentBoard,
-  type DataType,
-  type FactDestinationId,
-  type GatheredFact,
   type SupportMode,
 } from "../board/argument-board";
 import { type ArgumentBoardSession, type WorkflowStage } from "../board/argument-board-session";
-import { projectArgumentPreview, type ArgumentPreviewFact } from "../board/argument-preview-projection";
 
 type IconName = "copy" | "download" | "upload" | "undo" | "redo" | "trash" | "up" | "down" | "eye" | "eyeOff";
 
@@ -48,29 +41,22 @@ const commandDeskActions = {
 
 import { createExampleBoard } from "../board/example-board";
 import { createWritingExport } from "../board/writing-export";
-import { filterFacts } from "../board/fact-library";
 import { views, type ViewState } from "./board-view-state";
-import { mountBoardControls, renderDraftControls, renderPreservingFocus, saveDraft, updateSaveStatus } from "./board-controls";
-import { renderLibraryTools, renderSourceDetails, renderReasoningPrompts, renderCompactOutline, renderPreview, sizeDiagram, renderPrintDocument, safeDomId } from "./enhancement-view";
-import { escapeHtml, escapeAttr } from "./html";
-
-let renderVersion = 0;
-let mermaidPromise: Promise<typeof import("mermaid")["default"]> | undefined;
+import { mountBoardControls, renderDraftControls, renderPreservingFocus } from "./board-controls";
+import { renderReasoningPrompts, renderCompactOutline, renderPrintDocument } from "./enhancement-view";
+import { escapeHtml, escapeAttr, safeDomId } from "./html";
+import type { GatheredFactEditing } from "./gathered-fact-editing";
 
 export function mountArgumentBoardApp(appRoot: HTMLDivElement, initialSession?: ArgumentBoardSession) {
-  const session = mountBoardControls(appRoot, initialSession, { render, change: handleChange, action: handleAction, upload: handleUpload, filter: updateFactResults, refresh: refreshEditingState });
-  new ResizeObserver(() => sizeDiagram(appRoot)).observe(appRoot);
+  const session = mountBoardControls(appRoot, initialSession, { render, change: handleChange, action: handleAction, upload: handleUpload, refresh: refreshEditingState });
   render(appRoot, session);
 }
 
 function render(appRoot: HTMLDivElement, session: ArgumentBoardSession) {
   const view = views.get(appRoot)!;
   for (const details of appRoot.querySelectorAll<HTMLDetailsElement>('details[data-disclosure]')) view.disclosures.set(details.dataset.disclosure!, details.open);
-  saveDraft(appRoot, session);
-  renderVersion += 1;
-  const currentRender = renderVersion;
+  view.draft.flush();
   const snapshot = session.snapshot();
-  const preview = snapshot.stage === "preview" ? projectArgumentPreview(snapshot.board) : undefined;
 
   appRoot.innerHTML = `
     <main class="app-shell">
@@ -79,7 +65,7 @@ function render(appRoot: HTMLDivElement, session: ArgumentBoardSession) {
         ${renderTopbar(snapshot.board)}
         <div class="draft-controls">${renderDraftControls(view)}</div>
         ${renderStageNavigation(snapshot.stage)}
-        ${renderStage(snapshot.board, snapshot.stage, snapshot.issues, preview, view)}
+        ${renderStage(snapshot.board, snapshot.stage, snapshot.issues, view)}
         ${renderPrintDocument(snapshot.board)}
       </div>
     </main>
@@ -88,9 +74,7 @@ function render(appRoot: HTMLDivElement, session: ArgumentBoardSession) {
   for (const details of appRoot.querySelectorAll<HTMLDetailsElement>('details[data-disclosure]')) {
     if (view.disclosures.has(details.dataset.disclosure!)) details.open = view.disclosures.get(details.dataset.disclosure!)!;
   }
-  if (preview && view.previewMode === "diagram") {
-    void renderMermaidPreview(appRoot, preview.mermaid, currentRender);
-  }
+  void view.preview.sync();
 }
 
 function renderCommandRail(canUndo: boolean, canRedo: boolean): string {
@@ -162,92 +146,23 @@ function renderStage(
   board: ArgumentBoard,
   stage: WorkflowStage,
   issues: ReturnType<ArgumentBoardSession["snapshot"]>["issues"],
-  preview: ReturnType<typeof projectArgumentPreview> | undefined,
   view: ViewState,
 ): string {
   if (stage === "gather") {
-    return renderGatherStage(board, view);
+    return view.facts.renderLibrary(board);
   }
 
   if (stage === "construct") {
-    return renderConstructStage(board, issues);
+    return renderConstructStage(board, issues, view.facts);
   }
 
-  return renderPreviewStage(preview ?? projectArgumentPreview(board), board, view);
-}
-
-function renderGatherStage(board: ArgumentBoard, view: ViewState): string {
-  return `
-    <section id="stage-panel-gather" class="workflow-stage" role="tabpanel" aria-labelledby="stage-tab-gather">
-      <div class="section-heading">
-        <div>
-          <h2 id="stage-heading-gather" tabindex="-1">Gather Facts</h2>
-        </div>
-        <button id="add-fact" type="button" data-action="add-fact">+ Add fact</button>
-      </div>
-      <p class="verification-note">Link format checked; source quality and factual accuracy are not verified.</p>
-      ${renderLibraryTools(board, view)}
-      <div class="fact-library">
-        ${
-          board.gatheredFacts.length === 0
-            ? `<div class="empty-state"><div class="paper-stack" aria-hidden="true"><div class="paper-back"></div><div class="paper-front"><span>FIELD NOTE / 001</span><i></i><i></i><i></i></div><span class="paper-seal">&#10035;</span></div><h3>No facts yet</h3><p>Add a finding and its source to get started.</p><button type="button" data-action="add-fact">Create your first fact <span aria-hidden="true">&#8599;</span></button></div>`
-            : filterFacts(board, view.query, view.filter).length ? filterFacts(board, view.query, view.filter).map((fact) => renderFactCard(board, fact, board.gatheredFacts.indexOf(fact))).join("") : '<p>No matching facts. Change the search or filter.</p>'
-        }
-      </div>
-    </section>
-  `;
-}
-
-function renderFactCard(board: ArgumentBoard, fact: GatheredFact, index: number): string {
-  const usage = factUsageLabels(board, fact.id);
-  const incomplete = factCompleteness(fact);
-  const prefix = `fact-${safeDomId(fact.id)}`;
-
-  return `
-    <article class="fact-card ${incomplete.length ? "incomplete" : ""}" data-fact-id="${escapeAttr(fact.id)}">
-      <div class="fact-card-heading">
-        <div>
-          <span class="term">Gathered Fact ${index + 1}</span>
-          <strong class="fact-status">${incomplete.length ? "Incomplete" : "Complete"}</strong>
-        </div>
-        <div class="usage-block">
-          <strong>${usage.length === 0 ? "Unused" : `Used in ${usage.length} place${usage.length === 1 ? "" : "s"}`}</strong>
-          ${usage.map((label) => `<span class="usage-badge">${escapeHtml(label)}</span>`).join("")}
-        </div>
-      </div>
-      ${usage.length === 0 ? "" : `<p class="shared-warning">Used in ${usage.length} place${usage.length === 1 ? "" : "s"}. Changes update all uses.</p>`}
-      <div class="fact-fields">
-        ${renderDataTypeField(fact, `${prefix}-type`)}
-        <label for="${prefix}-text">
-          <span>Fact text</span>
-          <textarea id="${prefix}-text" data-action="fact-text" data-fact-id="${escapeAttr(fact.id)}" rows="3" placeholder="Write one fact, observation, example, or estimate...">${escapeHtml(fact.text)}</textarea>
-        </label>
-        <label for="${prefix}-link">
-          <span>Evidence Link</span>
-          <input id="${prefix}-link" data-action="fact-link" data-fact-id="${escapeAttr(fact.id)}" type="url" value="${escapeAttr(fact.evidenceLink)}" placeholder="https://example.com/source" />
-        </label>
-      </div>
-      ${renderSourceDetails(fact, prefix)}
-      ${
-        incomplete.length === 0
-          ? ""
-          : `<ul class="field-guidance">${incomplete
-              .map((reason) => `<li>${escapeHtml(incompleteGuidance(reason))}</li>`)
-              .join("")}</ul>`
-      }
-      <div class="text-actions" aria-label="Gathered Fact ${index + 1} controls">
-        <button type="button" data-action="move-library-fact" data-fact-id="${escapeAttr(fact.id)}" data-direction="up">Move up</button>
-        <button type="button" data-action="move-library-fact" data-fact-id="${escapeAttr(fact.id)}" data-direction="down">Move down</button>
-        <button type="button" data-action="another-fact-source" data-fact-id="${escapeAttr(fact.id)}">Another fact from this source</button>
-        <button type="button" class="danger" data-action="delete-fact" data-fact-id="${escapeAttr(fact.id)}">Delete fact</button>
-      </div>
-    </article>
-  `;
+  return view.preview.render(board, renderCommandButton(commandDeskActions.copyMermaid));
 }
 
 function renderConstructStage(
   board: ArgumentBoard,
   issues: ReturnType<ArgumentBoardSession["snapshot"]>["issues"],
+  facts: GatheredFactEditing,
 ): string {
   return `
     <section id="stage-panel-construct" class="workflow-stage" role="tabpanel" aria-labelledby="stage-tab-construct">
@@ -259,10 +174,10 @@ function renderConstructStage(
       ${renderChecklist(issues)}
       <div class="construction-layout"><div class="construction-editor">
       <section class="scqa-grid" aria-label="Argument frame">
-        ${renderTextPanel(board, "situation", "What is happening?", "Situation")}
-        ${renderTextPanel(board, "complication", "What changed or makes this matter?", "Complication")}
-        ${renderTextPanel(board, "question", "What question must this answer?", "Question")}
-        ${renderTextPanel(board, "answer", "What is your main answer?", "Answer")}
+        ${renderTextPanel(board, "situation", "What is happening?", "Situation", facts)}
+        ${renderTextPanel(board, "complication", "What changed or makes this matter?", "Complication", facts)}
+        ${renderTextPanel(board, "question", "What question must this answer?", "Question", facts)}
+        ${renderTextPanel(board, "answer", "What is your main answer?", "Answer", facts)}
       </section>
       <section class="support-section" aria-label="Supporting argument structure">
         <div class="section-heading">
@@ -272,7 +187,7 @@ function renderConstructStage(
           <button type="button" data-action="add-argument">+ Argument</button>
         </div>
         <div class="argument-list">
-          ${board.supportingArguments.map((argument, index) => renderArgument(board, argument, index)).join("")}
+          ${board.supportingArguments.map((argument, index) => renderArgument(board, argument, index, facts)).join("")}
         </div>
       </section>
       </div><aside class="construction-outline" aria-label="Live argument outline"><h3>Argument outline</h3><div class="construction-outline-content">${renderCompactOutline(board)}</div></aside></div>
@@ -285,6 +200,7 @@ function renderTextPanel(
   field: keyof ArgumentBoard["scqa"],
   label: string,
   term: string,
+  facts: GatheredFactEditing,
 ): string {
   const slot = board.scqa[field];
   const destinationId = field === "situation" || field === "complication" ? field : undefined;
@@ -299,12 +215,12 @@ function renderTextPanel(
         <span class="term">${term}</span>
       </label>
       <textarea id="scqa-${field}" data-action="scqa" data-field="${field}" rows="4" placeholder="Write here...">${escapeHtml(slot.text)}</textarea>
-      ${destinationId ? renderDestinationFacts(board, destinationId) : ""}
+      ${destinationId ? facts.renderAttachments(board, destinationId) : ""}
     </article>
   `;
 }
 
-function renderArgument(board: ArgumentBoard, argument: ArgumentBoard["supportingArguments"][number], index: number): string {
+function renderArgument(board: ArgumentBoard, argument: ArgumentBoard["supportingArguments"][number], index: number, facts: GatheredFactEditing): string {
   return `
     <article class="argument-card">
       <div class="argument-header">
@@ -321,7 +237,7 @@ function renderArgument(board: ArgumentBoard, argument: ArgumentBoard["supportin
           ${renderCommandButton(commandDeskActions.deleteArgument, `data-argument-id="${escapeAttr(argument.id)}"`)}
         </div>
       </div>
-      ${renderDestinationFacts(board, argument.id)}
+      ${facts.renderAttachments(board, argument.id)}
       ${renderReasoningPrompts(argument)}
     </article>
   `;
@@ -336,94 +252,6 @@ function renderModeControl(argumentId: string, mode: SupportMode): string {
       <label><input id="mode-${safeId}-evidence" type="radio" name="mode-${safeId}" data-action="mode-change" data-argument-id="${escapeAttr(argumentId)}" value="evidence-backed" ${mode === "evidence-backed" ? "checked" : ""} /> Evidence-backed</label>
     </fieldset>
   `;
-}
-
-function renderDestinationFacts(board: ArgumentBoard, destinationId: FactDestinationId): string {
-  const { attachedFacts: facts, attachableFacts: available, label } = readFactAttachments(board, destinationId);
-
-  return `
-    <details class="destination-facts" data-disclosure="destination-${escapeAttr(destinationId)}" aria-label="Facts supporting ${escapeAttr(label)}"><summary>Supporting Facts <span>${facts.length} attached</span></summary>
-      <div class="destination-heading">
-        <div>
-          <strong>Supporting Facts</strong>
-          <span>${facts.length} attached</span>
-        </div>
-        <div class="fact-picker">
-          <label>
-            <span class="sr-only">Choose Gathered Facts for ${escapeHtml(label)}</span>
-            <select data-action="attach-fact" data-destination-id="${escapeAttr(destinationId)}" ${available.length === 0 ? "disabled" : ""}>
-              <option value="">${available.length === 0 ? "No complete facts available" : "Choose Gathered Facts…"}</option>
-              ${available.map((fact) => `<option value="${escapeAttr(fact.id)}">${escapeHtml(fact.text)}</option>`).join("")}
-            </select>
-          </label>
-          <button type="button" data-action="create-fact-here" data-destination-id="${escapeAttr(destinationId)}">Create new fact here</button>
-        </div>
-      </div>
-      <div class="attached-list">
-        ${
-          facts.length === 0
-            ? `<p class="empty-attachment">No facts attached.</p>`
-            : facts.map((fact, index) => renderAttachedFact(board, destinationId, fact, index)).join("")
-        }
-      </div>
-    </details>
-  `;
-}
-
-function renderAttachedFact(
-  board: ArgumentBoard,
-  destinationId: FactDestinationId,
-  fact: GatheredFact,
-  index: number,
-): string {
-  const usage = factUsageLabels(board, fact.id);
-  const prefix = `attached-${safeDomId(destinationId)}-${safeDomId(fact.id)}`;
-
-  return `
-    <article class="attached-fact ${isGatheredFactComplete(fact) ? "" : "incomplete"}">
-      <div class="attached-fact-heading">
-        <strong>Fact ${index + 1}</strong>
-        <span>Used in ${usage.length} place${usage.length === 1 ? "" : "s"}. Changes update all uses</span>
-      </div>
-      <div class="attached-fields">
-        ${renderDataTypeField(fact, `${prefix}-type`)}
-        <label for="${prefix}-text">
-          <span>Fact text</span>
-          <textarea id="${prefix}-text" data-action="fact-text" data-fact-id="${escapeAttr(fact.id)}" rows="2">${escapeHtml(fact.text)}</textarea>
-        </label>
-        <label for="${prefix}-link">
-          <span>Evidence Link</span>
-          <input id="${prefix}-link" data-action="fact-link" data-fact-id="${escapeAttr(fact.id)}" type="url" value="${escapeAttr(fact.evidenceLink)}" />
-        </label>
-      </div>
-      <div class="text-actions">
-        <button type="button" data-action="focus-attached-fact" data-focus-id="${prefix}-text">Edit fact</button>
-        <button type="button" data-action="open-fact" data-fact-id="${escapeAttr(fact.id)}">Open in Gathered Facts</button>
-        <button type="button" data-action="move-attached-fact" data-destination-id="${escapeAttr(destinationId)}" data-fact-id="${escapeAttr(fact.id)}" data-direction="up">Move up</button>
-        <button type="button" data-action="move-attached-fact" data-destination-id="${escapeAttr(destinationId)}" data-fact-id="${escapeAttr(fact.id)}" data-direction="down">Move down</button>
-        <button type="button" data-action="detach-fact" data-destination-id="${escapeAttr(destinationId)}" data-fact-id="${escapeAttr(fact.id)}">Remove from here</button>
-      </div>
-    </article>
-  `;
-}
-
-function renderDataTypeField(fact: GatheredFact, id: string): string {
-  return `
-    <label for="${id}">
-      <span>Data Type <small>(optional)</small></span>
-      <select id="${id}" data-action="fact-data-type" data-fact-id="${escapeAttr(fact.id)}">
-        ${renderDataTypeOption("", "Unspecified", fact.dataType)}
-        ${renderDataTypeOption("fact", "Fact", fact.dataType)}
-        ${renderDataTypeOption("observation", "Observation", fact.dataType)}
-        ${renderDataTypeOption("example", "Example", fact.dataType)}
-        ${renderDataTypeOption("estimate", "Estimate", fact.dataType)}
-      </select>
-    </label>
-  `;
-}
-
-function renderDataTypeOption(value: DataType, label: string, selected: DataType): string {
-  return `<option value="${value}" ${selected === value ? "selected" : ""}>${label}</option>`;
 }
 
 function renderChecklist(issues: ReturnType<ArgumentBoardSession["snapshot"]>["issues"]): string {
@@ -451,65 +279,6 @@ function renderChecklist(issues: ReturnType<ArgumentBoardSession["snapshot"]>["i
   `;
 }
 
-function renderPreviewStage(preview: ReturnType<typeof projectArgumentPreview>, board: ArgumentBoard, view: ViewState): string {
-  return `
-    <section id="stage-panel-preview" class="workflow-stage preview-view" role="tabpanel" aria-labelledby="stage-tab-preview">
-      <div class="section-heading">
-        <div>
-          <h2 id="stage-heading-preview" tabindex="-1">Argument Preview</h2>
-        </div>
-        ${renderCommandButton(commandDeskActions.copyMermaid)}
-      </div>
-      <p class="verification-note">Link format checked; source quality and factual accuracy are not verified.</p>
-      ${renderPreview(board, view)}
-      <div class="mermaid-diagram" ${view.previewMode === "diagram" ? "" : "hidden"} role="img" aria-label="Rendered Argument Board workflow">
-        <div class="mermaid-status">Rendering workflow...</div>
-      </div>
-      <p class="diagram-hint" ${view.previewMode === "diagram" ? "" : "hidden"}>Zoom for detail, or use Readable outline for the full argument and citations.</p>
-      <section class="evidence-list" ${view.previewMode === "diagram" ? "" : "hidden"} aria-labelledby="evidence-list-heading">
-        <h3 id="evidence-list-heading">Evidence by destination</h3>
-        ${
-          preview.evidenceGroups.length === 0
-            ? "<p>No facts are attached to the argument.</p>"
-            : preview.evidenceGroups.map(renderEvidenceGroup).join("")
-        }
-      </section>
-      <details class="mermaid-source" data-disclosure="mermaid-source">
-        <summary>Mermaid source</summary>
-        <pre class="mermaid-box">${escapeHtml(preview.mermaid)}</pre>
-      </details>
-    </section>
-  `;
-}
-
-function renderEvidenceGroup(group: ReturnType<typeof projectArgumentPreview>["evidenceGroups"][number]): string {
-  return `
-    <section class="evidence-group">
-      <h4>${escapeHtml(group.label)}</h4>
-      <ol>
-        ${group.facts
-          .map(
-            (fact) => `
-              <li>
-                <span>${escapeHtml(fact.label)}</span>
-                ${renderEvidenceSource(fact)}
-              </li>
-            `,
-          )
-          .join("")}
-      </ol>
-    </section>
-  `;
-}
-
-function renderEvidenceSource(fact: ArgumentPreviewFact): string {
-  if (fact.evidenceLinkIsValid) {
-    return `<a href="${escapeAttr(fact.evidenceLink)}" target="_blank" rel="noreferrer" aria-label="Open evidence source for ${escapeAttr(fact.text || "fact needing text")}">Open evidence source</a>`;
-  }
-
-  return `<span class="invalid-source">${fact.evidenceLink.trim() ? "Evidence link is invalid" : "Evidence link is missing"}</span>`;
-}
-
 function handleChange(
   appRoot: HTMLDivElement,
   session: ArgumentBoardSession,
@@ -518,7 +287,6 @@ function handleChange(
 ) {
   const action = target.dataset.action;
   const dispatch = (command: Parameters<ArgumentBoardSession["dispatch"]>[0]) => session.dispatch(command, refresh ? undefined : target.id);
-  const factId = target.dataset.factId;
   const argumentId = target.dataset.argumentId;
 
   if (action === "title") {
@@ -537,21 +305,12 @@ function handleChange(
       argumentId,
       changes: { mode: target.value as SupportMode },
     });
-  } else if (action === "fact-text" && factId && target instanceof HTMLTextAreaElement) {
-    dispatch({ type: "update-gathered-fact", factId, changes: { text: target.value } });
-  } else if (action === "fact-link" && factId && target instanceof HTMLInputElement) {
-    dispatch({ type: "update-gathered-fact", factId, changes: { evidenceLink: target.value } });
-  } else if (action === "fact-data-type" && factId && target instanceof HTMLSelectElement) {
-    dispatch({ type: "update-gathered-fact", factId, changes: { dataType: target.value as DataType } });
   } else if (action === "attach-fact" && target instanceof HTMLSelectElement && target.value) {
     dispatch({
       type: "attach-fact",
       destinationId: target.dataset.destinationId ?? "",
       factId: target.value,
     });
-  } else if (action === "source-detail" && factId) {
-    const field = target.dataset.field as "sourceTitle" | "sourceDate" | "quotation";
-    dispatch({ type: "update-gathered-fact", factId, changes: { [field]: target.value } });
   } else if (action === "reasoning-note" && argumentId) {
     const field = target.dataset.field as "connection" | "assumptions" | "objection" | "weakensClaim";
     dispatch({ type: "update-supporting-argument", argumentId, changes: { [field]: target.value } });
@@ -572,28 +331,24 @@ function handleAction(appRoot: HTMLDivElement, session: ArgumentBoardSession, ta
   const view = views.get(appRoot)!;
   if (action === "load-example") {
     const result = session.importFile(JSON.stringify(createExampleBoard()), () => confirm("Replace this board with the worked example? You can undo this."));
-    if (result?.ok) { view.query = ""; view.filter = "all"; session.setStage("construct"); renderAndFocus(appRoot, session, "stage-heading-construct"); }
+    if (result?.ok) { view.facts.resetSearch(); session.setStage("construct"); renderAndFocus(appRoot, session, "stage-heading-construct"); }
   } else if (action === "preview-mode") {
-    view.previewMode = target.dataset.mode as ViewState["previewMode"];
+    view.preview.setMode(target.dataset.mode === "outline" ? "outline" : "diagram");
     renderPreservingFocus(appRoot, session, render);
   } else if (action === "zoom") {
-    view.zoom = target.dataset.zoom === "fit" ? 1 : Math.max(0.5, Math.min(6, view.zoom * (target.dataset.zoom === "in" ? 1.25 : 0.8)));
-    sizeDiagram(appRoot);
+    view.preview.zoom(target.dataset.zoom === "fit" ? "fit" : target.dataset.zoom === "in" ? "in" : "out");
   } else if (action === "download-writing") {
     downloadFile(createWritingExport(session.snapshot().board, target.dataset.format as "markdown" | "text"));
   } else if (action === "print") {
     appRoot.querySelector(".print-document")!.outerHTML = renderPrintDocument(session.snapshot().board);
     window.print();
   } else if (action === "keep-this-draft") {
-    if (view.draft.setEnabled(true, session.snapshot().board)) { view.lastSavedBoard = session.snapshot().board; view.conflict = false; }
+    view.draft.setEnabled(true);
     renderPreservingFocus(appRoot, session, render);
   } else if (action === "load-other-draft") {
-    const board = view.draft.load();
-    if (board) {
-      const result = session.importFile(JSON.stringify(board), () => confirm("Load the other tab's draft? You can undo this replacement."));
-      if (result?.ok) { view.lastSavedBoard = board; view.conflict = false; renderPreservingFocus(appRoot, session, render); }
-      else view.draft.pause();
-    } else { view.draft.pause(); updateSaveStatus(appRoot, "No readable draft found. Download this board or keep saving it."); }
+    if (view.draft.loadOther(() => confirm("Load the other tab's draft? You can undo this replacement."))) {
+      renderPreservingFocus(appRoot, session, render);
+    }
   } else if (action === "stage") {
     const stage = target.dataset.stage as WorkflowStage;
     session.setStage(stage);
@@ -695,7 +450,7 @@ function openIssue(appRoot: HTMLDivElement, session: ArgumentBoardSession, targe
 }
 
 function focusCanonicalFact(appRoot: HTMLDivElement, session: ArgumentBoardSession, factId: string) {
-  const view = views.get(appRoot)!; view.query = ""; view.filter = "all";
+  const view = views.get(appRoot)!; view.facts.resetSearch();
   session.setStage("gather");
   renderAndFocus(appRoot, session, `fact-${safeDomId(factId)}-text`);
 }
@@ -759,62 +514,6 @@ function clearBoard(appRoot: HTMLDivElement, session: ArgumentBoardSession) {
   renderAndFocus(appRoot, session, "stage-heading-gather");
 }
 
-async function renderMermaidPreview(appRoot: HTMLDivElement, source: string, currentRender: number) {
-  const container = appRoot.querySelector<HTMLDivElement>(".mermaid-diagram");
-  if (!container) return;
-
-  const view = views.get(appRoot)!;
-  // Keep only the latest source, including its pending render, for this app instance.
-  if (view.diagram?.source !== source) {
-    view.diagram = {
-      source,
-      svg: loadMermaid().then(async (mermaid) => {
-        const { svg } = await mermaid.render(`argument-preview-${currentRender}`, source);
-        return svg;
-      }),
-    };
-  }
-  const diagram = view.diagram;
-  try {
-    const svg = await diagram.svg;
-    if (currentRender === renderVersion) {
-      container.innerHTML = svg;
-      sizeDiagram(appRoot);
-    }
-  } catch {
-    if (view.diagram === diagram) view.diagram = undefined;
-    if (currentRender === renderVersion) {
-      container.innerHTML = `<div class="mermaid-status error">The workflow could not be rendered. Check the Mermaid source below.</div>`;
-    }
-  }
-}
-
-function loadMermaid() {
-  return (mermaidPromise ??= import("mermaid").then(({ default: mermaid }) => {
-    mermaid.initialize({
-      startOnLoad: false,
-      securityLevel: "strict",
-      theme: "base",
-      themeVariables: {
-        background: "#111111",
-        primaryColor: "#242424",
-        primaryTextColor: "#ededed",
-        darkMode: true,
-        textColor: "#ededed",
-        primaryBorderColor: "#616161",
-        lineColor: "#a0a0a0",
-        secondaryColor: "#1c1c1c",
-        tertiaryColor: "#151515",
-        fontFamily: "Inter, ui-sans-serif, system-ui, sans-serif",
-      },
-    });
-    return mermaid;
-  }).catch((error) => {
-    mermaidPromise = undefined;
-    throw error;
-  }));
-}
-
 function renderIconButton(options: IconButtonOptions): string {
   const classes = ["icon-button", options.active ? "active" : "", options.danger ? "danger" : ""].filter(Boolean).join(" ");
   return `
@@ -854,58 +553,7 @@ function renderCommandButton(control: CommandDeskActionControl, attrs?: string):
   return renderIconButton({ ...control, attrs });
 }
 
-function incompleteGuidance(reason: ReturnType<typeof factCompleteness>[number]): string {
-  const messages = {
-    "needs-text": "Add fact text.",
-    "needs-link": "Add an evidence link.",
-    "invalid-link": "Use a valid http:// or https:// evidence link.",
-  };
-  return messages[reason];
-}
-
-
-function updateFactResults(appRoot: HTMLDivElement, session: ArgumentBoardSession, preserveEditor = false) {
-  const view = views.get(appRoot)!;
-  const board = session.snapshot().board;
-  const library = appRoot.querySelector(".fact-library");
-  if (!library) return;
-  const facts = filterFacts(board, view.query, view.filter);
-  if (library && board.gatheredFacts.length) {
-    if (!preserveEditor) library.innerHTML = facts.map((fact) => renderFactCard(board, fact, board.gatheredFacts.indexOf(fact))).join("");
-    else {
-      // Keep the current editor intact until focus leaves its card, including native undo.
-      const cards = new Map([...library.querySelectorAll<HTMLElement>(".fact-card")].map((card) => [card.dataset.factId!, card]));
-      const activeCard = document.activeElement?.closest<HTMLElement>(".fact-card");
-      const matchingIds = new Set(facts.map((fact) => fact.id));
-      const visible = board.gatheredFacts.filter((fact) => matchingIds.has(fact.id) || cards.get(fact.id) === activeCard);
-      const visibleIds = new Set(visible.map((fact) => fact.id));
-      for (const [id, card] of cards) if (!visibleIds.has(id)) card.remove();
-      let previous: HTMLElement | undefined;
-      for (const fact of visible) {
-        let card = cards.get(fact.id);
-        if (!card) {
-          const template = document.createElement("template");
-          template.innerHTML = renderFactCard(board, fact, board.gatheredFacts.indexOf(fact));
-          card = template.content.firstElementChild as HTMLElement;
-          for (const details of card.querySelectorAll<HTMLDetailsElement>("details[data-disclosure]")) details.open = view.disclosures.get(details.dataset.disclosure!) ?? false;
-          library.insertBefore(card, previous ? previous.nextSibling : library.firstChild);
-        }
-        previous = card;
-      }
-    }
-    library.querySelector(".fact-no-results")?.remove();
-    if (!library.querySelector(".fact-card")) library.innerHTML = '<p class="fact-no-results">No matching facts. Change the search or filter.</p>';
-  }
-  if (!preserveEditor) {
-    for (const details of library?.querySelectorAll<HTMLDetailsElement>("details[data-disclosure]") ?? []) {
-      details.open = view.disclosures.get(details.dataset.disclosure!) ?? false;
-    }
-  }
-  const status = appRoot.querySelector("#fact-results");
-  if (status) status.textContent = `${facts.length} of ${board.gatheredFacts.length} facts`;
-}
-
-function refreshEditingState(appRoot: HTMLDivElement, session: ArgumentBoardSession, factId?: string) {
+function refreshEditingState(appRoot: HTMLDivElement, session: ArgumentBoardSession) {
   const snapshot = session.snapshot();
   const board = snapshot.board;
   const outline = appRoot.querySelector(".construction-outline-content");
@@ -921,28 +569,4 @@ function refreshEditingState(appRoot: HTMLDivElement, session: ArgumentBoardSess
     if (list) list.innerHTML = template.content.querySelector("ul")!.innerHTML;
     if (summary) summary.textContent = template.content.querySelector("summary")!.textContent;
   }
-  // Text edits can change one shared fact. Structural actions already render the board.
-  const changedFact = factId ? board.gatheredFacts.find((fact) => fact.id === factId) : undefined;
-  if (changedFact) {
-    const fact = changedFact;
-    const card = appRoot.querySelector<HTMLElement>(`.fact-card[data-fact-id="${CSS.escape(fact.id)}"]`);
-    if (card) {
-      const incomplete = factCompleteness(fact);
-      card.classList.toggle("incomplete", incomplete.length > 0);
-      card.querySelector(".fact-status")!.textContent = incomplete.length ? "Incomplete" : "Complete";
-      let guidance = card.querySelector<HTMLUListElement>(".field-guidance");
-      if (!incomplete.length) guidance?.remove();
-      else {
-        if (!guidance) { guidance = document.createElement("ul"); guidance.className = "field-guidance"; card.querySelector(".text-actions")!.before(guidance); }
-        guidance.innerHTML = incomplete.map((reason) => `<li>${escapeHtml(incompleteGuidance(reason))}</li>`).join("");
-      }
-    }
-    // Keep shared editors consistent without replacing the editor being typed into.
-    for (const editor of appRoot.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>(`[data-fact-id="${CSS.escape(fact.id)}"] input, input[data-fact-id="${CSS.escape(fact.id)}"], textarea[data-fact-id="${CSS.escape(fact.id)}"]`)) {
-      if (editor === document.activeElement) continue;
-      if (editor.dataset.action === "fact-text") editor.value = fact.text;
-      if (editor.dataset.action === "fact-link") editor.value = fact.evidenceLink;
-    }
-  }
-  updateFactResults(appRoot, session, true);
 }
