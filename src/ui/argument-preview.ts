@@ -140,11 +140,11 @@ function renderEvidenceGroup(group: ReturnType<typeof projectArgumentPreview>["e
 function renderEvidenceSource(fact: ArgumentPreviewFact): string {
   const citation = fact.descriptiveCitation?.trim()
     ? `<span>Descriptive citation: ${escapeHtml(fact.descriptiveCitation)}</span>` : "";
-  if (fact.evidenceLinkIsValid) {
+  if (fact.sourceReferenceStatus === "valid-link") {
     return `${citation}<a href="${escapeAttr(fact.evidenceLink)}" target="_blank" rel="noreferrer" aria-label="Open evidence source for ${escapeAttr(fact.text || "fact needing text")}">Open evidence source</a>`;
   }
-  if (fact.evidenceLink.trim()) return `${citation}<span class="invalid-source">Evidence link is invalid</span>`;
-  return citation || '<span class="invalid-source">Evidence link or descriptive citation is missing</span>';
+  if (fact.sourceReferenceStatus === "invalid-link") return `${citation}<span class="invalid-source">Evidence link is invalid</span>`;
+  return fact.sourceReferenceStatus === "citation-only" ? citation : '<span class="invalid-source">Evidence link or descriptive citation is missing</span>';
 }
 
 function renderPreviewTools(board: ArgumentBoard, mode: PreviewMode): string {
