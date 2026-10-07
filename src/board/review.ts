@@ -102,7 +102,7 @@ function addTouchedEmptyIssue(issues: ReviewIssue[], item: SupportingArgument) {
 function fieldMessage(reason: FactIncompleteReason): string {
   const messages: Record<FactIncompleteReason, string> = {
     "needs-text": "Add fact text.",
-    "needs-link": "Add an evidence link.",
+    "needs-link": "Add an evidence link or descriptive citation.",
     "invalid-link": "Use a valid http:// or https:// evidence link.",
   };
 

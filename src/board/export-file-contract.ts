@@ -116,7 +116,7 @@ function hasGatheredFactShape(value: unknown): value is ArgumentBoard["gatheredF
     hasTextSlotShape(value) &&
     typeof value["evidenceLink"] === "string" &&
     isDataType(value["dataType"]) &&
-    optionalStrings(value, ["sourceTitle", "sourceDate", "quotation"])
+    optionalStrings(value, ["descriptiveCitation", "sourceTitle", "sourceDate", "quotation"])
   );
 }
 

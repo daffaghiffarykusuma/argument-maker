@@ -16,6 +16,7 @@ export interface FactTextSlot extends TextSlot {
 export interface GatheredFact extends TextSlot {
   evidenceLink: string;
   dataType: DataType;
+  descriptiveCitation?: string;
   sourceTitle?: string;
   sourceDate?: string;
   quotation?: string;
@@ -60,7 +61,7 @@ export type ArgumentBoardCommand =
   | {
       type: "update-gathered-fact";
       factId: string;
-      changes: Partial<Pick<GatheredFact, "text" | "evidenceLink" | "dataType" | "sourceTitle" | "sourceDate" | "quotation">>;
+      changes: Partial<Pick<GatheredFact, "text" | "evidenceLink" | "dataType" | "descriptiveCitation" | "sourceTitle" | "sourceDate" | "quotation">>;
     }
   | { type: "move-gathered-fact"; factId: string; direction: "up" | "down" }
   | { type: "delete-gathered-fact"; factId: string }
@@ -141,7 +142,7 @@ export function applyArgumentBoardCommand(
   }
 }
 
-export function factCompleteness(fact: Pick<GatheredFact, "text" | "evidenceLink">): FactIncompleteReason[] {
+export function factCompleteness(fact: Pick<GatheredFact, "text" | "evidenceLink" | "descriptiveCitation">): FactIncompleteReason[] {
   const reasons: FactIncompleteReason[] = [];
 
   if (!fact.text.trim()) {
@@ -149,7 +150,7 @@ export function factCompleteness(fact: Pick<GatheredFact, "text" | "evidenceLink
   }
 
   if (!fact.evidenceLink.trim()) {
-    reasons.push("needs-link");
+    if (!fact.descriptiveCitation?.trim()) reasons.push("needs-link");
   } else if (!isValidEvidenceLink(fact.evidenceLink)) {
     reasons.push("invalid-link");
   }
@@ -157,7 +158,7 @@ export function factCompleteness(fact: Pick<GatheredFact, "text" | "evidenceLink
   return reasons;
 }
 
-export function isGatheredFactComplete(fact: Pick<GatheredFact, "text" | "evidenceLink">): boolean {
+export function isGatheredFactComplete(fact: Pick<GatheredFact, "text" | "evidenceLink" | "descriptiveCitation">): boolean {
   return factCompleteness(fact).length === 0;
 }
 

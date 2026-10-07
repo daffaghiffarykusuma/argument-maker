@@ -120,10 +120,11 @@ export function createGatheredFactEditing(root: HTMLDivElement, session: Argumen
 
 export type GatheredFactEditing = ReturnType<typeof createGatheredFactEditing>;
 
-function factField(editor: Editor): "text" | "evidenceLink" | "dataType" | "sourceTitle" | "sourceDate" | "quotation" | undefined {
+function factField(editor: Editor): "text" | "evidenceLink" | "dataType" | "descriptiveCitation" | "sourceTitle" | "sourceDate" | "quotation" | undefined {
   switch (editor.dataset.action) {
     case "fact-text": return "text";
     case "fact-link": return "evidenceLink";
+    case "fact-citation": return "descriptiveCitation";
     case "fact-data-type": return "dataType";
     case "source-detail": {
       const field = editor.dataset.field;
@@ -182,6 +183,7 @@ function renderFactCard(board: ArgumentBoard, fact: GatheredFact, index: number)
           <span>Evidence Link</span>
           <input id="${prefix}-link" data-action="fact-link" data-fact-id="${escapeAttr(fact.id)}" type="url" value="${escapeAttr(fact.evidenceLink)}" placeholder="https://example.com/source" />
         </label>
+        ${renderCitationField(fact, prefix)}
       </div>
       ${renderSourceDetails(fact, prefix)}
       ${
@@ -259,6 +261,7 @@ function renderAttachedFact(
           <span>Evidence Link</span>
           <input id="${prefix}-link" data-action="fact-link" data-fact-id="${escapeAttr(fact.id)}" type="url" value="${escapeAttr(fact.evidenceLink)}" />
         </label>
+        ${renderCitationField(fact, prefix)}
       </div>
       <div class="text-actions">
         <button type="button" data-action="focus-attached-fact" data-focus-id="${prefix}-text">Edit fact</button>
@@ -294,7 +297,7 @@ function renderDataTypeOption(value: DataType, label: string, selected: DataType
 function incompleteGuidance(reason: ReturnType<typeof factCompleteness>[number]): string {
   const messages = {
     "needs-text": "Add fact text.",
-    "needs-link": "Add an evidence link.",
+    "needs-link": "Add an evidence link or descriptive citation.",
     "invalid-link": "Use a valid http:// or https:// evidence link.",
   };
   return messages[reason];
@@ -313,4 +316,11 @@ function renderSourceDetails(fact: GatheredFact, prefix: string): string {
   return `<details class="source-details" data-disclosure="source-${escapeAttr(fact.id)}"><summary>Source details</summary><div class="source-fields">
     ${([['sourceTitle', 'Source title'], ['sourceDate', 'Source date'], ['quotation', 'Quotation']] as const).map(([field, label]) => `<label for="${prefix}-${field}">${label}${field === "quotation" ? `<textarea id="${prefix}-${field}" data-action="source-detail" data-field="${field}" data-fact-id="${escapeAttr(fact.id)}" rows="2">${escapeHtml(fact[field] ?? "")}</textarea>` : `<input id="${prefix}-${field}" type="text" data-action="source-detail" data-field="${field}" data-fact-id="${escapeAttr(fact.id)}" value="${escapeAttr(fact[field] ?? "")}" ${field === "sourceDate" ? 'placeholder="Publication date, if known"' : ""}>`}</label>`).join("")}
   </div></details>`;
+}
+
+function renderCitationField(fact: GatheredFact, prefix: string): string {
+  return `<label class="citation-field" for="${prefix}-citation"><span id="${prefix}-citation-label">Descriptive citation</span>
+    <textarea id="${prefix}-citation" data-action="fact-citation" data-fact-id="${escapeAttr(fact.id)}" rows="2" aria-labelledby="${prefix}-citation-label" aria-describedby="${prefix}-source-help" placeholder="Book and passage, interview notes, or observation record">${escapeHtml(fact.descriptiveCitation ?? "")}</textarea>
+    <small id="${prefix}-source-help">Provide an Evidence Link, a descriptive citation, or both.</small>
+  </label>`;
 }
