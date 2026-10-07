@@ -47,7 +47,10 @@ export function createWritingExport(board: ArgumentBoard, format: "markdown" | "
   if (!doc.sources.length) lines.push("No facts attached.");
   for (const source of doc.sources) {
     lines.push(`[${source.citation}] ${text(source.sourceTitle?.trim() || source.text || "Untitled source")}`);
-    lines.push(isValidEvidenceLink(source.evidenceLink) ? (markdown ? `<${new URL(source.evidenceLink).href}>` : source.evidenceLink) : "[Missing or invalid evidence link]");
+    if (isValidEvidenceLink(source.evidenceLink)) lines.push(markdown ? `<${new URL(source.evidenceLink).href}>` : source.evidenceLink);
+    else if (source.evidenceLink.trim() || !source.descriptiveCitation?.trim()) lines.push("[Missing or invalid evidence link]");
+    if (source.descriptiveCitation?.trim()) lines.push(`Descriptive citation: ${text(source.descriptiveCitation)}`);
+    if (source.dataType) lines.push(`Data Type: ${source.dataType[0]!.toUpperCase()}${source.dataType.slice(1)}`);
     if (source.sourceDate) lines.push(`Source date: ${text(source.sourceDate)}`);
     if (source.quotation) lines.push(`Quotation: ${text(source.quotation)}`);
     lines.push("");
