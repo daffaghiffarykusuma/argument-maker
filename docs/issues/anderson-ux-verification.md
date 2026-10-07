@@ -6,7 +6,7 @@ The implementation starts with a Question or tentative Answer, preserves optiona
 
 ## Automated verification
 
-Final reviewed implementation: `3f8e76a`, merged without conflicts as `b246ad6`. Their committed trees are identical. Checks below passed on that implementation before the merge; subsequent completion edits change documentation only.
+Final reviewed implementation: `3f8e76a`, merged without conflicts as `b246ad6`. Their committed trees are identical. Checks below passed on that implementation before the merge; subsequent completion edits change documentation and remove a trailing blank line in a test file only.
 
 | Check | Result |
 | --- | --- |
