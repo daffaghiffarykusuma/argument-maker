@@ -41,6 +41,7 @@ export async function verifyPlanningContext(browser: Browser, appUrl: string) {
     for (const name of ["Download Markdown", "Download text"]) {
       const pending = page.waitForEvent("download");
       await page.getByRole("button", { name, exact: true }).click();
+      if (name === "Download Markdown") await page.getByRole("button", { name: "Export draft", exact: true }).click();
       assertPrivate(await readFile((await (await pending).path())!, "utf8"));
     }
     await page.emulateMedia({ media: "print" });

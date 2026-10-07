@@ -41,12 +41,12 @@ const commandDeskActions = {
 
 import { createExampleBoard } from "../board/example-board";
 import { createWritingExport } from "../board/writing-export";
-import { views, type ViewState } from "./board-view-state";
+import { views, type ViewState, type WritingAction } from "./board-view-state";
 import { mountBoardControls, renderDraftControls, renderPreservingFocus } from "./board-controls";
 import { renderReasoningPrompts, renderCompactOutline, renderPrintDocument } from "./enhancement-view";
 import { escapeHtml, escapeAttr, safeDomId } from "./html";
 import type { GatheredFactEditing } from "./gathered-fact-editing";
-import { renderReasoningReview } from "./reasoning-review";
+import { renderReasoningReview, renderWritingInvitation } from "./reasoning-review";
 
 export function mountArgumentBoardApp(appRoot: HTMLDivElement, initialSession?: ArgumentBoardSession) {
   const session = mountBoardControls(appRoot, initialSession, { render, change: handleChange, action: handleAction, upload: handleUpload, refresh: refreshEditingState });
@@ -66,9 +66,9 @@ function render(appRoot: HTMLDivElement, session: ArgumentBoardSession) {
         ${renderTopbar(snapshot.board)}
         <div class="draft-controls">${renderDraftControls(view)}</div>
         ${renderStageNavigation(snapshot.stage)}
-        <div class="review-entry"><button id="open-reasoning-review" type="button" data-action="open-review" aria-expanded="${!!view.reviewOpen}">Reasoning review</button></div>
-        ${view.reviewOpen ? renderReasoningReview(snapshot.board, snapshot.issues) : renderStage(snapshot.board, snapshot.stage, snapshot.issues, view)}
-        ${renderPrintDocument(snapshot.board)}
+        <div class="review-entry"><button id="open-reasoning-review" type="button" data-action="open-review" aria-expanded="${!!view.reviewOpen}">Reasoning review</button>${view.writingMode ? `<button type="button" data-action="toggle-draft-label" aria-pressed="${view.writingMode === "draft"}">Label writing exports as Draft</button>` : ""}</div>
+        ${view.writingInvitationOpen ? renderWritingInvitation() : view.reviewOpen ? renderReasoningReview(snapshot.board, snapshot.issues, !!view.pendingWriting) : renderStage(snapshot.board, snapshot.stage, snapshot.issues, view)}
+        ${renderPrintDocument(snapshot.board, view.writingMode !== "reviewed")}
       </div>
       <div class="copy-feedback" role="status" aria-label="Copy feedback" aria-live="polite" aria-atomic="true"><span>${escapeHtml(view.copyFeedback?.message ?? "")}</span></div>
     </main>
@@ -377,35 +377,62 @@ function handleAction(appRoot: HTMLDivElement, session: ArgumentBoardSession, ta
 
   const view = views.get(appRoot)!;
   if (action === "open-review") {
+    view.writingInvitationOpen = false;
     view.reviewOpen = true;
     renderAndFocus(appRoot, session, "reasoning-review-heading");
   } else if (action === "close-review") {
     view.reviewOpen = false;
+    view.pendingWriting = undefined;
     renderAndFocus(appRoot, session, "open-reasoning-review");
+  } else if (action === "review-writing") {
+    view.writingMode = "reviewed";
+    view.writingInvitationOpen = false;
+    view.reviewOpen = true;
+    renderAndFocus(appRoot, session, "reasoning-review-heading");
+  } else if (action === "export-draft" || action === "continue-writing") {
+    const output = view.pendingWriting;
+    if (!output) return;
+    view.writingMode = action === "export-draft" ? "draft" : "reviewed";
+    view.writingInvitationOpen = false;
+    view.reviewOpen = false;
+    view.pendingWriting = undefined;
+    render(appRoot, session);
+    focusWritingAction(appRoot, output);
+    performWritingAction(appRoot, session, output);
+  } else if (action === "cancel-writing") {
+    const output = view.pendingWriting;
+    view.writingInvitationOpen = false;
+    view.pendingWriting = undefined;
+    render(appRoot, session);
+    if (output) focusWritingAction(appRoot, output);
+  } else if (action === "toggle-draft-label") {
+    view.writingMode = view.writingMode === "draft" ? "reviewed" : "draft";
+    renderPreservingFocus(appRoot, session, render);
   } else if (action === "load-example") {
     const result = session.importFile(JSON.stringify(createExampleBoard()), () => confirm("Replace this board with the worked example? You can undo this."));
-    if (result?.ok) { view.reviewOpen = false; view.facts.resetSearch(); session.setStage("construct"); renderAndFocus(appRoot, session, "stage-heading-construct"); }
+    if (result?.ok) { resetWritingReview(view); view.facts.resetSearch(); session.setStage("construct"); renderAndFocus(appRoot, session, "stage-heading-construct"); }
   } else if (action === "preview-mode") {
     view.preview.setMode(target.dataset.mode === "outline" ? "outline" : "diagram");
     renderPreservingFocus(appRoot, session, render);
   } else if (action === "zoom") {
     view.preview.zoom(target.dataset.zoom === "fit" ? "fit" : target.dataset.zoom === "in" ? "in" : "out");
   } else if (action === "download-writing") {
-    downloadFile(createWritingExport(session.snapshot().board, target.dataset.format as "markdown" | "text"));
+    requestWritingAction(appRoot, session, target.dataset.format as "markdown" | "text");
   } else if (action === "print") {
-    appRoot.querySelector(".print-document")!.outerHTML = renderPrintDocument(session.snapshot().board);
-    window.print();
+    requestWritingAction(appRoot, session, "print");
   } else if (action === "keep-this-draft") {
     view.draft.setEnabled(true);
     renderPreservingFocus(appRoot, session, render);
   } else if (action === "load-other-draft") {
     if (view.draft.loadOther(() => confirm("Load the other tab's draft? You can undo this replacement."))) {
+      resetWritingReview(view);
       renderPreservingFocus(appRoot, session, render);
     }
   } else if (action === "focus-framing") {
     appRoot.querySelector<HTMLElement>(`#${target.dataset.targetId}`)?.focus();
   } else if (action === "stage") {
     view.reviewOpen = false;
+    view.writingInvitationOpen = false;
     const stage = target.dataset.stage as WorkflowStage;
     session.setStage(stage);
     renderAndFocus(appRoot, session, `stage-heading-${stage}`);
@@ -457,7 +484,7 @@ function handleAction(appRoot: HTMLDivElement, session: ArgumentBoardSession, ta
   } else if (action === "open-issue") {
     openIssue(appRoot, session, target.dataset.targetId ?? "");
   } else if (action === "copy-outline") {
-    void copyOutput(appRoot, session.copyOutline(), "Outline");
+    requestWritingAction(appRoot, session, "copy-outline");
   } else if (action === "copy-mermaid") {
     void copyOutput(appRoot, session.copyMermaid(), "Mermaid");
   } else if (action === "download") {
@@ -471,6 +498,39 @@ function handleAction(appRoot: HTMLDivElement, session: ArgumentBoardSession, ta
     session.redo();
     render(appRoot, session);
   }
+}
+
+function resetWritingReview(view: ViewState) {
+  view.writingMode = undefined;
+  view.writingInvitationOpen = false;
+  view.pendingWriting = undefined;
+  view.reviewOpen = false;
+}
+
+function requestWritingAction(appRoot: HTMLDivElement, session: ArgumentBoardSession, action: WritingAction) {
+  const view = views.get(appRoot)!;
+  if (view.writingMode) {
+    performWritingAction(appRoot, session, action);
+    return;
+  }
+  view.pendingWriting = action;
+  view.writingInvitationOpen = true;
+  view.reviewOpen = false;
+  renderAndFocus(appRoot, session, "writing-invitation-heading");
+}
+
+function performWritingAction(appRoot: HTMLDivElement, session: ArgumentBoardSession, action: WritingAction) {
+  const draft = views.get(appRoot)!.writingMode === "draft";
+  if (action === "copy-outline") void copyOutput(appRoot, session.copyOutline({ draft }), "Outline");
+  else if (action === "print") {
+    appRoot.querySelector(".print-document")!.outerHTML = renderPrintDocument(session.snapshot().board, draft);
+    window.print();
+  } else downloadFile(createWritingExport(session.snapshot().board, action, { draft }));
+}
+
+function focusWritingAction(appRoot: HTMLDivElement, action: WritingAction) {
+  const selector = action === "markdown" || action === "text" ? `[data-action="download-writing"][data-format="${action}"]` : `[data-action="${action}"]`;
+  (appRoot.querySelector<HTMLElement>(selector) ?? appRoot.querySelector<HTMLElement>("#open-reasoning-review"))?.focus();
 }
 
 async function copyOutput(appRoot: HTMLDivElement, contents: string, label: "Outline" | "Mermaid") {
@@ -577,7 +637,7 @@ async function handleUpload(appRoot: HTMLDivElement, session: ArgumentBoardSessi
     return;
   }
 
-  views.get(appRoot)!.reviewOpen = false;
+  resetWritingReview(views.get(appRoot)!);
   session.setStage("gather");
   renderAndFocus(appRoot, session, "stage-heading-gather");
 }
@@ -588,7 +648,7 @@ function clearBoard(appRoot: HTMLDivElement, session: ArgumentBoardSession) {
   }
 
   session.clear();
-  views.get(appRoot)!.reviewOpen = false;
+  resetWritingReview(views.get(appRoot)!);
   views.get(appRoot)!.disclosures.set("readiness", false);
   const checklist = appRoot.querySelector<HTMLDetailsElement>('details[data-disclosure="readiness"]');
   if (checklist) checklist.open = false;

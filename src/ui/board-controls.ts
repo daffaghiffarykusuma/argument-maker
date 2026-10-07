@@ -103,6 +103,7 @@ export function mountBoardControls(root: HTMLDivElement, initial: ArgumentBoardS
       const next = event.key === "Home" ? 0 : event.key === "End" ? tabs.length - 1 : (index + (event.key === "ArrowRight" ? 1 : -1) + tabs.length) % tabs.length;
       session.setStage(tabs[next]!.dataset.stage as WorkflowStage);
       view.reviewOpen = false;
+      view.writingInvitationOpen = false;
       controls.render(root, session);
       root.querySelector<HTMLButtonElement>(`[data-stage="${session.snapshot().stage}"]`)?.focus();
     } else if (target.matches('.file-button') && ["Enter", " "].includes(event.key)) {

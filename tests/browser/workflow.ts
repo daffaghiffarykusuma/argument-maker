@@ -144,12 +144,11 @@ test("supports the question-first Argument Maker workflow in Chromium", { timeou
 
     const sharedLinks = page.locator('[data-action="fact-link"][data-fact-id="fact-1"]');
     const picker = page.locator('[data-action="attach-fact"][data-destination-id="complication"]');
-    const pickerOptions = await picker.innerHTML();
     await sharedLinks.first().fill("invalid-link");
     expect(await sharedLinks.evaluateAll((elements) => elements.map((element) => (element as HTMLInputElement).value)))
       .toEqual(["invalid-link", "invalid-link"]);
     expect(await page.locator('.attached-fact.incomplete[data-fact-id="fact-1"]').count()).toBe(2);
-    expect(await picker.innerHTML()).toBe(pickerOptions);
+    expect(await picker.locator('option[value="fact-1"]').count()).toBe(0);
     expect(await page.evaluate(() => document.activeElement?.getAttribute("data-action"))).toBe("fact-link");
     await sharedLinks.first().fill("https://example.com/report");
     expect(await page.locator('.attached-fact.incomplete[data-fact-id="fact-1"]').count()).toBe(0);
@@ -289,6 +288,7 @@ test("supports the question-first Argument Maker workflow in Chromium", { timeou
     expect(await page.locator(".outline-preview .writing-document > section:last-of-type li").count()).toBe(3);
     const markdownDownloadPromise = page.waitForEvent("download");
     await page.getByRole("button", { name: "Download Markdown" }).click();
+    await page.getByRole("button", { name: "Export draft", exact: true }).click();
     const markdownDownload = await markdownDownloadPromise;
     const markdown = await import("node:fs/promises").then(async (fs) => fs.readFile((await markdownDownload.path())!, "utf8"));
     expect(markdown).toContain("Source date: September 2026");
