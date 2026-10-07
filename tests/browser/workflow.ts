@@ -14,9 +14,9 @@ const { verifyClipboardFeedback } = await import(clipboardWorkflowPath);
 
 const appUrl = "http://127.0.0.1:3000";
 const smokeDir = join(testDir, "../..", "output", "browser-smoke");
-const screenshotPath = join(smokeDir, "gather-first.png");
+const screenshotPath = join(smokeDir, "argument-workflow.png");
 
-test("supports the gather-first Argument Maker workflow in Chromium", { timeout: 90_000 }, async () => {
+test("supports the question-first Argument Maker workflow in Chromium", { timeout: 90_000 }, async () => {
   const server = spawn(process.execPath, [join(testDir, "../..", "node_modules/vite/bin/vite.js"), "--host", "127.0.0.1", "--strictPort", "--port", "3000"], {
     cwd: join(testDir, "../.."), stdio: "ignore", windowsHide: true,
   });
@@ -27,12 +27,24 @@ test("supports the gather-first Argument Maker workflow in Chromium", { timeout:
     await waitForServer();
     console.log("browser-smoke: launching Chromium");
     browser = await chromium.launch({ headless: true });
+    const questionFirstModule = "./question-first.ts";
+    const { verifyQuestionFirst } = await import(questionFirstModule);
+    await verifyQuestionFirst(browser, appUrl);
     const planningContextModule = "./planning-context.ts";
     const { verifyPlanningContext } = await import(planningContextModule);
     await verifyPlanningContext(browser, appUrl);
+    const sourceReuseModule = "./source-reuse.ts";
+    const { verifySourceReuse } = await import(sourceReuseModule);
+    await verifySourceReuse(browser, appUrl);
+    const reasoningReviewModule = "./reasoning-review.ts";
+    const { verifyReasoningReview } = await import(reasoningReviewModule);
+    await verifyReasoningReview(browser, appUrl);
     const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
     const page = await context.newPage();
     await page.goto(appUrl);
+    await page.getByRole("heading", { name: "Construct Argument", exact: true }).waitFor();
+    await fillAndCommit(page, "#scqa-question", "What should change?");
+    await page.getByRole("button", { name: "Gather supporting material" }).click();
     await page.getByRole("heading", { name: "Gather Facts" }).waitFor();
     console.log("browser-smoke: opened Gather Facts");
 
@@ -152,6 +164,7 @@ test("supports the gather-first Argument Maker workflow in Chromium", { timeout:
     await page.locator('[data-disclosure="destination-complication"] > summary').click();
     await page.locator('[data-action="create-fact-here"][data-destination-id="complication"]').click();
     expect(await page.evaluate(() => document.activeElement?.getAttribute("data-fact-id"))).toBe("fact-3");
+    await page.locator('details[data-disclosure="readiness"] > summary').click();
     await page.getByRole("button", { name: /Complete this fact/ }).click();
     expect(await page.evaluate(() => document.activeElement?.id)).toContain("fact-66-61-63-74-2d-33-text");
     await fillAndCommit(page, '[data-action="fact-text"][data-fact-id="fact-3"]', "Queues are growing.");
@@ -160,7 +173,7 @@ test("supports the gather-first Argument Maker workflow in Chromium", { timeout:
 
     await page.getByRole("tab", { name: /Construct Argument/ }).click();
     await page.locator('[data-action="mode-change"][data-argument-id="argument-1"][value="evidence-backed"]').check();
-    expect(await page.locator(".checklist").innerText()).toContain("Ready to preview");
+    expect(await page.locator(".checklist").innerText()).toContain("Review 0 structural issues");
 
     await page.getByRole("tab", { name: /Preview/ }).click();
     await page.locator(".mermaid-diagram svg").waitFor();
@@ -213,6 +226,7 @@ test("supports the gather-first Argument Maker workflow in Chromium", { timeout:
 
     page.once("dialog", (dialog) => dialog.accept());
     await page.getByRole("button", { name: "Clear Board" }).click();
+    await page.getByRole("tab", { name: /Gather Facts/ }).click();
     expect(await page.locator(".fact-card").count()).toBe(0);
     await page.getByRole("button", { name: "Undo" }).click();
     expect(await page.locator(".fact-card").count()).toBe(3);
@@ -263,7 +277,7 @@ test("supports the gather-first Argument Maker workflow in Chromium", { timeout:
     await page.locator('[data-disclosure="reasoning-argument-1"] > summary').click();
     await fillAndCommit(page, '[data-field="objection"][data-argument-id="argument-1"]', "Demand may fall next year.");
     await page.getByRole("tab", { name: /Construct Argument/ }).focus();
-    await page.keyboard.press("ArrowRight");
+    await page.keyboard.press("End");
     expect(await page.evaluate(() => document.activeElement?.id)).toBe("stage-tab-preview");
     await page.locator(".mermaid-diagram svg").waitFor();
     expect(await page.locator(".mermaid-diagram svg").evaluate((svg) => svg.getBoundingClientRect().height <= 500)).toBe(true);
