@@ -56,7 +56,7 @@ describe("Argument Preview projection", () => {
 
     expect(preview.chain[1]!.facts[0]).toMatchObject({
       id: blankId,
-      markers: ["[Needs fact text]", "[Needs evidence link]"],
+      markers: ["[Needs fact text]", "[Needs evidence link or descriptive citation]"],
       evidenceLinkIsValid: false,
     });
     expect(preview.arguments[0]!.facts[0]).toMatchObject({

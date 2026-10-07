@@ -12,7 +12,9 @@ export function renderWritingDocument(doc: WritingDocument, idPrefix = "outline"
     </section>`).join("")}
     <section><h3>Sources</h3>${doc.sources.length ? `<ol>${doc.sources.map((source) => `<li id="${escapeAttr(idPrefix)}-source-${source.citation}">
       <strong>${escapeHtml(source.sourceTitle || source.text || "Untitled source")}</strong>
-      ${isValidEvidenceLink(source.evidenceLink) ? `<a href="${escapeAttr(source.evidenceLink)}" target="_blank" rel="noreferrer">${escapeHtml(source.evidenceLink)}</a>` : `<span>Missing or invalid evidence link</span>`}
+      ${isValidEvidenceLink(source.evidenceLink) ? `<a href="${escapeAttr(source.evidenceLink)}" target="_blank" rel="noreferrer">${escapeHtml(source.evidenceLink)}</a>` : source.evidenceLink.trim() || !source.descriptiveCitation?.trim() ? `<span>Missing or invalid evidence link</span>` : ""}
+      ${source.descriptiveCitation?.trim() ? `<span>Descriptive citation: ${escapeHtml(source.descriptiveCitation)}</span>` : ""}
+      ${source.dataType ? `<span>Data Type: ${escapeHtml(source.dataType[0]!.toUpperCase() + source.dataType.slice(1))}</span>` : ""}
       ${source.sourceDate ? `<span>Source date: ${escapeHtml(source.sourceDate)}</span>` : ""}
       ${source.quotation ? `<blockquote>${escapeHtml(source.quotation)}</blockquote>` : ""}
     </li>`).join("")}</ol>` : "<p>No facts attached.</p>"}</section>

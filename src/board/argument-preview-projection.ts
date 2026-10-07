@@ -43,6 +43,7 @@ export interface ArgumentPreviewFact {
   text: string;
   label: string;
   evidenceLink: string;
+  descriptiveCitation?: string;
   evidenceLinkIsValid: boolean;
   dataType: DataType;
   formattedDataType: string;
@@ -136,9 +137,10 @@ function appendFacts(
       lines.push(`  Evidence Link: ${fact.evidenceLink}`);
     } else if (fact.evidenceLink.trim()) {
       lines.push("  Evidence Link: [Invalid evidence link]");
-    } else {
-      lines.push("  Evidence Link: [Needs evidence link]");
+    } else if (!fact.descriptiveCitation?.trim()) {
+      lines.push("  Source reference: [Needs evidence link or descriptive citation]");
     }
+    if (fact.descriptiveCitation?.trim()) lines.push(`  Descriptive citation: ${fact.descriptiveCitation}`);
 
     if (fact.markers.length > 0) {
       incompleteEvidence.push(`- ${destinationLabel}: ${displayText}`);
@@ -167,6 +169,7 @@ function projectFact(fact: GatheredFact): ArgumentPreviewFact {
     text: fact.text,
     label: fact.dataType ? `${formatDataType(fact.dataType)}: ${content}` : content,
     evidenceLink: fact.evidenceLink,
+    descriptiveCitation: fact.descriptiveCitation,
     evidenceLinkIsValid: isValidEvidenceLink(fact.evidenceLink),
     dataType: fact.dataType,
     formattedDataType: formatDataType(fact.dataType),
@@ -177,7 +180,7 @@ function projectFact(fact: GatheredFact): ArgumentPreviewFact {
 function formatIncompleteReason(reason: FactIncompleteReason): string {
   const markers: Record<FactIncompleteReason, string> = {
     "needs-text": "[Needs fact text]",
-    "needs-link": "[Needs evidence link]",
+    "needs-link": "[Needs evidence link or descriptive citation]",
     "invalid-link": "[Invalid evidence link]",
   };
 
