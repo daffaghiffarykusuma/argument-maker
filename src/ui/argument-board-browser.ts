@@ -411,6 +411,7 @@ function handleAction(appRoot: HTMLDivElement, session: ArgumentBoardSession, ta
     renderAndFocus(appRoot, session, `stage-heading-${stage}`);
   } else if (action === "add-fact") {
     const board = session.dispatch({ type: "create-gathered-fact" });
+    view.facts.beginFact(board.gatheredFacts.at(-1)!.id);
     focusCanonicalFact(appRoot, session, board.gatheredFacts.at(-1)!.id);
   } else if (action === "move-library-fact" && factId) {
     session.dispatch({ type: "move-gathered-fact", factId, direction });
@@ -419,6 +420,7 @@ function handleAction(appRoot: HTMLDivElement, session: ArgumentBoardSession, ta
     const source = session.snapshot().board.gatheredFacts.find((fact) => fact.id === factId);
     if (!source) return;
     const board = session.dispatch({ type: "reuse-fact-source", factId });
+    view.facts.beginFact(board.gatheredFacts.at(-1)!.id);
     focusCanonicalFact(appRoot, session, board.gatheredFacts.at(-1)!.id);
   } else if (action === "delete-fact" && factId) {
     deleteFact(appRoot, session, factId);
@@ -439,6 +441,7 @@ function handleAction(appRoot: HTMLDivElement, session: ArgumentBoardSession, ta
   } else if (action === "create-fact-here" && destinationId) {
     const board = session.dispatch({ type: "create-gathered-fact", destinationId });
     const newFact = board.gatheredFacts.at(-1)!;
+    view.facts.beginFact(newFact.id);
     view.disclosures.set(`destination-${destinationId}`, true);
     renderAndFocus(appRoot, session, `attached-${safeDomId(destinationId)}-${safeDomId(newFact.id)}-text`);
   } else if (action === "focus-attached-fact") {

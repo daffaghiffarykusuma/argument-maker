@@ -77,6 +77,7 @@ export function mountBoardControls(root: HTMLDivElement, initial: ArgumentBoardS
   root.addEventListener("focusout", (event) => {
     const target = event.target;
     if (!(target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) || !target.dataset.action || ["fact-search", "autosave", "upload", "mode-change"].includes(target.dataset.action)) return;
+    facts.finishInteraction(target);
     session.finishEdit(); cancelRender();
     // Let the browser finish Tab or the pointer click before replacing the DOM.
     renderTimer = setTimeout(() => {
