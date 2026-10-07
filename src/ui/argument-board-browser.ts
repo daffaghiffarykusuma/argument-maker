@@ -115,8 +115,8 @@ function renderTopbar(board: ArgumentBoard): string {
 
 function renderStageNavigation(stage: WorkflowStage): string {
   const stages: Array<{ id: WorkflowStage; label: string }> = [
-    { id: "gather", label: "Gather Facts" },
     { id: "construct", label: "Construct Argument" },
+    { id: "gather", label: "Gather Facts" },
     { id: "preview", label: "Preview" },
   ];
 
@@ -172,13 +172,14 @@ function renderConstructStage(
           <h2 id="stage-heading-construct" tabindex="-1">Construct Argument</h2>
         </div>
       </div>
+      <div class="starting-guidance">${renderStartingGuidance(board)}</div>
       ${renderChecklist(issues)}
       <div class="construction-layout"><div class="construction-editor">
       <section class="scqa-grid" aria-label="Argument frame">
+        ${renderTextPanel(board, "question", "What question must this answer?", "Question", facts)}
+        ${renderTextPanel(board, "answer", "What is your tentative claim or main answer?", "Answer", facts)}
         ${renderTextPanel(board, "situation", "What is happening?", "Situation", facts)}
         ${renderTextPanel(board, "complication", "What changed or makes this matter?", "Complication", facts)}
-        ${renderTextPanel(board, "question", "What question must this answer?", "Question", facts)}
-        ${renderTextPanel(board, "answer", "What is your main answer?", "Answer", facts)}
       </section>
       <section class="scqa-grid" aria-label="Planning context">
         <article class="panel">
@@ -202,9 +203,38 @@ function renderConstructStage(
           ${board.supportingArguments.map((argument, index) => renderArgument(board, argument, index, facts)).join("")}
         </div>
       </section>
-      </div><aside class="construction-outline" aria-label="Live argument outline"><h3>Argument outline</h3><div class="construction-outline-content">${renderCompactOutline(board)}</div></aside></div>
+      </div><aside class="construction-outline" aria-label="Live argument outline"><h3>Argument outline</h3><div class="construction-outline-content">${renderStartingOutline(board)}</div></aside></div>
     </section>
   `;
+}
+
+function renderStartingGuidance(board: ArgumentBoard): string {
+  if (!board.scqa.question.text.trim() && !board.scqa.answer.text.trim()) {
+    return `<p>Start with a question or a tentative claim. You can revise either as you learn and use any workspace tab at any time.</p><button type="button" data-action="focus-framing" data-target-id="scqa-question">Start with a question</button> <button type="button" data-action="focus-framing" data-target-id="scqa-answer">Start with a tentative claim</button>`;
+  }
+  if (board.gatheredFacts.length === 0) {
+    return `<p>Find material that supports or challenges your idea. You can also keep developing your reasoning here.</p><button type="button" data-action="stage" data-stage="gather">Gather supporting material</button>`;
+  }
+  if (!board.supportingArguments.some(argument => argument.text.trim())) {
+    return `<p>Explain how your supporting material leads to your Answer.</p><button type="button" data-action="focus-framing" data-target-id="supporting-arguments">Develop a supporting reason</button>`;
+  }
+  return `<p>Read your argument as a whole and look for gaps in its reasoning.</p><button type="button" data-action="stage" data-stage="preview">Preview your argument</button>`;
+}
+
+function renderStartingOutline(board: ArgumentBoard): string {
+  return Object.values(board.scqa).some(slot => slot.text.trim()) || board.supportingArguments.some(argument => argument.text.trim())
+    ? renderCompactOutline(board)
+    : "<p>Your outline will take shape as you write.</p>";
+}
+
+function narrativeGuidance(board: ArgumentBoard, field: keyof ArgumentBoard["scqa"]): string {
+  if (!board.scqa[field].touched || board.scqa[field].text.trim()) return "";
+  return {
+    question: "Add the question you want your argument to answer.",
+    answer: "Add a tentative claim or main answer when you are ready.",
+    situation: "Describe the context your reader needs.",
+    complication: "Explain what changed or makes this matter.",
+  }[field];
 }
 
 function renderTextPanel(
@@ -226,7 +256,8 @@ function renderTextPanel(
         <span class="panel-label">${label}</span>
         <span class="term">${term}</span>
       </label>
-      <textarea id="scqa-${field}" data-action="scqa" data-field="${field}" rows="4" placeholder="Write here...">${escapeHtml(slot.text)}</textarea>
+      <textarea id="scqa-${field}" data-action="scqa" data-field="${field}" rows="4" aria-describedby="scqa-${field}-guidance" placeholder="${escapeAttr({ question: "What do you need to find out?", answer: "What do you think the answer might be?", situation: "Describe the context...", complication: "Explain what changed..." }[field])}">${escapeHtml(slot.text)}</textarea>
+      <p id="scqa-${field}-guidance" class="narrative-guidance" ${narrativeGuidance(board, field) ? "" : "hidden"}>${narrativeGuidance(board, field)}</p>
       ${destinationId ? facts.renderAttachments(board, destinationId) : ""}
     </article>
   `;
@@ -269,9 +300,9 @@ function renderModeControl(argumentId: string, mode: SupportMode): string {
 function renderChecklist(issues: ReturnType<ArgumentBoardSession["snapshot"]>["issues"]): string {
   return `
     <aside class="checklist" aria-label="Review checklist">
-      <h2>Readiness Check</h2>
-      <p>${issues.length === 0 ? "Ready to preview, copy, or download." : `${issues.length} item${issues.length === 1 ? "" : "s"} need attention.`}</p>
-      <details data-disclosure="readiness" open><summary>Review ${issues.length} structural issue${issues.length === 1 ? "" : "s"}</summary><ul>
+      <h2>Structural checks</h2>
+      <p>Check for missing parts whenever you are ready. These checks do not assess your reasoning.</p>
+      <details data-disclosure="readiness"><summary>Review ${issues.length} structural issue${issues.length === 1 ? "" : "s"}</summary><ul>
         ${
           issues.length === 0
             ? "<li>No structural issues found.</li>"
@@ -363,6 +394,8 @@ function handleAction(appRoot: HTMLDivElement, session: ArgumentBoardSession, ta
     if (view.draft.loadOther(() => confirm("Load the other tab's draft? You can undo this replacement."))) {
       renderPreservingFocus(appRoot, session, render);
     }
+  } else if (action === "focus-framing") {
+    appRoot.querySelector<HTMLElement>(`#${target.dataset.targetId}`)?.focus();
   } else if (action === "stage") {
     const stage = target.dataset.stage as WorkflowStage;
     session.setStage(stage);
@@ -541,8 +574,11 @@ function clearBoard(appRoot: HTMLDivElement, session: ArgumentBoardSession) {
   }
 
   session.clear();
-  session.setStage("gather");
-  renderAndFocus(appRoot, session, "stage-heading-gather");
+  views.get(appRoot)!.disclosures.set("readiness", false);
+  const checklist = appRoot.querySelector<HTMLDetailsElement>('details[data-disclosure="readiness"]');
+  if (checklist) checklist.open = false;
+  session.setStage("construct");
+  renderAndFocus(appRoot, session, "stage-heading-construct");
 }
 
 function renderIconButton(options: IconButtonOptions): string {
@@ -588,7 +624,16 @@ function refreshEditingState(appRoot: HTMLDivElement, session: ArgumentBoardSess
   const snapshot = session.snapshot();
   const board = snapshot.board;
   const outline = appRoot.querySelector(".construction-outline-content");
-  if (outline) outline.innerHTML = renderCompactOutline(board);
+  if (outline) outline.innerHTML = renderStartingOutline(board);
+  const guidance = appRoot.querySelector(".starting-guidance");
+  if (guidance) guidance.innerHTML = renderStartingGuidance(board);
+  for (const field of ["question", "answer", "situation", "complication"] as const) {
+    const message = appRoot.querySelector<HTMLElement>(`#scqa-${field}-guidance`);
+    if (message) {
+      message.textContent = narrativeGuidance(board, field);
+      message.hidden = !message.textContent;
+    }
+  }
   const checklist = appRoot.querySelector(".checklist");
   if (checklist) {
     const template = document.createElement("template");

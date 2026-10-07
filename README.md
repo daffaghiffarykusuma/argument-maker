@@ -2,12 +2,12 @@
 
 Helps you create well-thought arguments for writing blog posts, scripting videos, giving reviews, and similar work.
 
-The workspace starts in **Gather Facts**, where source-linked facts are collected once and can then be reused across Situation, Complication, and Supporting Arguments. **Construct Argument** shapes the SCQA and supporting reasons, while **Preview** shows the Mermaid structure and evidence grouped by destination.
+The workspace starts in **Construct Argument** with a Question or tentative Answer. Suggested next actions help you develop your idea, and every workflow tab stays available. **Gather Facts** collects supporting material once for reuse across Situation, Complication, and Supporting Arguments. **Preview** shows the structure and evidence grouped by destination.
 
 Downloaded `.argument.json` files use schema version 2 and include the complete board-scoped Gathered Facts collection. Version-1 files are intentionally unsupported.
 
 New boards start with one supporting argument. Evidence sections collapse to keep
-construction compact, with a persistent readiness checklist and a live outline on
+construction compact, with structural checks available in a collapsed checklist and a live outline on
 wide screens. Optional reasoning notes cover the connection to the answer,
 assumptions, objections, and evidence that would weaken the claim.
 

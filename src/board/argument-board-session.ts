@@ -12,7 +12,7 @@ export type WorkflowStage = "gather" | "construct" | "preview";
 
 export function createArgumentBoardSession(initialBoard = createDefaultBoard()) {
   let board = initialBoard;
-  let stage: WorkflowStage = "gather";
+  let stage: WorkflowStage = "construct";
   const undoStack: ArgumentBoard[] = [];
   const redoStack: ArgumentBoard[] = [];
   let editGroup: string | undefined;

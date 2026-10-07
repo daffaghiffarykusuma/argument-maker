@@ -989,6 +989,10 @@ summary:focus-visible { outline: 3px solid #b4b4b4; outline-offset: 3px; }
 .checklist p { margin: 4px 0; }
 .checklist details { font-size: 12px; max-height: 220px; overflow: auto; }
 .checklist summary { padding: 4px 0; }
+.starting-guidance { margin-bottom: 16px; }
+.starting-guidance p { color: var(--muted); line-height: 1.5; }
+.starting-guidance button { margin: 0 8px 8px 0; }
+.narrative-guidance { font-size: 13px; line-height: 1.5; }
 .checklist ul { margin: 8px 0; }
 .reasoning-prompts > p { color: var(--muted); font-size: 12px; }
 .preview-tools [aria-pressed="true"] { color: #111; background: var(--ink); }
