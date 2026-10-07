@@ -1,9 +1,9 @@
-import { isValidEvidenceLink } from "../board/argument-board";
 import type { WritingDocument } from "../board/writing-export";
 import { escapeAttr, escapeHtml } from "./html";
 
-export function renderWritingDocument(doc: WritingDocument, idPrefix = "outline"): string {
+export function renderWritingDocument(doc: WritingDocument, idPrefix = "outline", options: { draft?: boolean } = {}): string {
   return `<article class="writing-document">
+    ${options.draft ? '<p class="writing-status">Draft</p>' : ""}
     <h2>${escapeHtml(doc.title)}</h2>
     ${doc.sections.map((section) => `<section>
       <h3>${escapeHtml(section.label)}</h3><p>${escapeHtml(section.text || "[Not written]")}</p>
@@ -12,7 +12,9 @@ export function renderWritingDocument(doc: WritingDocument, idPrefix = "outline"
     </section>`).join("")}
     <section><h3>Sources</h3>${doc.sources.length ? `<ol>${doc.sources.map((source) => `<li id="${escapeAttr(idPrefix)}-source-${source.citation}">
       <strong>${escapeHtml(source.sourceTitle || source.text || "Untitled source")}</strong>
-      ${isValidEvidenceLink(source.evidenceLink) ? `<a href="${escapeAttr(source.evidenceLink)}" target="_blank" rel="noreferrer">${escapeHtml(source.evidenceLink)}</a>` : `<span>Missing or invalid evidence link</span>`}
+      ${source.sourceReferenceStatus === "valid-link" ? `<a href="${escapeAttr(source.evidenceLink)}" target="_blank" rel="noreferrer">${escapeHtml(source.evidenceLink)}</a>` : source.sourceReferenceStatus !== "citation-only" ? `<span>Missing or invalid evidence link</span>` : ""}
+      ${source.descriptiveCitation?.trim() ? `<span>Descriptive citation: ${escapeHtml(source.descriptiveCitation)}</span>` : ""}
+      ${source.dataType ? `<span>Data Type: ${escapeHtml(source.formattedDataType)}</span>` : ""}
       ${source.sourceDate ? `<span>Source date: ${escapeHtml(source.sourceDate)}</span>` : ""}
       ${source.quotation ? `<blockquote>${escapeHtml(source.quotation)}</blockquote>` : ""}
     </li>`).join("")}</ol>` : "<p>No facts attached.</p>"}</section>

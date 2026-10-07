@@ -7,12 +7,13 @@ import {
 import { projectArgumentPreview } from "./argument-preview-projection";
 import { createExportFile, parseExportFile } from "./export-file-contract";
 import { reviewBoard } from "./review";
+import { createWritingExport } from "./writing-export";
 
 export type WorkflowStage = "gather" | "construct" | "preview";
 
 export function createArgumentBoardSession(initialBoard = createDefaultBoard()) {
   let board = initialBoard;
-  let stage: WorkflowStage = "gather";
+  let stage: WorkflowStage = "construct";
   const undoStack: ArgumentBoard[] = [];
   const redoStack: ArgumentBoard[] = [];
   let editGroup: string | undefined;
@@ -93,8 +94,8 @@ export function createArgumentBoardSession(initialBoard = createDefaultBoard()) 
     exportFile() {
       return createExportFile(board);
     },
-    copyOutline() {
-      return projectArgumentPreview(board).outline;
+    copyOutline(options: { draft?: boolean } = {}) {
+      return createWritingExport(board, "text", { ...options, purpose: "outline" }).contents;
     },
     copyMermaid() {
       return projectArgumentPreview(board).mermaid;
@@ -110,6 +111,8 @@ export type ArgumentBoardSession = ReturnType<typeof createArgumentBoardSession>
 export function hasTouchedContent(board: ArgumentBoard): boolean {
   return (
     board.title.trim().length > 0 ||
+    (board.audience ?? "").trim().length > 0 ||
+    (board.intendedOutcome ?? "").trim().length > 0 ||
     board.gatheredFacts.length > 0 ||
     Object.values(board.scqa).some((slot) => slot.touched || slot.text.trim().length > 0) ||
     board.scqa.situation.factIds.length > 0 ||

@@ -77,6 +77,7 @@ export function mountBoardControls(root: HTMLDivElement, initial: ArgumentBoardS
   root.addEventListener("focusout", (event) => {
     const target = event.target;
     if (!(target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) || !target.dataset.action || ["fact-search", "autosave", "upload", "mode-change"].includes(target.dataset.action)) return;
+    facts.finishInteraction(target);
     session.finishEdit(); cancelRender();
     // Let the browser finish Tab or the pointer click before replacing the DOM.
     renderTimer = setTimeout(() => {
@@ -101,6 +102,8 @@ export function mountBoardControls(root: HTMLDivElement, initial: ArgumentBoardS
       const index = tabs.indexOf(target as HTMLButtonElement);
       const next = event.key === "Home" ? 0 : event.key === "End" ? tabs.length - 1 : (index + (event.key === "ArrowRight" ? 1 : -1) + tabs.length) % tabs.length;
       session.setStage(tabs[next]!.dataset.stage as WorkflowStage);
+      view.reviewOpen = false;
+      view.writingInvitationOpen = false;
       controls.render(root, session);
       root.querySelector<HTMLButtonElement>(`[data-stage="${session.snapshot().stage}"]`)?.focus();
     } else if (target.matches('.file-button') && ["Enter", " "].includes(event.key)) {

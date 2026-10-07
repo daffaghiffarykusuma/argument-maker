@@ -41,11 +41,12 @@ const commandDeskActions = {
 
 import { createExampleBoard } from "../board/example-board";
 import { createWritingExport } from "../board/writing-export";
-import { views, type ViewState } from "./board-view-state";
+import { views, type ViewState, type WritingAction } from "./board-view-state";
 import { mountBoardControls, renderDraftControls, renderPreservingFocus } from "./board-controls";
 import { renderReasoningPrompts, renderCompactOutline, renderPrintDocument } from "./enhancement-view";
 import { escapeHtml, escapeAttr, safeDomId } from "./html";
 import type { GatheredFactEditing } from "./gathered-fact-editing";
+import { renderReasoningReview, renderWritingInvitation } from "./reasoning-review";
 
 export function mountArgumentBoardApp(appRoot: HTMLDivElement, initialSession?: ArgumentBoardSession) {
   const session = mountBoardControls(appRoot, initialSession, { render, change: handleChange, action: handleAction, upload: handleUpload, refresh: refreshEditingState });
@@ -65,9 +66,11 @@ function render(appRoot: HTMLDivElement, session: ArgumentBoardSession) {
         ${renderTopbar(snapshot.board)}
         <div class="draft-controls">${renderDraftControls(view)}</div>
         ${renderStageNavigation(snapshot.stage)}
-        ${renderStage(snapshot.board, snapshot.stage, snapshot.issues, view)}
-        ${renderPrintDocument(snapshot.board)}
+        <div class="review-entry"><button id="open-reasoning-review" type="button" data-action="open-review" aria-expanded="${!!view.reviewOpen}">Reasoning review</button>${view.writingMode ? `<button type="button" data-action="toggle-draft-label" aria-pressed="${view.writingMode === "draft"}">Label writing exports as Draft</button>` : ""}</div>
+        ${view.writingInvitationOpen ? renderWritingInvitation() : view.reviewOpen ? renderReasoningReview(snapshot.board, snapshot.issues, !!view.pendingWriting) : renderStage(snapshot.board, snapshot.stage, snapshot.issues, view)}
+        ${renderPrintDocument(snapshot.board, view.writingMode !== "reviewed")}
       </div>
+      <div class="copy-feedback" role="status" aria-label="Copy feedback" aria-live="polite" aria-atomic="true"><span>${escapeHtml(view.copyFeedback?.message ?? "")}</span></div>
     </main>
   `;
 
@@ -114,8 +117,8 @@ function renderTopbar(board: ArgumentBoard): string {
 
 function renderStageNavigation(stage: WorkflowStage): string {
   const stages: Array<{ id: WorkflowStage; label: string }> = [
-    { id: "gather", label: "Gather Facts" },
     { id: "construct", label: "Construct Argument" },
+    { id: "gather", label: "Gather Facts" },
     { id: "preview", label: "Preview" },
   ];
 
@@ -171,14 +174,26 @@ function renderConstructStage(
           <h2 id="stage-heading-construct" tabindex="-1">Construct Argument</h2>
         </div>
       </div>
+      <div class="starting-guidance">${renderStartingGuidance(board)}</div>
       ${renderChecklist(issues)}
       <div class="construction-layout"><div class="construction-editor">
       <section class="scqa-grid" aria-label="Argument frame">
+        ${renderTextPanel(board, "question", "What question must this answer?", "Question", facts)}
+        ${renderTextPanel(board, "answer", "What is your tentative claim or main answer?", "Answer", facts)}
         ${renderTextPanel(board, "situation", "What is happening?", "Situation", facts)}
         ${renderTextPanel(board, "complication", "What changed or makes this matter?", "Complication", facts)}
-        ${renderTextPanel(board, "question", "What question must this answer?", "Question", facts)}
-        ${renderTextPanel(board, "answer", "What is your main answer?", "Answer", facts)}
       </section>
+      <section class="scqa-grid" aria-label="Planning context">
+        <article class="panel">
+          <label for="planning-audience"><span class="panel-label">Audience (optional)</span></label>
+          <textarea id="planning-audience" data-action="planning-context" data-field="audience" rows="2" placeholder="Who is this for?" aria-describedby="planning-privacy">${escapeHtml(board.audience ?? "")}</textarea>
+        </article>
+        <article class="panel">
+          <label for="planning-outcome"><span class="panel-label">Intended outcome (optional)</span></label>
+          <textarea id="planning-outcome" data-action="planning-context" data-field="intendedOutcome" rows="2" placeholder="What should they understand or do afterward?" aria-describedby="planning-privacy">${escapeHtml(board.intendedOutcome ?? "")}</textarea>
+        </article>
+      </section>
+      <p id="planning-privacy" class="verification-note">Planning context stays in your editable board and is left out of writing exports.</p>
       <section class="support-section" aria-label="Supporting argument structure">
         <div class="section-heading">
           <div>
@@ -190,9 +205,38 @@ function renderConstructStage(
           ${board.supportingArguments.map((argument, index) => renderArgument(board, argument, index, facts)).join("")}
         </div>
       </section>
-      </div><aside class="construction-outline" aria-label="Live argument outline"><h3>Argument outline</h3><div class="construction-outline-content">${renderCompactOutline(board)}</div></aside></div>
+      </div><aside class="construction-outline" aria-label="Live argument outline"><h3>Argument outline</h3><div class="construction-outline-content">${renderStartingOutline(board)}</div></aside></div>
     </section>
   `;
+}
+
+function renderStartingGuidance(board: ArgumentBoard): string {
+  if (!board.scqa.question.text.trim() && !board.scqa.answer.text.trim()) {
+    return `<p>Start with a question or a tentative claim. You can revise either as you learn and use any workspace tab at any time.</p><button type="button" data-action="focus-framing" data-target-id="scqa-question">Start with a question</button> <button type="button" data-action="focus-framing" data-target-id="scqa-answer">Start with a tentative claim</button>`;
+  }
+  if (board.gatheredFacts.length === 0) {
+    return `<p>Find material that supports or challenges your idea. You can also keep developing your reasoning here.</p><button type="button" data-action="stage" data-stage="gather">Gather supporting material</button>`;
+  }
+  if (!board.supportingArguments.some(argument => argument.text.trim())) {
+    return `<p>Explain how your supporting material leads to your Answer.</p><button type="button" data-action="focus-framing" data-target-id="supporting-arguments">Develop a supporting reason</button>`;
+  }
+  return `<p>Read your argument as a whole and look for gaps in its reasoning.</p><button type="button" data-action="stage" data-stage="preview">Preview your argument</button>`;
+}
+
+function renderStartingOutline(board: ArgumentBoard): string {
+  return Object.values(board.scqa).some(slot => slot.text.trim()) || board.supportingArguments.some(argument => argument.text.trim())
+    ? renderCompactOutline(board)
+    : "<p>Your outline will take shape as you write.</p>";
+}
+
+function narrativeGuidance(board: ArgumentBoard, field: keyof ArgumentBoard["scqa"]): string {
+  if (!board.scqa[field].touched || board.scqa[field].text.trim()) return "";
+  return {
+    question: "Add the question you want your argument to answer.",
+    answer: "Add a tentative claim or main answer when you are ready.",
+    situation: "Describe the context your reader needs.",
+    complication: "Explain what changed or makes this matter.",
+  }[field];
 }
 
 function renderTextPanel(
@@ -214,7 +258,8 @@ function renderTextPanel(
         <span class="panel-label">${label}</span>
         <span class="term">${term}</span>
       </label>
-      <textarea id="scqa-${field}" data-action="scqa" data-field="${field}" rows="4" placeholder="Write here...">${escapeHtml(slot.text)}</textarea>
+      <textarea id="scqa-${field}" data-action="scqa" data-field="${field}" rows="4" aria-describedby="scqa-${field}-guidance" placeholder="${escapeAttr({ question: "What do you need to find out?", answer: "What do you think the answer might be?", situation: "Describe the context...", complication: "Explain what changed..." }[field])}">${escapeHtml(slot.text)}</textarea>
+      <p id="scqa-${field}-guidance" class="narrative-guidance" ${narrativeGuidance(board, field) ? "" : "hidden"}>${narrativeGuidance(board, field)}</p>
       ${destinationId ? facts.renderAttachments(board, destinationId) : ""}
     </article>
   `;
@@ -257,9 +302,9 @@ function renderModeControl(argumentId: string, mode: SupportMode): string {
 function renderChecklist(issues: ReturnType<ArgumentBoardSession["snapshot"]>["issues"]): string {
   return `
     <aside class="checklist" aria-label="Review checklist">
-      <h2>Readiness Check</h2>
-      <p>${issues.length === 0 ? "Ready to preview, copy, or download." : `${issues.length} item${issues.length === 1 ? "" : "s"} need attention.`}</p>
-      <details data-disclosure="readiness" open><summary>Review ${issues.length} structural issue${issues.length === 1 ? "" : "s"}</summary><ul>
+      <h2>Structural checks</h2>
+      <p>Check for missing parts whenever you are ready. These checks do not assess your reasoning.</p>
+      <details data-disclosure="readiness"><summary>Review ${issues.length} structural issue${issues.length === 1 ? "" : "s"}</summary><ul>
         ${
           issues.length === 0
             ? "<li>No structural issues found.</li>"
@@ -291,6 +336,8 @@ function handleChange(
 
   if (action === "title") {
     dispatch({ type: "update-title", title: target.value });
+  } else if (action === "planning-context" && (target.dataset.field === "audience" || target.dataset.field === "intendedOutcome")) {
+    dispatch({ type: "update-planning-context", field: target.dataset.field, text: target.value });
   } else if (action === "scqa" && target instanceof HTMLTextAreaElement) {
     dispatch({
       type: "update-scqa",
@@ -329,32 +376,69 @@ function handleAction(appRoot: HTMLDivElement, session: ArgumentBoardSession, ta
   const direction = target.dataset.direction === "up" ? "up" : "down";
 
   const view = views.get(appRoot)!;
-  if (action === "load-example") {
+  if (action === "open-review") {
+    view.writingInvitationOpen = false;
+    view.reviewOpen = true;
+    renderAndFocus(appRoot, session, "reasoning-review-heading");
+  } else if (action === "close-review") {
+    view.reviewOpen = false;
+    view.pendingWriting = undefined;
+    renderAndFocus(appRoot, session, "open-reasoning-review");
+  } else if (action === "review-writing") {
+    view.writingMode = "reviewed";
+    view.writingInvitationOpen = false;
+    view.reviewOpen = true;
+    renderAndFocus(appRoot, session, "reasoning-review-heading");
+  } else if (action === "export-draft" || action === "continue-writing") {
+    const output = view.pendingWriting;
+    if (!output) return;
+    view.writingMode = action === "export-draft" ? "draft" : "reviewed";
+    view.writingInvitationOpen = false;
+    view.reviewOpen = false;
+    view.pendingWriting = undefined;
+    render(appRoot, session);
+    focusWritingAction(appRoot, output);
+    performWritingAction(appRoot, session, output);
+  } else if (action === "cancel-writing") {
+    const output = view.pendingWriting;
+    view.writingInvitationOpen = false;
+    view.pendingWriting = undefined;
+    render(appRoot, session);
+    if (output) focusWritingAction(appRoot, output);
+  } else if (action === "toggle-draft-label") {
+    view.writingMode = view.writingMode === "draft" ? "reviewed" : "draft";
+    renderPreservingFocus(appRoot, session, render);
+  } else if (action === "load-example") {
     const result = session.importFile(JSON.stringify(createExampleBoard()), () => confirm("Replace this board with the worked example? You can undo this."));
-    if (result?.ok) { view.facts.resetSearch(); session.setStage("construct"); renderAndFocus(appRoot, session, "stage-heading-construct"); }
+    if (result?.ok) { resetWritingReview(view); view.facts.resetSearch(); session.setStage("construct"); renderAndFocus(appRoot, session, "stage-heading-construct"); }
   } else if (action === "preview-mode") {
     view.preview.setMode(target.dataset.mode === "outline" ? "outline" : "diagram");
     renderPreservingFocus(appRoot, session, render);
   } else if (action === "zoom") {
     view.preview.zoom(target.dataset.zoom === "fit" ? "fit" : target.dataset.zoom === "in" ? "in" : "out");
   } else if (action === "download-writing") {
-    downloadFile(createWritingExport(session.snapshot().board, target.dataset.format as "markdown" | "text"));
+    requestWritingAction(appRoot, session, target.dataset.format as "markdown" | "text");
   } else if (action === "print") {
-    appRoot.querySelector(".print-document")!.outerHTML = renderPrintDocument(session.snapshot().board);
-    window.print();
+    requestWritingAction(appRoot, session, "print");
   } else if (action === "keep-this-draft") {
     view.draft.setEnabled(true);
     renderPreservingFocus(appRoot, session, render);
   } else if (action === "load-other-draft") {
     if (view.draft.loadOther(() => confirm("Load the other tab's draft? You can undo this replacement."))) {
+      resetWritingReview(view);
       renderPreservingFocus(appRoot, session, render);
     }
+  } else if (action === "focus-framing") {
+    appRoot.querySelector<HTMLElement>(`#${target.dataset.targetId}`)?.focus();
   } else if (action === "stage") {
+    view.reviewOpen = false;
+    view.writingInvitationOpen = false;
     const stage = target.dataset.stage as WorkflowStage;
     session.setStage(stage);
     renderAndFocus(appRoot, session, `stage-heading-${stage}`);
   } else if (action === "add-fact") {
     const board = session.dispatch({ type: "create-gathered-fact" });
+    view.facts.beginFact(board.gatheredFacts.at(-1)!.id);
     focusCanonicalFact(appRoot, session, board.gatheredFacts.at(-1)!.id);
   } else if (action === "move-library-fact" && factId) {
     session.dispatch({ type: "move-gathered-fact", factId, direction });
@@ -362,7 +446,8 @@ function handleAction(appRoot: HTMLDivElement, session: ArgumentBoardSession, ta
   } else if (action === "another-fact-source" && factId) {
     const source = session.snapshot().board.gatheredFacts.find((fact) => fact.id === factId);
     if (!source) return;
-    const board = session.dispatch({ type: "create-gathered-fact", evidenceLink: source.evidenceLink });
+    const board = session.dispatch({ type: "reuse-fact-source", factId });
+    view.facts.beginFact(board.gatheredFacts.at(-1)!.id);
     focusCanonicalFact(appRoot, session, board.gatheredFacts.at(-1)!.id);
   } else if (action === "delete-fact" && factId) {
     deleteFact(appRoot, session, factId);
@@ -383,6 +468,7 @@ function handleAction(appRoot: HTMLDivElement, session: ArgumentBoardSession, ta
   } else if (action === "create-fact-here" && destinationId) {
     const board = session.dispatch({ type: "create-gathered-fact", destinationId });
     const newFact = board.gatheredFacts.at(-1)!;
+    view.facts.beginFact(newFact.id);
     view.disclosures.set(`destination-${destinationId}`, true);
     renderAndFocus(appRoot, session, `attached-${safeDomId(destinationId)}-${safeDomId(newFact.id)}-text`);
   } else if (action === "focus-attached-fact") {
@@ -398,9 +484,9 @@ function handleAction(appRoot: HTMLDivElement, session: ArgumentBoardSession, ta
   } else if (action === "open-issue") {
     openIssue(appRoot, session, target.dataset.targetId ?? "");
   } else if (action === "copy-outline") {
-    void navigator.clipboard.writeText(session.copyOutline());
+    requestWritingAction(appRoot, session, "copy-outline");
   } else if (action === "copy-mermaid") {
-    void navigator.clipboard.writeText(session.copyMermaid());
+    void copyOutput(appRoot, session.copyMermaid(), "Mermaid");
   } else if (action === "download") {
     downloadBoard(session);
   } else if (action === "clear") {
@@ -411,6 +497,56 @@ function handleAction(appRoot: HTMLDivElement, session: ArgumentBoardSession, ta
   } else if (action === "redo") {
     session.redo();
     render(appRoot, session);
+  }
+}
+
+function resetWritingReview(view: ViewState) {
+  view.writingMode = undefined;
+  view.writingInvitationOpen = false;
+  view.pendingWriting = undefined;
+  view.reviewOpen = false;
+}
+
+function requestWritingAction(appRoot: HTMLDivElement, session: ArgumentBoardSession, action: WritingAction) {
+  const view = views.get(appRoot)!;
+  if (view.writingMode) {
+    performWritingAction(appRoot, session, action);
+    return;
+  }
+  view.pendingWriting = action;
+  view.writingInvitationOpen = true;
+  view.reviewOpen = false;
+  renderAndFocus(appRoot, session, "writing-invitation-heading");
+}
+
+function performWritingAction(appRoot: HTMLDivElement, session: ArgumentBoardSession, action: WritingAction) {
+  const draft = views.get(appRoot)!.writingMode === "draft";
+  if (action === "copy-outline") void copyOutput(appRoot, session.copyOutline({ draft }), "Outline");
+  else if (action === "print") {
+    appRoot.querySelector(".print-document")!.outerHTML = renderPrintDocument(session.snapshot().board, draft);
+    window.print();
+  } else downloadFile(createWritingExport(session.snapshot().board, action, { draft }));
+}
+
+function focusWritingAction(appRoot: HTMLDivElement, action: WritingAction) {
+  const selector = action === "markdown" || action === "text" ? `[data-action="download-writing"][data-format="${action}"]` : `[data-action="${action}"]`;
+  (appRoot.querySelector<HTMLElement>(selector) ?? appRoot.querySelector<HTMLElement>("#open-reasoning-review"))?.focus();
+}
+
+async function copyOutput(appRoot: HTMLDivElement, contents: string, label: "Outline" | "Mermaid") {
+  const view = views.get(appRoot)!;
+  const request = Symbol();
+  const update = (message: string) => {
+    view.copyFeedback = { message, request };
+    const status = appRoot.querySelector(".copy-feedback span");
+    if (status) status.textContent = message;
+  };
+  update(`Copying ${label.toLowerCase()}…`);
+  try {
+    await navigator.clipboard.writeText(contents);
+    if (view.copyFeedback?.request === request) update(`${label} copied.`);
+  } catch {
+    if (view.copyFeedback?.request === request) update(`Could not copy ${label.toLowerCase()}. Try Copy ${label} again.`);
   }
 }
 
@@ -433,6 +569,7 @@ function deleteFact(appRoot: HTMLDivElement, session: ArgumentBoardSession, fact
 }
 
 function openIssue(appRoot: HTMLDivElement, session: ArgumentBoardSession, targetId: string) {
+  views.get(appRoot)!.reviewOpen = false;
   const board = session.snapshot().board;
   if (board.gatheredFacts.some((fact) => fact.id === targetId)) {
     focusCanonicalFact(appRoot, session, targetId);
@@ -500,6 +637,7 @@ async function handleUpload(appRoot: HTMLDivElement, session: ArgumentBoardSessi
     return;
   }
 
+  resetWritingReview(views.get(appRoot)!);
   session.setStage("gather");
   renderAndFocus(appRoot, session, "stage-heading-gather");
 }
@@ -510,8 +648,12 @@ function clearBoard(appRoot: HTMLDivElement, session: ArgumentBoardSession) {
   }
 
   session.clear();
-  session.setStage("gather");
-  renderAndFocus(appRoot, session, "stage-heading-gather");
+  resetWritingReview(views.get(appRoot)!);
+  views.get(appRoot)!.disclosures.set("readiness", false);
+  const checklist = appRoot.querySelector<HTMLDetailsElement>('details[data-disclosure="readiness"]');
+  if (checklist) checklist.open = false;
+  session.setStage("construct");
+  renderAndFocus(appRoot, session, "stage-heading-construct");
 }
 
 function renderIconButton(options: IconButtonOptions): string {
@@ -557,7 +699,16 @@ function refreshEditingState(appRoot: HTMLDivElement, session: ArgumentBoardSess
   const snapshot = session.snapshot();
   const board = snapshot.board;
   const outline = appRoot.querySelector(".construction-outline-content");
-  if (outline) outline.innerHTML = renderCompactOutline(board);
+  if (outline) outline.innerHTML = renderStartingOutline(board);
+  const guidance = appRoot.querySelector(".starting-guidance");
+  if (guidance) guidance.innerHTML = renderStartingGuidance(board);
+  for (const field of ["question", "answer", "situation", "complication"] as const) {
+    const message = appRoot.querySelector<HTMLElement>(`#scqa-${field}-guidance`);
+    if (message) {
+      message.textContent = narrativeGuidance(board, field);
+      message.hidden = !message.textContent;
+    }
+  }
   const checklist = appRoot.querySelector(".checklist");
   if (checklist) {
     const template = document.createElement("template");

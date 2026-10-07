@@ -28,7 +28,7 @@ describe("Argument Board review", () => {
         code: "incomplete-attached-fact",
         message: "Complete this fact; it is used in Situation and Supporting Argument 1.",
         targetId: factId,
-        fieldMessages: ["Add fact text.", "Add an evidence link."],
+        fieldMessages: ["Add fact text.", "Add an evidence link or descriptive citation."],
       },
     ]);
   });

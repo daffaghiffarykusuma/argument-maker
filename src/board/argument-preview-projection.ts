@@ -43,7 +43,9 @@ export interface ArgumentPreviewFact {
   text: string;
   label: string;
   evidenceLink: string;
+  descriptiveCitation?: string;
   evidenceLinkIsValid: boolean;
+  sourceReferenceStatus: "valid-link" | "citation-only" | "invalid-link" | "missing";
   dataType: DataType;
   formattedDataType: string;
   markers: string[];
@@ -132,13 +134,14 @@ function appendFacts(
       lines.push(`  Data Type: ${fact.formattedDataType}`);
     }
 
-    if (fact.evidenceLinkIsValid) {
+    if (fact.sourceReferenceStatus === "valid-link") {
       lines.push(`  Evidence Link: ${fact.evidenceLink}`);
-    } else if (fact.evidenceLink.trim()) {
+    } else if (fact.sourceReferenceStatus === "invalid-link") {
       lines.push("  Evidence Link: [Invalid evidence link]");
-    } else {
-      lines.push("  Evidence Link: [Needs evidence link]");
+    } else if (fact.sourceReferenceStatus === "missing") {
+      lines.push("  Source reference: [Needs evidence link or descriptive citation]");
     }
+    if (fact.descriptiveCitation?.trim()) lines.push(`  Descriptive citation: ${fact.descriptiveCitation}`);
 
     if (fact.markers.length > 0) {
       incompleteEvidence.push(`- ${destinationLabel}: ${displayText}`);
@@ -161,13 +164,19 @@ function projectFact(fact: GatheredFact): ArgumentPreviewFact {
   const text = fact.text.trim();
   const labelParts = [text, ...markers].filter(Boolean);
   const content = labelParts.join(" ");
+  const evidenceLinkIsValid = isValidEvidenceLink(fact.evidenceLink);
+  const sourceReferenceStatus = evidenceLinkIsValid ? "valid-link"
+    : fact.evidenceLink.trim() ? "invalid-link"
+    : fact.descriptiveCitation?.trim() ? "citation-only" : "missing";
 
   return {
     id: fact.id,
     text: fact.text,
     label: fact.dataType ? `${formatDataType(fact.dataType)}: ${content}` : content,
     evidenceLink: fact.evidenceLink,
-    evidenceLinkIsValid: isValidEvidenceLink(fact.evidenceLink),
+    descriptiveCitation: fact.descriptiveCitation,
+    evidenceLinkIsValid,
+    sourceReferenceStatus,
     dataType: fact.dataType,
     formattedDataType: formatDataType(fact.dataType),
     markers,
@@ -177,7 +186,7 @@ function projectFact(fact: GatheredFact): ArgumentPreviewFact {
 function formatIncompleteReason(reason: FactIncompleteReason): string {
   const markers: Record<FactIncompleteReason, string> = {
     "needs-text": "[Needs fact text]",
-    "needs-link": "[Needs evidence link]",
+    "needs-link": "[Needs evidence link or descriptive citation]",
     "invalid-link": "[Invalid evidence link]",
   };
 

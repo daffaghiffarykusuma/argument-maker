@@ -16,6 +16,7 @@ export interface FactTextSlot extends TextSlot {
 export interface GatheredFact extends TextSlot {
   evidenceLink: string;
   dataType: DataType;
+  descriptiveCitation?: string;
   sourceTitle?: string;
   sourceDate?: string;
   quotation?: string;
@@ -33,6 +34,8 @@ export interface ArgumentBoard {
   schemaVersion: 2;
   appName: "Argument Maker";
   title: string;
+  audience?: string;
+  intendedOutcome?: string;
   createdAt: string;
   updatedAt: string;
   gatheredFacts: GatheredFact[];
@@ -47,6 +50,7 @@ export interface ArgumentBoard {
 
 export type ArgumentBoardCommand =
   | { type: "update-title"; title: string }
+  | { type: "update-planning-context"; field: "audience" | "intendedOutcome"; text: string }
   | { type: "update-scqa"; field: keyof ArgumentBoard["scqa"]; text: string }
   | { type: "update-supporting-argument"; argumentId: string; changes: Partial<Pick<SupportingArgument, "text" | "mode" | "connection" | "assumptions" | "objection" | "weakensClaim">> }
   | { type: "add-supporting-argument" }
@@ -54,10 +58,11 @@ export type ArgumentBoardCommand =
   | { type: "move-supporting-argument"; argumentId: string; direction: "up" | "down" }
   | { type: "duplicate-supporting-argument"; argumentId: string }
   | { type: "create-gathered-fact"; evidenceLink?: string; destinationId?: FactDestinationId }
+  | { type: "reuse-fact-source"; factId: string }
   | {
       type: "update-gathered-fact";
       factId: string;
-      changes: Partial<Pick<GatheredFact, "text" | "evidenceLink" | "dataType" | "sourceTitle" | "sourceDate" | "quotation">>;
+      changes: Partial<Pick<GatheredFact, "text" | "evidenceLink" | "dataType" | "descriptiveCitation" | "sourceTitle" | "sourceDate" | "quotation">>;
     }
   | { type: "move-gathered-fact"; factId: string; direction: "up" | "down" }
   | { type: "delete-gathered-fact"; factId: string }
@@ -97,6 +102,8 @@ export function applyArgumentBoardCommand(
   switch (command.type) {
     case "update-title":
       return touchBoard({ ...board, title: command.title }, now);
+    case "update-planning-context":
+      return touchBoard({ ...board, [command.field]: command.text }, now);
     case "update-scqa":
       return updateScqa(board, command.field, command.text, now);
     case "update-supporting-argument":
@@ -111,6 +118,8 @@ export function applyArgumentBoardCommand(
       return duplicateSupportingArgument(board, command.argumentId, now);
     case "create-gathered-fact":
       return createGatheredFact(board, command.evidenceLink ?? "", command.destinationId, now);
+    case "reuse-fact-source":
+      return reuseFactSource(board, command.factId, now);
     case "update-gathered-fact":
       return updateGatheredFact(board, command.factId, command.changes, now);
     case "move-gathered-fact":
@@ -136,7 +145,7 @@ export function applyArgumentBoardCommand(
   }
 }
 
-export function factCompleteness(fact: Pick<GatheredFact, "text" | "evidenceLink">): FactIncompleteReason[] {
+export function factCompleteness(fact: Pick<GatheredFact, "text" | "evidenceLink" | "descriptiveCitation">): FactIncompleteReason[] {
   const reasons: FactIncompleteReason[] = [];
 
   if (!fact.text.trim()) {
@@ -144,7 +153,7 @@ export function factCompleteness(fact: Pick<GatheredFact, "text" | "evidenceLink
   }
 
   if (!fact.evidenceLink.trim()) {
-    reasons.push("needs-link");
+    if (!fact.descriptiveCitation?.trim()) reasons.push("needs-link");
   } else if (!isValidEvidenceLink(fact.evidenceLink)) {
     reasons.push("invalid-link");
   }
@@ -152,7 +161,7 @@ export function factCompleteness(fact: Pick<GatheredFact, "text" | "evidenceLink
   return reasons;
 }
 
-export function isGatheredFactComplete(fact: Pick<GatheredFact, "text" | "evidenceLink">): boolean {
+export function isGatheredFactComplete(fact: Pick<GatheredFact, "text" | "evidenceLink" | "descriptiveCitation">): boolean {
   return factCompleteness(fact).length === 0;
 }
 
@@ -319,6 +328,18 @@ function createGatheredFact(
   }
 
   return touchBoard(nextBoard, now);
+}
+
+function reuseFactSource(board: ArgumentBoard, factId: string, now: Date): ArgumentBoard {
+  const source = board.gatheredFacts.find((fact) => fact.id === factId);
+  if (!source) return board;
+  const fact = {
+    ...createGatheredFactWithId(makeIndexedId("fact", allBoardIds(board)), source.evidenceLink),
+    sourceTitle: source.sourceTitle,
+    sourceDate: source.sourceDate,
+    descriptiveCitation: source.descriptiveCitation,
+  };
+  return touchBoard({ ...board, gatheredFacts: [...board.gatheredFacts, fact] }, now);
 }
 
 function updateGatheredFact(

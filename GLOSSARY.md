@@ -8,6 +8,28 @@ A visual workspace where a user constructs an argument. The board starts empty w
 
 A structured line of reasoning that connects a communication goal to a clear recommendation, claim, review, post, script, or other output.
 
+## Argument review terms
+
+**Defensible argument**:
+An argument whose author can explain how its evidence and reasoning support its Answer, address a significant objection, and identify what could change their conclusion. This is an author-assessed goal, not a certification supplied by the app.
+_Avoid_: Verified argument, certified argument
+
+**Structural completeness**:
+The presence of the required narrative fields and the support expected by each Supporting Argument's Support Mode. It does not establish the truth of the claims or the strength of the reasoning.
+_Avoid_: Argument quality, argument strength
+
+**Reasoning review**:
+The author's examination of whether evidence supports the Answer, how an important objection affects it, and what could change their conclusion. It is distinct from structural completeness and does not certify factual accuracy.
+_Avoid_: Fact verification, quality score
+
+**Audience**:
+The people an argument is intended to reach. An Audience provides context for the author's choice of explanations, evidence, and objections to address.
+_Avoid_: App users
+
+**Intended outcome**:
+What the author wants the Audience to understand or do after considering the argument. It is distinct from the Answer, which states the argument's main response to its Question.
+_Avoid_: Quality score
+
 ## Answer
 
 The single main response to the board's Question. An Argument Board has exactly one Answer.
@@ -38,7 +60,7 @@ An optional classification for a Gathered Fact: Fact, Observation, Example, or E
 
 ## Gathered Fact
 
-A canonical, board-scoped research item containing fact text, an Evidence Link, and an optional Data Type. A Gathered Fact requires non-empty text and a valid HTTP or HTTPS Evidence Link to be complete, but may remain an incomplete draft in Gather Facts.
+A canonical, board-scoped research item containing text, a Source reference, and an optional Data Type. Completeness requires non-empty text and either a valid HTTP or HTTPS Evidence Link or a Descriptive citation; completeness does not establish factual accuracy.
 
 ## Fact Attachment
 
@@ -46,11 +68,21 @@ An ordered live reference from Situation, Complication, or a Supporting Argument
 
 ## Gather Facts
 
-The default first workflow stage where users collect, revise, order, and review the usage of Gathered Facts before constructing the argument.
+The activity of collecting, revising, ordering, and reviewing the usage of Gathered Facts for an Argument Board.
 
 ## Evidence Link
 
 A URL stored on a Gathered Fact. The app checks HTTP or HTTPS format for traceability but does not verify source quality or factual accuracy.
+
+## Source reference terms
+
+**Source reference**:
+The provenance supplied for a Gathered Fact through an Evidence Link, a Descriptive citation, or both. It identifies where the item came from without certifying its accuracy.
+_Avoid_: Verified source
+
+**Descriptive citation**:
+A written identification of a source when a public URL is unavailable or insufficient, such as a book passage, interview, or observation record. It provides enough context for the author to explain where the item came from.
+_Avoid_: Evidence Link
 
 ## Source details
 

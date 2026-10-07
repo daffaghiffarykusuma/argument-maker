@@ -55,6 +55,7 @@ export function createExportFileName(title: string): string {
 function hasBoardShape(value: Record<string, unknown>): value is Record<string, unknown> & ArgumentBoard {
   if (
     typeof value["title"] !== "string" ||
+    !optionalStrings(value, ["audience", "intendedOutcome"]) ||
     typeof value["createdAt"] !== "string" ||
     typeof value["updatedAt"] !== "string" ||
     !Array.isArray(value["gatheredFacts"]) ||
@@ -115,7 +116,7 @@ function hasGatheredFactShape(value: unknown): value is ArgumentBoard["gatheredF
     hasTextSlotShape(value) &&
     typeof value["evidenceLink"] === "string" &&
     isDataType(value["dataType"]) &&
-    optionalStrings(value, ["sourceTitle", "sourceDate", "quotation"])
+    optionalStrings(value, ["descriptiveCitation", "sourceTitle", "sourceDate", "quotation"])
   );
 }
 
