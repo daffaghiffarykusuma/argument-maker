@@ -18,6 +18,7 @@ interface FactSearch { query: string; filter: FactFilter }
 /** Keeps fact fields, their shared editors and filtered cards in sync without replacing the active editor. */
 export function createGatheredFactEditing(root: HTMLDivElement, session: ArgumentBoardSession, disclosures: Map<string, boolean>) {
   const search: FactSearch = { query: "", filter: "all" };
+  const untouchedFacts = new Set<string>();
 
   function reconcile(board: ArgumentBoard, preserveEditor = true) {
     const library = root.querySelector(".fact-library");
@@ -42,7 +43,7 @@ export function createGatheredFactEditing(root: HTMLDivElement, session: Argumen
         let card = cards.get(fact.id);
         if (!card) {
           const template = document.createElement("template");
-          template.innerHTML = renderFactCard(board, fact, board.gatheredFacts.indexOf(fact));
+          template.innerHTML = renderFactCard(board, fact, board.gatheredFacts.indexOf(fact), untouchedFacts.has(fact.id));
           card = template.content.firstElementChild as HTMLElement;
           for (const details of card.querySelectorAll<HTMLDetailsElement>("details[data-disclosure]")) {
             details.open = disclosures.get(details.dataset.disclosure!) ?? false;
@@ -62,22 +63,21 @@ export function createGatheredFactEditing(root: HTMLDivElement, session: Argumen
     const id = CSS.escape(fact.id);
     const incomplete = factCompleteness(fact);
     const card = root.querySelector<HTMLElement>(`.fact-card[data-fact-id="${id}"]`);
-    if (card) {
-      card.classList.toggle("incomplete", incomplete.length > 0);
-      card.querySelector(".fact-status")!.textContent = incomplete.length ? "Incomplete" : "Complete";
-      let guidance = card.querySelector<HTMLUListElement>(".field-guidance");
+    for (const container of root.querySelectorAll<HTMLElement>(`.fact-card[data-fact-id="${id}"], .attached-fact[data-fact-id="${id}"]`)) {
+      container.classList.toggle("incomplete", incomplete.length > 0);
+      const status = container.querySelector(".fact-status");
+      if (status) status.textContent = incomplete.length ? "Incomplete" : "Complete";
+      container.querySelector(".fact-writing-prompt")?.remove();
+      let guidance = container.querySelector<HTMLUListElement>(".field-guidance");
       if (!incomplete.length) guidance?.remove();
       else {
         if (!guidance) {
           guidance = document.createElement("ul");
           guidance.className = "field-guidance";
-          card.querySelector(".text-actions")!.before(guidance);
+          guidance.setAttribute("aria-live", "polite");
+          container.querySelector(".text-actions")!.before(guidance);
         }
         guidance.innerHTML = incomplete.map((reason) => `<li>${escapeHtml(incompleteGuidance(reason))}</li>`).join("");
-      }
-    } else {
-      for (const attachment of root.querySelectorAll(`.attached-fact[data-fact-id="${id}"]`)) {
-        attachment.classList.toggle("incomplete", incomplete.length > 0);
       }
     }
     const editors = card
@@ -88,15 +88,33 @@ export function createGatheredFactEditing(root: HTMLDivElement, session: Argumen
       const field = factField(editor);
       if (field && editor.value !== (fact[field] ?? "")) editor.value = fact[field] ?? "";
     }
+    const board = session.snapshot().board;
+    for (const picker of root.querySelectorAll<HTMLSelectElement>('[data-action="attach-fact"]')) {
+      const state = attachmentAvailability(board, picker.dataset.destinationId!);
+      const options = renderAttachmentOptions(state);
+      if (picker.innerHTML !== options) picker.innerHTML = options;
+      picker.disabled = state.available.length === 0;
+      const guidance = picker.closest(".destination-facts")?.querySelector(".attachment-guidance");
+      const html = renderAttachmentGuidance(state);
+      if (guidance && guidance.innerHTML !== html) guidance.innerHTML = html;
+    }
   }
 
   return {
-    renderLibrary(board: ArgumentBoard) { return renderGatherStage(board, search); },
-    renderAttachments: renderDestinationFacts,
+    renderLibrary(board: ArgumentBoard) { return renderGatherStage(board, search, untouchedFacts); },
+    renderAttachments(board: ArgumentBoard, destinationId: FactDestinationId) { return renderDestinationFacts(board, destinationId, untouchedFacts); },
+    beginFact(factId: string) { untouchedFacts.add(factId); },
+    finishInteraction(target: Editor) {
+      const factId = target.dataset.factId;
+      if (!factField(target) || !factId || !untouchedFacts.delete(factId)) return;
+      const fact = session.snapshot().board.gatheredFacts.find((fact) => fact.id === factId);
+      if (fact) refreshFact(fact);
+    },
     edit(target: Editor): boolean {
       const field = factField(target);
       const factId = target.dataset.factId;
       if (!field || !factId) return false;
+      untouchedFacts.delete(factId);
       const board = session.dispatch(
         { type: "update-gathered-fact", factId, changes: { [field]: target.value } },
         target instanceof HTMLSelectElement ? undefined : target.id,
@@ -133,7 +151,7 @@ function factField(editor: Editor): "text" | "evidenceLink" | "dataType" | "desc
   }
 }
 
-function renderGatherStage(board: ArgumentBoard, view: FactSearch): string {
+function renderGatherStage(board: ArgumentBoard, view: FactSearch, untouchedFacts: ReadonlySet<string>): string {
   return `
     <section id="stage-panel-gather" class="workflow-stage" role="tabpanel" aria-labelledby="stage-tab-gather">
       <div class="section-heading">
@@ -148,24 +166,24 @@ function renderGatherStage(board: ArgumentBoard, view: FactSearch): string {
         ${
           board.gatheredFacts.length === 0
             ? `<div class="empty-state"><div class="paper-stack" aria-hidden="true"><div class="paper-back"></div><div class="paper-front"><span>FIELD NOTE / 001</span><i></i><i></i><i></i></div><span class="paper-seal">&#10035;</span></div><h3>No facts yet</h3><p>Add a finding and its source to get started.</p><button type="button" data-action="add-fact">Create your first fact <span aria-hidden="true">&#8599;</span></button></div>`
-            : filterFacts(board, view.query, view.filter).length ? filterFacts(board, view.query, view.filter).map((fact) => renderFactCard(board, fact, board.gatheredFacts.indexOf(fact))).join("") : '<p class="fact-no-results">No matching facts. Change the search or filter.</p>'
+            : filterFacts(board, view.query, view.filter).length ? filterFacts(board, view.query, view.filter).map((fact) => renderFactCard(board, fact, board.gatheredFacts.indexOf(fact), untouchedFacts.has(fact.id))).join("") : '<p class="fact-no-results">No matching facts. Change the search or filter.</p>'
         }
       </div>
     </section>
   `;
 }
 
-function renderFactCard(board: ArgumentBoard, fact: GatheredFact, index: number): string {
+function renderFactCard(board: ArgumentBoard, fact: GatheredFact, index: number, untouched = false): string {
   const usage = factUsageLabels(board, fact.id);
   const incomplete = factCompleteness(fact);
   const prefix = `fact-${safeDomId(fact.id)}`;
 
   return `
-    <article class="fact-card ${incomplete.length ? "incomplete" : ""}" data-fact-id="${escapeAttr(fact.id)}">
+    <article class="fact-card ${incomplete.length && !untouched ? "incomplete" : ""}" data-fact-id="${escapeAttr(fact.id)}">
       <div class="fact-card-heading">
         <div>
           <span class="term">Gathered Fact ${index + 1}</span>
-          <strong class="fact-status">${incomplete.length ? "Incomplete" : "Complete"}</strong>
+          <strong class="fact-status" role="status">${untouched ? "Draft" : incomplete.length ? "Incomplete" : "Complete"}</strong>
         </div>
         <div class="usage-block">
           <strong>${usage.length === 0 ? "Unused" : `Used in ${usage.length} place${usage.length === 1 ? "" : "s"}`}</strong>
@@ -186,10 +204,11 @@ function renderFactCard(board: ArgumentBoard, fact: GatheredFact, index: number)
         ${renderCitationField(fact, prefix)}
       </div>
       ${renderSourceDetails(fact, prefix)}
+      ${untouched ? '<p class="fact-writing-prompt">Write a finding and identify its source when you are ready.</p>' : ""}
       ${
-        incomplete.length === 0
+        incomplete.length === 0 || untouched
           ? ""
-          : `<ul class="field-guidance">${incomplete
+          : `<ul class="field-guidance" aria-live="polite">${incomplete
               .map((reason) => `<li>${escapeHtml(incompleteGuidance(reason))}</li>`)
               .join("")}</ul>`
       }
@@ -204,8 +223,10 @@ function renderFactCard(board: ArgumentBoard, fact: GatheredFact, index: number)
 }
 
 
-function renderDestinationFacts(board: ArgumentBoard, destinationId: FactDestinationId): string {
+function renderDestinationFacts(board: ArgumentBoard, destinationId: FactDestinationId, untouchedFacts: ReadonlySet<string>): string {
   const { attachedFacts: facts, attachableFacts: available, label } = readFactAttachments(board, destinationId);
+  const availability = attachmentAvailability(board, destinationId);
+  const guidanceId = `attachment-guidance-${safeDomId(destinationId)}`;
 
   return `
     <details class="destination-facts" data-disclosure="destination-${escapeAttr(destinationId)}" aria-label="Facts supporting ${escapeAttr(label)}"><summary>Supporting Facts <span>${facts.length} attached</span></summary>
@@ -217,23 +238,52 @@ function renderDestinationFacts(board: ArgumentBoard, destinationId: FactDestina
         <div class="fact-picker">
           <label>
             <span class="sr-only">Choose Gathered Facts for ${escapeHtml(label)}</span>
-            <select data-action="attach-fact" data-destination-id="${escapeAttr(destinationId)}" ${available.length === 0 ? "disabled" : ""}>
-              <option value="">${available.length === 0 ? "No complete facts available" : "Choose Gathered Facts…"}</option>
-              ${available.map((fact) => `<option value="${escapeAttr(fact.id)}">${escapeHtml(fact.text)}</option>`).join("")}
+            <select data-action="attach-fact" data-destination-id="${escapeAttr(destinationId)}" aria-describedby="${guidanceId}" ${available.length === 0 ? "disabled" : ""}>
+              ${renderAttachmentOptions(availability)}
             </select>
           </label>
           <button type="button" data-action="create-fact-here" data-destination-id="${escapeAttr(destinationId)}">Create new fact here</button>
         </div>
       </div>
+      <div id="${guidanceId}" class="attachment-guidance" role="status" aria-live="polite">${renderAttachmentGuidance(availability)}</div>
       <div class="attached-list">
         ${
           facts.length === 0
             ? `<p class="empty-attachment">No facts attached.</p>`
-            : facts.map((fact, index) => renderAttachedFact(board, destinationId, fact, index)).join("")
+            : facts.map((fact, index) => renderAttachedFact(board, destinationId, fact, index, untouchedFacts.has(fact.id))).join("")
         }
       </div>
     </details>
   `;
+}
+
+function attachmentAvailability(board: ArgumentBoard, destinationId: FactDestinationId) {
+  const { attachedFacts, attachableFacts: available } = readFactAttachments(board, destinationId);
+  const attachedIds = new Set(attachedFacts.map((fact) => fact.id));
+  const unfinished = board.gatheredFacts.find((fact) => !attachedIds.has(fact.id) && !isGatheredFactComplete(fact));
+  const allCompleteAttached = available.length === 0 && attachedFacts.some(isGatheredFactComplete);
+  let message = "Choose a gathered fact to attach it here.";
+  let placeholder = "Choose Gathered Facts…";
+  if (!board.gatheredFacts.length) {
+    message = "No facts gathered yet. Create a fact here to start gathering evidence.";
+    placeholder = "No facts gathered yet";
+  } else if (available.length === 0) {
+    message = allCompleteAttached ? "All complete facts are already attached here." : "The gathered facts are already attached here. Complete them below or create another fact.";
+    placeholder = allCompleteAttached ? "All complete facts attached" : "All facts already attached";
+  }
+  if (unfinished) {
+    message = `${allCompleteAttached ? "All complete facts are already attached here. " : ""}Finish an incomplete fact to attach it.`;
+    if (!available.length) placeholder = "Finish a gathered fact first";
+  }
+  return { available, message, placeholder, unfinished };
+}
+
+function renderAttachmentOptions(state: ReturnType<typeof attachmentAvailability>) {
+  return `<option value="">${state.placeholder}</option>${state.available.map((fact) => `<option value="${escapeAttr(fact.id)}">${escapeHtml(fact.text)}</option>`).join("")}`;
+}
+
+function renderAttachmentGuidance(state: ReturnType<typeof attachmentAvailability>) {
+  return `<p>${state.message}</p>${state.unfinished ? `<button type="button" data-action="open-fact" data-fact-id="${escapeAttr(state.unfinished.id)}">Complete a gathered fact</button>` : ""}`;
 }
 
 function renderAttachedFact(
@@ -241,12 +291,13 @@ function renderAttachedFact(
   destinationId: FactDestinationId,
   fact: GatheredFact,
   index: number,
+  untouched = false,
 ): string {
   const usage = factUsageLabels(board, fact.id);
   const prefix = `attached-${safeDomId(destinationId)}-${safeDomId(fact.id)}`;
 
   return `
-    <article class="attached-fact ${isGatheredFactComplete(fact) ? "" : "incomplete"}" data-fact-id="${escapeAttr(fact.id)}">
+    <article class="attached-fact ${isGatheredFactComplete(fact) || untouched ? "" : "incomplete"}" data-fact-id="${escapeAttr(fact.id)}">
       <div class="attached-fact-heading">
         <strong>Fact ${index + 1}</strong>
         <span>Used in ${usage.length} place${usage.length === 1 ? "" : "s"}. Changes update all uses</span>
@@ -263,6 +314,7 @@ function renderAttachedFact(
         </label>
         ${renderCitationField(fact, prefix)}
       </div>
+      ${untouched ? '<p class="fact-writing-prompt">Write a finding and identify its source when you are ready.</p>' : isGatheredFactComplete(fact) ? "" : `<ul class="field-guidance" aria-live="polite">${factCompleteness(fact).map((reason) => `<li>${escapeHtml(incompleteGuidance(reason))}</li>`).join("")}</ul>`}
       <div class="text-actions">
         <button type="button" data-action="focus-attached-fact" data-focus-id="${prefix}-text">Edit fact</button>
         <button type="button" data-action="open-fact" data-fact-id="${escapeAttr(fact.id)}">Open in Gathered Facts</button>
