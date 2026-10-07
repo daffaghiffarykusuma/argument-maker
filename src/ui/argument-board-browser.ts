@@ -179,6 +179,17 @@ function renderConstructStage(
         ${renderTextPanel(board, "question", "What question must this answer?", "Question", facts)}
         ${renderTextPanel(board, "answer", "What is your main answer?", "Answer", facts)}
       </section>
+      <section class="scqa-grid" aria-label="Planning context">
+        <article class="panel">
+          <label for="planning-audience"><span class="panel-label">Audience (optional)</span></label>
+          <textarea id="planning-audience" data-action="planning-context" data-field="audience" rows="2" placeholder="Who is this for?" aria-describedby="planning-privacy">${escapeHtml(board.audience ?? "")}</textarea>
+        </article>
+        <article class="panel">
+          <label for="planning-outcome"><span class="panel-label">Intended outcome (optional)</span></label>
+          <textarea id="planning-outcome" data-action="planning-context" data-field="intendedOutcome" rows="2" placeholder="What should they understand or do afterward?" aria-describedby="planning-privacy">${escapeHtml(board.intendedOutcome ?? "")}</textarea>
+        </article>
+      </section>
+      <p id="planning-privacy" class="verification-note">Planning context stays in your editable board and is left out of writing exports.</p>
       <section class="support-section" aria-label="Supporting argument structure">
         <div class="section-heading">
           <div>
@@ -291,6 +302,8 @@ function handleChange(
 
   if (action === "title") {
     dispatch({ type: "update-title", title: target.value });
+  } else if (action === "planning-context" && (target.dataset.field === "audience" || target.dataset.field === "intendedOutcome")) {
+    dispatch({ type: "update-planning-context", field: target.dataset.field, text: target.value });
   } else if (action === "scqa" && target instanceof HTMLTextAreaElement) {
     dispatch({
       type: "update-scqa",

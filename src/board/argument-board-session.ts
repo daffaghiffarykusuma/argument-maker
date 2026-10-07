@@ -110,6 +110,8 @@ export type ArgumentBoardSession = ReturnType<typeof createArgumentBoardSession>
 export function hasTouchedContent(board: ArgumentBoard): boolean {
   return (
     board.title.trim().length > 0 ||
+    (board.audience ?? "").trim().length > 0 ||
+    (board.intendedOutcome ?? "").trim().length > 0 ||
     board.gatheredFacts.length > 0 ||
     Object.values(board.scqa).some((slot) => slot.touched || slot.text.trim().length > 0) ||
     board.scqa.situation.factIds.length > 0 ||
