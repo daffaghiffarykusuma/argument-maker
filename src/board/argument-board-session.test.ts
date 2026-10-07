@@ -29,7 +29,7 @@ describe("Argument Board session", () => {
   test("tracks local content through atomic create-and-attach, undo/redo, and detach", () => {
     const session = createArgumentBoardSession();
 
-    expect(session.snapshot().stage).toBe("gather");
+    expect(session.snapshot().stage).toBe("construct");
     expect(session.hasTouchedContent()).toBe(false);
     session.dispatch({ type: "create-gathered-fact", destinationId: "situation" });
     const factId = session.snapshot().board.gatheredFacts[0]!.id;
