@@ -46,6 +46,7 @@ import { mountBoardControls, renderDraftControls, renderPreservingFocus } from "
 import { renderReasoningPrompts, renderCompactOutline, renderPrintDocument } from "./enhancement-view";
 import { escapeHtml, escapeAttr, safeDomId } from "./html";
 import type { GatheredFactEditing } from "./gathered-fact-editing";
+import { renderReasoningReview } from "./reasoning-review";
 
 export function mountArgumentBoardApp(appRoot: HTMLDivElement, initialSession?: ArgumentBoardSession) {
   const session = mountBoardControls(appRoot, initialSession, { render, change: handleChange, action: handleAction, upload: handleUpload, refresh: refreshEditingState });
@@ -65,7 +66,8 @@ function render(appRoot: HTMLDivElement, session: ArgumentBoardSession) {
         ${renderTopbar(snapshot.board)}
         <div class="draft-controls">${renderDraftControls(view)}</div>
         ${renderStageNavigation(snapshot.stage)}
-        ${renderStage(snapshot.board, snapshot.stage, snapshot.issues, view)}
+        <div class="review-entry"><button id="open-reasoning-review" type="button" data-action="open-review" aria-expanded="${!!view.reviewOpen}">Reasoning review</button></div>
+        ${view.reviewOpen ? renderReasoningReview(snapshot.board, snapshot.issues) : renderStage(snapshot.board, snapshot.stage, snapshot.issues, view)}
         ${renderPrintDocument(snapshot.board)}
       </div>
       <div class="copy-feedback" role="status" aria-label="Copy feedback" aria-live="polite" aria-atomic="true"><span>${escapeHtml(view.copyFeedback?.message ?? "")}</span></div>
@@ -343,9 +345,15 @@ function handleAction(appRoot: HTMLDivElement, session: ArgumentBoardSession, ta
   const direction = target.dataset.direction === "up" ? "up" : "down";
 
   const view = views.get(appRoot)!;
-  if (action === "load-example") {
+  if (action === "open-review") {
+    view.reviewOpen = true;
+    renderAndFocus(appRoot, session, "reasoning-review-heading");
+  } else if (action === "close-review") {
+    view.reviewOpen = false;
+    renderAndFocus(appRoot, session, "open-reasoning-review");
+  } else if (action === "load-example") {
     const result = session.importFile(JSON.stringify(createExampleBoard()), () => confirm("Replace this board with the worked example? You can undo this."));
-    if (result?.ok) { view.facts.resetSearch(); session.setStage("construct"); renderAndFocus(appRoot, session, "stage-heading-construct"); }
+    if (result?.ok) { view.reviewOpen = false; view.facts.resetSearch(); session.setStage("construct"); renderAndFocus(appRoot, session, "stage-heading-construct"); }
   } else if (action === "preview-mode") {
     view.preview.setMode(target.dataset.mode === "outline" ? "outline" : "diagram");
     renderPreservingFocus(appRoot, session, render);
@@ -364,6 +372,7 @@ function handleAction(appRoot: HTMLDivElement, session: ArgumentBoardSession, ta
       renderPreservingFocus(appRoot, session, render);
     }
   } else if (action === "stage") {
+    view.reviewOpen = false;
     const stage = target.dataset.stage as WorkflowStage;
     session.setStage(stage);
     renderAndFocus(appRoot, session, `stage-heading-${stage}`);
@@ -464,6 +473,7 @@ function deleteFact(appRoot: HTMLDivElement, session: ArgumentBoardSession, fact
 }
 
 function openIssue(appRoot: HTMLDivElement, session: ArgumentBoardSession, targetId: string) {
+  views.get(appRoot)!.reviewOpen = false;
   const board = session.snapshot().board;
   if (board.gatheredFacts.some((fact) => fact.id === targetId)) {
     focusCanonicalFact(appRoot, session, targetId);
@@ -531,6 +541,7 @@ async function handleUpload(appRoot: HTMLDivElement, session: ArgumentBoardSessi
     return;
   }
 
+  views.get(appRoot)!.reviewOpen = false;
   session.setStage("gather");
   renderAndFocus(appRoot, session, "stage-heading-gather");
 }
@@ -541,6 +552,7 @@ function clearBoard(appRoot: HTMLDivElement, session: ArgumentBoardSession) {
   }
 
   session.clear();
+  views.get(appRoot)!.reviewOpen = false;
   session.setStage("gather");
   renderAndFocus(appRoot, session, "stage-heading-gather");
 }
