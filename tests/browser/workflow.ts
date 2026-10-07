@@ -8,6 +8,9 @@ function expect(actual: unknown) { return { toBe: (value: unknown) => assert.equ
 import { existsSync, mkdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { chromium, type Page } from "playwright";
+// Node executes this TypeScript workflow directly, so its runtime import needs an extension.
+const clipboardWorkflowPath = "./clipboard.ts";
+const { verifyClipboardFeedback } = await import(clipboardWorkflowPath);
 
 const appUrl = "http://127.0.0.1:3000";
 const smokeDir = join(testDir, "../..", "output", "browser-smoke");
@@ -165,6 +168,8 @@ test("supports the gather-first Argument Maker workflow in Chromium", { timeout:
     expect(await page.getByRole("link", { name: /Open evidence source for Demand rose 25%/ }).count()).toBe(2);
     expect(await page.locator(".preview-view > .verification-note").innerText()).toContain("source quality and factual accuracy are not verified");
     console.log("browser-smoke: rendered Preview and evidence links");
+    await verifyClipboardFeedback(page);
+    console.log("browser-smoke: verified clipboard feedback");
 
     const diagram = page.locator(".mermaid-diagram svg");
     const originalDiagramId = await diagram.getAttribute("id");
