@@ -10,7 +10,7 @@ export async function verifySourceReuse(browser: Browser, appUrl: string) {
     await page.getByRole("tab", { name: /Gather Facts/ }).click();
     await page.getByRole("button", { name: "Add fact" }).click();
     const original = page.locator('.fact-card[data-fact-id="fact-1"]');
-    await original.getByLabel("Fact text", { exact: true }).fill("The original finding");
+    await original.getByRole("textbox", { name: "Fact text", exact: true }).fill("The original finding");
     await original.getByLabel("Descriptive citation", { exact: true }).fill("Notebook, p. 4");
     await original.getByLabel("Evidence Link", { exact: true }).fill("https://example.com/notes");
     await original.getByText("Source details", { exact: true }).click();
@@ -20,8 +20,8 @@ export async function verifySourceReuse(browser: Browser, appUrl: string) {
     await original.getByLabel("Quotation", { exact: true }).press("Tab");
     await original.getByRole("button", { name: "Another fact from this source" }).click();
     const copy = page.locator('.fact-card[data-fact-id="fact-2"]');
-    assert.equal(await copy.getByLabel("Fact text", { exact: true }).evaluate((el) => el === document.activeElement), true);
-    assert.equal(await copy.getByLabel("Fact text", { exact: true }).inputValue(), "");
+    assert.equal(await copy.getByRole("textbox", { name: "Fact text", exact: true }).evaluate((el) => el === document.activeElement), true);
+    assert.equal(await copy.getByRole("textbox", { name: "Fact text", exact: true }).inputValue(), "");
     assert.equal(await copy.getByLabel("Evidence Link", { exact: true }).inputValue(), "https://example.com/notes");
     assert.equal(await copy.getByLabel("Descriptive citation", { exact: true }).inputValue(), "Notebook, p. 4");
     await copy.getByText("Source details", { exact: true }).click();
@@ -33,16 +33,16 @@ export async function verifySourceReuse(browser: Browser, appUrl: string) {
     await page.getByRole("button", { name: "Redo", exact: true }).click();
     assert.equal(await copy.getByLabel("Descriptive citation", { exact: true }).inputValue(), "Notebook, p. 4");
     await page.setViewportSize({ width: 390, height: 844 });
-    await copy.getByLabel("Fact text", { exact: true }).fill("A separate finding");
-    await copy.getByLabel("Fact text", { exact: true }).press("Tab");
+    await copy.getByRole("textbox", { name: "Fact text", exact: true }).fill("A separate finding");
+    await copy.getByRole("textbox", { name: "Fact text", exact: true }).press("Tab");
     assert.equal(await copy.getByLabel("Evidence Link", { exact: true }).evaluate((el) => el === document.activeElement), true);
-    assert.equal(await original.getByLabel("Fact text", { exact: true }).inputValue(), "The original finding");
+    assert.equal(await original.getByRole("textbox", { name: "Fact text", exact: true }).inputValue(), "The original finding");
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
     await page.getByRole("checkbox", { name: "Save draft in this browser" }).check();
     await page.reload();
     await page.getByRole("tab", { name: /Gather Facts/ }).click();
     assert.equal(await copy.getByLabel("Descriptive citation", { exact: true }).inputValue(), "Notebook, p. 4");
-    assert.equal(await copy.getByLabel("Fact text", { exact: true }).inputValue(), "A separate finding");
+    assert.equal(await copy.getByRole("textbox", { name: "Fact text", exact: true }).inputValue(), "A separate finding");
   } finally {
     await context.close();
   }

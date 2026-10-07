@@ -1,24 +1,16 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { spawn } from "node:child_process";
 import { mkdirSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { chromium } from "playwright";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "../..");
-const url = "http://127.0.0.1:3005";
+
+const harnessModule = "./browser-harness.ts";
+const { withBrowserWorkflow }: typeof import("./browser-harness") = await import(harnessModule);
 
 test("citation-only research can be entered, found, attached, revised and shared on desktop and mobile", { timeout: 90_000 }, async () => {
-  const server = spawn(process.execPath, [join(root, "node_modules/vite/bin/vite.js"), "--host", "127.0.0.1", "--strictPort", "--port", "3005"], { cwd: root, stdio: "ignore", windowsHide: true });
-  let browser: Awaited<ReturnType<typeof chromium.launch>> | undefined;
-  try {
-    for (let attempt = 0; ; attempt++) {
-      try { if ((await fetch(url)).ok) break; } catch {}
-      if (attempt > 80) throw new Error("Citation test server did not start");
-      await new Promise((resolve) => setTimeout(resolve, 100));
-    }
-    browser = await chromium.launch({ headless: true });
+  await withBrowserWorkflow(3005, async (browser, url) => {
     const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
     page.setDefaultTimeout(10_000);
     await page.goto(url);
@@ -78,8 +70,5 @@ test("citation-only research can be entered, found, attached, revised and shared
     await page.getByRole("tab", { name: /Preview/ }).click();
     assert.equal(await page.locator('a[href^="javascript:"]').count(), 0);
     assert.match(await page.locator(".outline-preview").innerText(), /Missing or invalid evidence link/);
-  } finally {
-    await browser?.close();
-    server.kill();
-  }
+  });
 });

@@ -1,24 +1,14 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { spawn } from "node:child_process";
-import { join, dirname } from "node:path";
-import { fileURLToPath } from "node:url";
-import { chromium } from "playwright";
+import { mkdir } from "node:fs/promises";
+import { join } from "node:path";
 
-const root = join(dirname(fileURLToPath(import.meta.url)), "../..");
-const url = "http://127.0.0.1:3002";
+
+const harnessModule = "./browser-harness.ts";
+const { withBrowserWorkflow }: typeof import("./browser-harness") = await import(harnessModule);
 
 test("new facts invite writing before validation and preserve keyboard editing", { timeout: 90_000 }, async () => {
-  const server = spawn(process.execPath, [join(root, "node_modules/vite/bin/vite.js"), "--host", "127.0.0.1", "--strictPort", "--port", "3002"], { cwd: root, stdio: "ignore", windowsHide: true });
-  let browser: Awaited<ReturnType<typeof chromium.launch>> | undefined;
-  try {
-    for (let attempt = 0; ; attempt++) {
-      if (server.exitCode !== null) throw new Error("Fact guidance server exited before startup");
-      try { if ((await fetch(url, { signal: AbortSignal.timeout(1000) })).ok) break; } catch {}
-      if (attempt > 80) throw new Error("Fact guidance server did not start");
-      await new Promise((resolve) => setTimeout(resolve, 100));
-    }
-    browser = await chromium.launch({ headless: true });
+  await withBrowserWorkflow(3002, async (browser, url) => {
     const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
     page.on("pageerror", (error) => console.error("fact-guidance page error:", error));
     page.setDefaultTimeout(10_000);
@@ -68,8 +58,24 @@ test("new facts invite writing before validation and preserve keyboard editing",
     assert.equal(await situation.locator('[data-action="attach-fact"]').isEnabled(), true);
     assert.doesNotMatch(await situation.locator(".attachment-guidance").innerText(), /already attached/);
     console.log("fact-guidance: empty, incomplete, all-attached, mixed and attachment recovery passed");
-  } finally {
-    server.kill();
-    await browser?.close();
-  }
+    await page.getByRole("tab", { name: /Gather Facts/ }).click();
+    page.once("dialog", (dialog) => dialog.accept());
+    await page.getByRole("button", { name: "Worked example", exact: true }).click();
+    await page.getByRole("button", { name: "Reasoning review", exact: true }).click();
+    await page.getByRole("button", { name: "Copy Outline", exact: true }).click();
+    await page.getByRole("button", { name: "Review now", exact: true }).click();
+    await page.getByRole("button", { name: "Back to editing", exact: true }).click();
+    await page.getByRole("tab", { name: /Gather Facts/ }).click();
+    await page.getByRole("button", { name: "Add fact" }).click();
+    const fresh = page.locator('.fact-card[data-fact-id="fact-2"]');
+    assert.equal(await fresh.locator(".fact-status").innerText(), "Draft");
+    assert.equal(await fresh.locator(".field-guidance").count(), 0);
+    assert.equal(await fresh.getByRole("textbox", { name: "Fact text", exact: true }).evaluate((el) => el === document.activeElement), true);
+    const output = join(process.cwd(), "output/playwright/fact-guidance");
+    await mkdir(output, { recursive: true });
+    await page.screenshot({ path: join(output, "fresh-fact-desktop.png"), fullPage: true });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await fresh.screenshot({ path: join(output, "fresh-fact-mobile.png") });
+    assert.equal(await fresh.locator(".fact-status").innerText(), "Draft");
+  });
 });

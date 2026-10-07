@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { mkdir, readFile } from "node:fs/promises";
+import { join } from "node:path";
 import type { Browser, Page } from "playwright";
 
 export async function verifyWritingReview(browser: Browser, appUrl: string) {
@@ -45,6 +46,13 @@ export async function verifyWritingReview(browser: Browser, appUrl: string) {
         assert.equal(/\bDraft\b/.test(contents), draft, `${format} should reflect selected Draft label`);
         assert.doesNotMatch(contents, /Private audience notes|Private outcome notes/);
         assert.match(contents, /Sources/);
+        if (draft && format === "print") {
+          const output = join(process.cwd(), "output/playwright/writing-review");
+          await mkdir(output, { recursive: true });
+          await page.emulateMedia({ media: "print" });
+          await page.screenshot({ path: join(output, "draft-print.png"), fullPage: true });
+          await page.emulateMedia({ media: "screen" });
+        }
         assert.equal(await invitation.count(), 0);
         if (format === "copy") assert.equal(await button.evaluate((el) => el === document.activeElement), true);
       }

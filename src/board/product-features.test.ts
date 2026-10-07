@@ -54,6 +54,27 @@ test("writing exports reuse citation numbers, preserve source metadata, and mark
   expect(output.contents).toContain("\\<img src=x\\>");
 });
 
+test("Copy Outline retains support modes and citations without adding reasoning notes", () => {
+  const session = createArgumentBoardSession();
+  session.importFile(createExportFile(createExampleBoard()).contents, () => true);
+  session.dispatch({ type: "add-supporting-argument" });
+  session.dispatch({ type: "update-supporting-argument", argumentId: "argument-2", changes: { text: "A familiar pattern reduces guesswork", mode: "reasoning" } });
+  const board = session.snapshot().board;
+  const outline = session.copyOutline({ draft: true });
+  expect(outline).toContain("\nDraft\n");
+  expect(outline).toContain("Support Mode: Evidence-backed");
+  expect(outline).toContain("Support Mode: Reasoning / Interpretation");
+  expect(outline).toContain("[1] W3C WAI: Tabs pattern");
+  expect(outline).toContain("https://www.w3.org/WAI/ARIA/apg/patterns/tabs/");
+  for (const note of ["connection", "assumptions", "objection", "weakensClaim"] as const) {
+    const text = board.supportingArguments[0]![note]!;
+    expect(outline).not.toContain(text);
+    expect(createWritingExport(board, "text").contents).toContain(text);
+    expect(createWritingExport(board, "markdown").contents).toContain(text);
+  }
+  expect(projectWritingDocument(board).sections[4]!.notes).toHaveLength(4);
+});
+
 test("fact search combines terms across metadata and filters unused or incomplete drafts", () => {
   const board = createExampleBoard();
   board.gatheredFacts.push({ id: "draft", text: "A keyboard observation", sourceTitle: "Interview notes", quotation: "Focus moved", touched: true, evidenceLink: "", dataType: "observation" });
