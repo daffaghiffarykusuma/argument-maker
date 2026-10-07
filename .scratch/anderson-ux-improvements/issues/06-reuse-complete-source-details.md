@@ -4,15 +4,16 @@
 
 **Blocked by:** 05: Support Descriptive citations throughout the argument workflow.
 
-**Status:** ready-for-agent
+**Status:** complete (local; no external tracker configured)
 
-- [ ] Reuse the source's Evidence Link, source title, source date, and Descriptive citation in the new fact.
-- [ ] Leave the new fact text and quotation empty, with a distinct canonical fact identity and no accidental duplication of the prior finding.
-- [ ] Preserve partial dates exactly as supplied; do not infer missing date precision.
-- [ ] Support URL-only, citation-only, and combined sources as well as partially recorded source metadata.
-- [ ] The new item remains an incomplete draft until its required finding and provenance are supplied.
-- [ ] Creating the fact and editing its fields obey existing undo/redo behavior; all copied provenance survives editable-board round-trips and enabled local saving.
-- [ ] Move focus to a useful input for the new finding without disrupting keyboard navigation.
-- [ ] Verify reuse through the browser and focused existing public board/session and persistence checks, including untouched source facts and blank quotation/text.
-- [ ] Inspect the action and resulting fact on desktop and mobile.
+- [x] Reuse the source's Evidence Link, source title, source date, and Descriptive citation in the new fact.
+- [x] Leave the new fact text and quotation empty, with a distinct canonical fact identity and no accidental duplication of the prior finding.
+- [x] Preserve partial dates exactly as supplied; do not infer missing date precision.
+- [x] Support URL-only, citation-only, and combined sources as well as partially recorded source metadata.
+- [x] The new item remains an incomplete draft until its required finding and provenance are supplied.
+- [x] Creating the fact and editing its fields obey existing undo/redo behavior; all copied provenance survives editable-board round-trips and enabled local saving.
+- [x] Move focus to a useful input for the new finding without disrupting keyboard navigation.
+- [x] Verify reuse through the browser and focused existing public board/session and persistence checks, including untouched source facts and blank quotation/text.
+- [x] Inspect the action and resulting fact on desktop and mobile.
 
+Verification: [implementation checks and rendered evidence](../../../docs/issues/anderson-ux-verification.md).

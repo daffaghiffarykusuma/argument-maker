@@ -4,15 +4,16 @@
 
 **Blocked by:** None (can start immediately).
 
-**Status:** ready-for-agent
+**Status:** complete (local; no external tracker configured)
 
-- [ ] A fresh board makes entering a Question or tentative claim the default starting experience rather than requiring research first.
-- [ ] The starting prompts use the existing Question and Answer concepts; a tentative claim does not create a second competing main-answer entity.
-- [ ] Authors can revise the Question and Answer as their research develops.
-- [ ] Suggested next actions help the author move from framing to evidence and supporting reasoning, and can be skipped without blocking navigation.
-- [ ] Gather Facts, construction, and Argument Preview remain directly reachable without a mandatory wizard or completion gate.
-- [ ] Untouched narrative fields do not initially present a wall of missing-field warnings; relevant guidance appears after interaction while structural checks remain available.
-- [ ] Existing undo/redo, board-file persistence, local-draft restoration, and recovery behavior preserve the author's framing and work.
-- [ ] Update the existing browser journey to exercise both question-first and tentative-claim-first entry, free navigation, and continued construction with supporting material.
-- [ ] Inspect the starting flow at desktop and mobile widths and verify accessible labels and predictable keyboard focus.
+- [x] A fresh board makes entering a Question or tentative claim the default starting experience rather than requiring research first.
+- [x] The starting prompts use the existing Question and Answer concepts; a tentative claim does not create a second competing main-answer entity.
+- [x] Authors can revise the Question and Answer as their research develops.
+- [x] Suggested next actions help the author move from framing to evidence and supporting reasoning, and can be skipped without blocking navigation.
+- [x] Gather Facts, construction, and Argument Preview remain directly reachable without a mandatory wizard or completion gate.
+- [x] Untouched narrative fields do not initially present a wall of missing-field warnings; relevant guidance appears after interaction while structural checks remain available.
+- [x] Existing undo/redo, board-file persistence, local-draft restoration, and recovery behavior preserve the author's framing and work.
+- [x] Update the existing browser journey to exercise both question-first and tentative-claim-first entry, free navigation, and continued construction with supporting material.
+- [x] Inspect the starting flow at desktop and mobile widths and verify accessible labels and predictable keyboard focus.
 
+Verification: [implementation checks and rendered evidence](../../../docs/issues/anderson-ux-verification.md).

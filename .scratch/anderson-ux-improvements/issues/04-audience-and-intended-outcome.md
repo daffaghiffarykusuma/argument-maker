@@ -4,15 +4,16 @@
 
 **Blocked by:** None (can start immediately).
 
-**Status:** ready-for-agent
+**Status:** complete (local; no external tracker configured)
 
-- [ ] Provide optional Audience and Intended outcome prompts near the existing Question or Answer; this works with the current workspace and does not require the new starting flow.
-- [ ] Leaving either field empty does not prevent structural completeness, navigation, preview, or writing export.
-- [ ] Editing both fields participates in undo/redo without losing unrelated board content.
-- [ ] Values survive editable-board export/import and enabled local-draft save/restore.
-- [ ] A board containing only one or both planning fields counts as user work for replacement and unsaved-work protection.
-- [ ] Older supported boards without these fields still load; malformed newly recognized field types are rejected without replacing the active board.
-- [ ] Audience and Intended outcome do not appear in Copy Outline, Markdown, text, or print output; existing treatment of Reasoning notes is unchanged.
-- [ ] Use existing browser behavior checks for entry and output privacy, plus focused public session/file/local-draft tests for round-trips, history, and replacement protection.
-- [ ] Verify usable layout and keyboard access on desktop and mobile without changing local-saving defaults or cross-tab conflict behavior.
+- [x] Provide optional Audience and Intended outcome prompts near the existing Question or Answer; this works with the current workspace and does not require the new starting flow.
+- [x] Leaving either field empty does not prevent structural completeness, navigation, preview, or writing export.
+- [x] Editing both fields participates in undo/redo without losing unrelated board content.
+- [x] Values survive editable-board export/import and enabled local-draft save/restore.
+- [x] A board containing only one or both planning fields counts as user work for replacement and unsaved-work protection.
+- [x] Older supported boards without these fields still load; malformed newly recognized field types are rejected without replacing the active board.
+- [x] Audience and Intended outcome do not appear in Copy Outline, Markdown, text, or print output; existing treatment of Reasoning notes is unchanged.
+- [x] Use existing browser behavior checks for entry and output privacy, plus focused public session/file/local-draft tests for round-trips, history, and replacement protection.
+- [x] Verify usable layout and keyboard access on desktop and mobile without changing local-saving defaults or cross-tab conflict behavior.
 
+Verification: [implementation checks and rendered evidence](../../../docs/issues/anderson-ux-verification.md).

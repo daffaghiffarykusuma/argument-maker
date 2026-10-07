@@ -4,13 +4,14 @@
 
 **Blocked by:** None (can start immediately).
 
-**Status:** ready-for-agent
+**Status:** complete (local; no external tracker configured)
 
-- [ ] Copy Outline and Copy Mermaid announce success only after the clipboard write succeeds.
-- [ ] A denied, unavailable, or rejected clipboard operation shows a clear failure message rather than a success message or silent failure.
-- [ ] The failure state offers a retry or an existing alternative appropriate to that output; it does not discard or modify board content.
-- [ ] Feedback is accessible to assistive technology and does not unexpectedly move keyboard focus away from the action.
-- [ ] Repeated attempts update feedback accurately without leaving a stale success indication after a failure.
-- [ ] Verify successful and failed clipboard operations through the existing browser workflow, asserting visible/accessible outcomes and preserved content rather than private helper calls.
-- [ ] Inspect affected controls and feedback at desktop and mobile widths. Run relevant existing checks and report browser results separately from non-browser results.
+- [x] Copy Outline and Copy Mermaid announce success only after the clipboard write succeeds.
+- [x] A denied, unavailable, or rejected clipboard operation shows a clear failure message rather than a success message or silent failure.
+- [x] The failure state offers a retry or an existing alternative appropriate to that output; it does not discard or modify board content.
+- [x] Feedback is accessible to assistive technology and does not unexpectedly move keyboard focus away from the action.
+- [x] Repeated attempts update feedback accurately without leaving a stale success indication after a failure.
+- [x] Verify successful and failed clipboard operations through the existing browser workflow, asserting visible/accessible outcomes and preserved content rather than private helper calls.
+- [x] Inspect affected controls and feedback at desktop and mobile widths. Run relevant existing checks and report browser results separately from non-browser results.
 
+Verification: [implementation checks and rendered evidence](../../../docs/issues/anderson-ux-verification.md).

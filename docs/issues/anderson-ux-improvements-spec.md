@@ -1,6 +1,6 @@
 # Help first-time users build and review a defensible argument
 
-Publication status: local specification, not published. Project issue-tracker configuration and triage vocabulary were not found. Intended publication label: `ready-for-agent`, as required by the to-spec workflow. The proposed testing boundaries below await the user's required seam check.
+Publication status: local specification, not published. Project issue-tracker configuration and triage vocabulary were not found. The user approved the testing boundaries with the ticket breakdown and authorized implementation. See [implementation verification](anderson-ux-verification.md) for delivery status and evidence.
 
 ## Problem Statement
 
@@ -95,7 +95,7 @@ Before the first writing export in a board session, offer Review now and Export 
 
 ## Testing Decisions
 
-The following boundaries are proposed for the required user seam check. Prefer the existing browser workflow as the primary, highest-level boundary. Use existing public board/session and persistence contracts only for focused edge cases that would be slow or difficult to reproduce reliably in a browser. No new test-only production interface is needed.
+The following boundaries were approved with the ticket breakdown. Prefer the existing browser workflow as the primary, highest-level boundary. Use existing public board/session and persistence contracts only for focused edge cases that would be slow or difficult to reproduce reliably in a browser. No new test-only production interface is needed.
 
 - A good test drives a public user action or public module operation and asserts an observable result: visible guidance, focus, accessible status, exported contents, preserved data, or a recoverable failure. Avoid private-state assertions, helper call counts, style snapshots, and tests that merely repeat implementation logic.
 - Extend the current complete Chromium workflow to cover question/claim-first entry, free navigation, purpose prompts, fact entry, source reuse, attachment states, reasoning review, and both writing-export paths. Existing prior art already covers shared facts, ordered attachments, filter reconciliation, keyboard focus, native undo, readable outline, diagram preview, imports, and local-draft interactions.
@@ -127,4 +127,4 @@ The following boundaries are proposed for the required user seam check. Prefer t
 - The framework is Stephen P. Anderson's six-level User Experience Hierarchy of Needs: functional, reliable, usable, convenient, pleasurable, and meaningful. The original model is available at https://poetpainter.com/thoughts/files/UX-Hierarchy-Model-StephenPAnderson.pdf.
 - Browser screenshot capture failed during the design review. The opportunities are grounded in source inspection and product decisions, not a completed visual audit or user study. No implementation tests were run for this documentation-only specification.
 - No applicable ADR was found, and no hard-to-reverse architectural choice was settled during the interview. Preserve the existing architecture and prefer additive changes.
-- Issue publication is pending project tracker setup via `/setup-matt-pocock-skills` and the to-spec workflow's test-boundary check. Once those prerequisites are satisfied, publish this specification with `ready-for-agent`; do not substitute another label or claim it has been published locally.
+- External issue publication remains pending project tracker setup via `/setup-matt-pocock-skills`. The approved local tickets record implementation status; they are not published tracker issues.
