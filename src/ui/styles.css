@@ -1059,3 +1059,12 @@ summary:focus-visible { outline: 3px solid #b4b4b4; outline-offset: 3px; }
   box-shadow: 0 2px 10px #0002;
 }
 @media print { .copy-feedback { display: none; } }
+.review-entry { display: flex; justify-content: flex-end; margin: 16px 0; }
+.reasoning-review { max-width: 960px; margin: 0 auto; overflow-wrap: anywhere; }
+.reasoning-review .section-heading { flex-wrap: wrap; gap: 16px; }
+.reasoning-review > section, .review-evidence { margin-top: 24px; }
+.reasoning-review .argument-card { margin-top: 16px; }
+.reasoning-review h3, .reasoning-review h4 { margin-top: 0; }
+.reasoning-review dt { font-weight: 700; margin-top: 12px; }
+.reasoning-review dd { margin: 4px 0 16px; white-space: pre-wrap; }
+.reasoning-review li + li { margin-top: 8px; }
