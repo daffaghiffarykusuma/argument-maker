@@ -319,8 +319,8 @@ function renderSourceDetails(fact: GatheredFact, prefix: string): string {
 }
 
 function renderCitationField(fact: GatheredFact, prefix: string): string {
-  return `<label class="citation-field" for="${prefix}-citation"><span>Descriptive citation</span>
-    <textarea id="${prefix}-citation" data-action="fact-citation" data-fact-id="${escapeAttr(fact.id)}" rows="2" aria-describedby="${prefix}-source-help" placeholder="Book and passage, interview notes, or observation record">${escapeHtml(fact.descriptiveCitation ?? "")}</textarea>
+  return `<label class="citation-field" for="${prefix}-citation"><span id="${prefix}-citation-label">Descriptive citation</span>
+    <textarea id="${prefix}-citation" data-action="fact-citation" data-fact-id="${escapeAttr(fact.id)}" rows="2" aria-labelledby="${prefix}-citation-label" aria-describedby="${prefix}-source-help" placeholder="Book and passage, interview notes, or observation record">${escapeHtml(fact.descriptiveCitation ?? "")}</textarea>
     <small id="${prefix}-source-help">Provide an Evidence Link, a descriptive citation, or both.</small>
   </label>`;
 }
