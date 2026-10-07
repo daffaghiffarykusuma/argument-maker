@@ -418,7 +418,7 @@ function handleAction(appRoot: HTMLDivElement, session: ArgumentBoardSession, ta
   } else if (action === "another-fact-source" && factId) {
     const source = session.snapshot().board.gatheredFacts.find((fact) => fact.id === factId);
     if (!source) return;
-    const board = session.dispatch({ type: "create-gathered-fact", evidenceLink: source.evidenceLink });
+    const board = session.dispatch({ type: "reuse-fact-source", factId });
     focusCanonicalFact(appRoot, session, board.gatheredFacts.at(-1)!.id);
   } else if (action === "delete-fact" && factId) {
     deleteFact(appRoot, session, factId);

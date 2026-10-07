@@ -58,6 +58,7 @@ export type ArgumentBoardCommand =
   | { type: "move-supporting-argument"; argumentId: string; direction: "up" | "down" }
   | { type: "duplicate-supporting-argument"; argumentId: string }
   | { type: "create-gathered-fact"; evidenceLink?: string; destinationId?: FactDestinationId }
+  | { type: "reuse-fact-source"; factId: string }
   | {
       type: "update-gathered-fact";
       factId: string;
@@ -117,6 +118,8 @@ export function applyArgumentBoardCommand(
       return duplicateSupportingArgument(board, command.argumentId, now);
     case "create-gathered-fact":
       return createGatheredFact(board, command.evidenceLink ?? "", command.destinationId, now);
+    case "reuse-fact-source":
+      return reuseFactSource(board, command.factId, now);
     case "update-gathered-fact":
       return updateGatheredFact(board, command.factId, command.changes, now);
     case "move-gathered-fact":
@@ -325,6 +328,18 @@ function createGatheredFact(
   }
 
   return touchBoard(nextBoard, now);
+}
+
+function reuseFactSource(board: ArgumentBoard, factId: string, now: Date): ArgumentBoard {
+  const source = board.gatheredFacts.find((fact) => fact.id === factId);
+  if (!source) return board;
+  const fact = {
+    ...createGatheredFactWithId(makeIndexedId("fact", allBoardIds(board)), source.evidenceLink),
+    sourceTitle: source.sourceTitle,
+    sourceDate: source.sourceDate,
+    descriptiveCitation: source.descriptiveCitation,
+  };
+  return touchBoard({ ...board, gatheredFacts: [...board.gatheredFacts, fact] }, now);
 }
 
 function updateGatheredFact(
