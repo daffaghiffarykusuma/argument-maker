@@ -36,6 +36,9 @@ test("supports the question-first Argument Maker workflow in Chromium", { timeou
     const sourceReuseModule = "./source-reuse.ts";
     const { verifySourceReuse } = await import(sourceReuseModule);
     await verifySourceReuse(browser, appUrl);
+    const reasoningReviewModule = "./reasoning-review.ts";
+    const { verifyReasoningReview } = await import(reasoningReviewModule);
+    await verifyReasoningReview(browser, appUrl);
     const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
     const page = await context.newPage();
     await page.goto(appUrl);

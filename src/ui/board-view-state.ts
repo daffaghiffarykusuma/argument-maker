@@ -8,5 +8,6 @@ export interface ViewState {
   preview: ArgumentPreview;
   disclosures: Map<string, boolean>;
   copyFeedback?: { message: string; request: symbol };
+  reviewOpen?: boolean;
 }
 export const views = new WeakMap<HTMLDivElement, ViewState>();
