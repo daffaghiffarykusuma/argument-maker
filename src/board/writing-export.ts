@@ -32,11 +32,12 @@ export function projectWritingDocument(board: ArgumentBoard): WritingDocument {
   return { title: board.title.trim() || "Untitled argument", sections, sources };
 }
 
-export function createWritingExport(board: ArgumentBoard, format: "markdown" | "text") {
+export function createWritingExport(board: ArgumentBoard, format: "markdown" | "text", options: { draft?: boolean } = {}) {
   const doc = projectWritingDocument(board);
   const markdown = format === "markdown";
   const text = (value: string) => markdown ? escapeMarkdown(value) : value;
   const lines = [markdown ? `# ${text(doc.title)}` : doc.title, ""];
+  if (options.draft) lines.push("Draft", "");
   for (const section of doc.sections) {
     lines.push(markdown ? `## ${section.label}` : section.label, text(section.text || "[Not written]"));
     for (const fact of section.facts) lines.push(`- ${text(fact.text || "[Needs fact text]")} [${fact.citation}] ${fact.markers.join(" ")}`.trimEnd());

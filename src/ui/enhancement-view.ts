@@ -13,6 +13,6 @@ export function renderCompactOutline(board: ArgumentBoard): string {
   return projectWritingDocument(board).sections.map((section) => `<div class="outline-item"><strong>${escapeHtml(section.label)}</strong><p>${escapeHtml(section.text || "Not written yet")}</p>${section.facts.length ? `<span>${section.facts.length} attached fact${section.facts.length === 1 ? "" : "s"}</span>` : ""}</div>`).join("");
 }
 
-export function renderPrintDocument(board: ArgumentBoard) {
-  return `<div class="print-document">${renderWritingDocument(projectWritingDocument(board), "print")}</div>`;
+export function renderPrintDocument(board: ArgumentBoard, draft = false) {
+  return `<div class="print-document">${renderWritingDocument(projectWritingDocument(board), "print", { draft })}</div>`;
 }

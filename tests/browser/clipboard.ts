@@ -12,6 +12,7 @@ export async function verifyClipboardFeedback(page: Page) {
     const button = page.getByRole("button", { name: `Copy ${output}`, exact: true });
     await button.focus();
     await button.press("Enter");
+    if (output === "Outline") await page.getByRole("button", { name: "Export draft", exact: true }).click();
     const status = page.getByRole("status", { name: "Copy feedback" });
     await status.getByText(`Copying ${output.toLowerCase()}…`, { exact: true }).waitFor({ timeout: 2000 });
     assert.equal(await button.evaluate((element) => element === document.activeElement), true);

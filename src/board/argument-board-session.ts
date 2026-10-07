@@ -94,8 +94,8 @@ export function createArgumentBoardSession(initialBoard = createDefaultBoard()) 
     exportFile() {
       return createExportFile(board);
     },
-    copyOutline() {
-      return createWritingExport(board, "text").contents;
+    copyOutline(options: { draft?: boolean } = {}) {
+      return createWritingExport(board, "text", options).contents;
     },
     copyMermaid() {
       return projectArgumentPreview(board).mermaid;

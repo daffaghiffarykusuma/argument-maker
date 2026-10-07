@@ -58,6 +58,7 @@ test("citation-only research can be entered, found, attached, revised and shared
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
     const downloadPromise = page.waitForEvent("download");
     await page.getByRole("button", { name: "Download Markdown", exact: true }).click();
+    await page.getByRole("button", { name: "Export draft", exact: true }).click();
     const download = await downloadPromise;
     const stream = await download.createReadStream();
     let contents = "";

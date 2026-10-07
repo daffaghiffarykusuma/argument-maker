@@ -2,8 +2,9 @@ import { isValidEvidenceLink } from "../board/argument-board";
 import type { WritingDocument } from "../board/writing-export";
 import { escapeAttr, escapeHtml } from "./html";
 
-export function renderWritingDocument(doc: WritingDocument, idPrefix = "outline"): string {
+export function renderWritingDocument(doc: WritingDocument, idPrefix = "outline", options: { draft?: boolean } = {}): string {
   return `<article class="writing-document">
+    ${options.draft ? '<p class="writing-status">Draft</p>' : ""}
     <h2>${escapeHtml(doc.title)}</h2>
     ${doc.sections.map((section) => `<section>
       <h3>${escapeHtml(section.label)}</h3><p>${escapeHtml(section.text || "[Not written]")}</p>

@@ -5,7 +5,7 @@ import { renderReasoningPrompts } from "./enhancement-view";
 import { escapeAttr, escapeHtml } from "./html";
 import { renderWritingDocument } from "./writing-view";
 
-export function renderReasoningReview(board: ArgumentBoard, issues: ReviewIssue[]): string {
+export function renderReasoningReview(board: ArgumentBoard, issues: ReviewIssue[], continueToExport = false): string {
   return `<section class="workflow-stage reasoning-review" aria-labelledby="reasoning-review-heading">
     <div class="section-heading"><h2 id="reasoning-review-heading" tabindex="-1">Reasoning review</h2><button type="button" data-action="close-review">Back to editing</button></div>
     <p>Consider whether your evidence and reasoning support your Answer. Every reflection is optional; you can leave at any time.</p>
@@ -27,5 +27,15 @@ export function renderReasoningReview(board: ArgumentBoard, issues: ReviewIssue[
       <p>Notes are saved with your board and can also be edited under Construct Argument.</p>
       ${board.supportingArguments.map((argument, index) => `<article class="argument-card"><h4>Supporting Argument ${index + 1}</h4><p>${escapeHtml(argument.text.trim() || "Reason not written yet")}</p>${renderReasoningPrompts(argument, true)}</article>`).join("") || "<p>No Supporting Arguments yet. Return to Construct Argument to add a reason.</p>"}
     </section>
+    ${continueToExport ? '<div class="review-export-actions"><button type="button" data-action="continue-writing">Continue to export</button><p>Reflection fields are optional. Exporting does not certify correctness.</p></div>' : ""}
+  </section>`;
+}
+
+export function renderWritingInvitation(): string {
+  return `<section class="workflow-stage writing-invitation panel" aria-labelledby="writing-invitation-heading">
+    <h2 id="writing-invitation-heading" tabindex="-1">Before you share</h2>
+    <p>Review how your evidence and reasoning support the Answer, or share an unfinished draft for feedback.</p>
+    <p>Review is optional. A draft includes a visible Draft label in the writing you export.</p>
+    <div class="review-export-actions"><button type="button" data-action="review-writing">Review now</button><button type="button" data-action="export-draft">Export draft</button><button type="button" data-action="cancel-writing">Cancel export</button></div>
   </section>`;
 }

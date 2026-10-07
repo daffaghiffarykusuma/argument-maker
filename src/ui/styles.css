@@ -1068,3 +1068,9 @@ summary:focus-visible { outline: 3px solid #b4b4b4; outline-offset: 3px; }
 .reasoning-review dt { font-weight: 700; margin-top: 12px; }
 .reasoning-review dd { margin: 4px 0 16px; white-space: pre-wrap; }
 .reasoning-review li + li { margin-top: 8px; }
+.review-entry, .review-export-actions { display: flex; flex-wrap: wrap; gap: 12px; }
+.review-export-actions { margin-top: 24px; }
+.review-export-actions p { flex-basis: 100%; }
+.review-entry [aria-pressed="true"] { background: var(--ink); color: var(--paper); }
+.writing-invitation { max-width: 760px; margin: 24px auto; }
+.writing-status { font-weight: 700; border: 1px solid currentColor; padding: 8px 12px; width: fit-content; }
