@@ -7,5 +7,6 @@ export interface ViewState {
   facts: GatheredFactEditing;
   preview: ArgumentPreview;
   disclosures: Map<string, boolean>;
+  copyFeedback?: { message: string; request: symbol };
 }
 export const views = new WeakMap<HTMLDivElement, ViewState>();

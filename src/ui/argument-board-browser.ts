@@ -68,6 +68,7 @@ function render(appRoot: HTMLDivElement, session: ArgumentBoardSession) {
         ${renderStage(snapshot.board, snapshot.stage, snapshot.issues, view)}
         ${renderPrintDocument(snapshot.board)}
       </div>
+      <div class="copy-feedback" role="status" aria-label="Copy feedback" aria-live="polite" aria-atomic="true"><span>${escapeHtml(view.copyFeedback?.message ?? "")}</span></div>
     </main>
   `;
 
@@ -398,9 +399,9 @@ function handleAction(appRoot: HTMLDivElement, session: ArgumentBoardSession, ta
   } else if (action === "open-issue") {
     openIssue(appRoot, session, target.dataset.targetId ?? "");
   } else if (action === "copy-outline") {
-    void navigator.clipboard.writeText(session.copyOutline());
+    void copyOutput(appRoot, session.copyOutline(), "Outline");
   } else if (action === "copy-mermaid") {
-    void navigator.clipboard.writeText(session.copyMermaid());
+    void copyOutput(appRoot, session.copyMermaid(), "Mermaid");
   } else if (action === "download") {
     downloadBoard(session);
   } else if (action === "clear") {
@@ -411,6 +412,23 @@ function handleAction(appRoot: HTMLDivElement, session: ArgumentBoardSession, ta
   } else if (action === "redo") {
     session.redo();
     render(appRoot, session);
+  }
+}
+
+async function copyOutput(appRoot: HTMLDivElement, contents: string, label: "Outline" | "Mermaid") {
+  const view = views.get(appRoot)!;
+  const request = Symbol();
+  const update = (message: string) => {
+    view.copyFeedback = { message, request };
+    const status = appRoot.querySelector(".copy-feedback span");
+    if (status) status.textContent = message;
+  };
+  update(`Copying ${label.toLowerCase()}…`);
+  try {
+    await navigator.clipboard.writeText(contents);
+    if (view.copyFeedback?.request === request) update(`${label} copied.`);
+  } catch {
+    if (view.copyFeedback?.request === request) update(`Could not copy ${label.toLowerCase()}. Try Copy ${label} again.`);
   }
 }
 
