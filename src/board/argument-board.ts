@@ -34,6 +34,8 @@ export interface ArgumentBoard {
   schemaVersion: 2;
   appName: "Argument Maker";
   title: string;
+  audience?: string;
+  intendedOutcome?: string;
   createdAt: string;
   updatedAt: string;
   gatheredFacts: GatheredFact[];
@@ -48,6 +50,7 @@ export interface ArgumentBoard {
 
 export type ArgumentBoardCommand =
   | { type: "update-title"; title: string }
+  | { type: "update-planning-context"; field: "audience" | "intendedOutcome"; text: string }
   | { type: "update-scqa"; field: keyof ArgumentBoard["scqa"]; text: string }
   | { type: "update-supporting-argument"; argumentId: string; changes: Partial<Pick<SupportingArgument, "text" | "mode" | "connection" | "assumptions" | "objection" | "weakensClaim">> }
   | { type: "add-supporting-argument" }
@@ -98,6 +101,8 @@ export function applyArgumentBoardCommand(
   switch (command.type) {
     case "update-title":
       return touchBoard({ ...board, title: command.title }, now);
+    case "update-planning-context":
+      return touchBoard({ ...board, [command.field]: command.text }, now);
     case "update-scqa":
       return updateScqa(board, command.field, command.text, now);
     case "update-supporting-argument":

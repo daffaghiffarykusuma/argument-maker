@@ -68,6 +68,7 @@ function render(appRoot: HTMLDivElement, session: ArgumentBoardSession) {
         ${renderStage(snapshot.board, snapshot.stage, snapshot.issues, view)}
         ${renderPrintDocument(snapshot.board)}
       </div>
+      <div class="copy-feedback" role="status" aria-label="Copy feedback" aria-live="polite" aria-atomic="true"><span>${escapeHtml(view.copyFeedback?.message ?? "")}</span></div>
     </main>
   `;
 
@@ -179,6 +180,17 @@ function renderConstructStage(
         ${renderTextPanel(board, "question", "What question must this answer?", "Question", facts)}
         ${renderTextPanel(board, "answer", "What is your main answer?", "Answer", facts)}
       </section>
+      <section class="scqa-grid" aria-label="Planning context">
+        <article class="panel">
+          <label for="planning-audience"><span class="panel-label">Audience (optional)</span></label>
+          <textarea id="planning-audience" data-action="planning-context" data-field="audience" rows="2" placeholder="Who is this for?" aria-describedby="planning-privacy">${escapeHtml(board.audience ?? "")}</textarea>
+        </article>
+        <article class="panel">
+          <label for="planning-outcome"><span class="panel-label">Intended outcome (optional)</span></label>
+          <textarea id="planning-outcome" data-action="planning-context" data-field="intendedOutcome" rows="2" placeholder="What should they understand or do afterward?" aria-describedby="planning-privacy">${escapeHtml(board.intendedOutcome ?? "")}</textarea>
+        </article>
+      </section>
+      <p id="planning-privacy" class="verification-note">Planning context stays in your editable board and is left out of writing exports.</p>
       <section class="support-section" aria-label="Supporting argument structure">
         <div class="section-heading">
           <div>
@@ -291,6 +303,8 @@ function handleChange(
 
   if (action === "title") {
     dispatch({ type: "update-title", title: target.value });
+  } else if (action === "planning-context" && (target.dataset.field === "audience" || target.dataset.field === "intendedOutcome")) {
+    dispatch({ type: "update-planning-context", field: target.dataset.field, text: target.value });
   } else if (action === "scqa" && target instanceof HTMLTextAreaElement) {
     dispatch({
       type: "update-scqa",
@@ -398,9 +412,9 @@ function handleAction(appRoot: HTMLDivElement, session: ArgumentBoardSession, ta
   } else if (action === "open-issue") {
     openIssue(appRoot, session, target.dataset.targetId ?? "");
   } else if (action === "copy-outline") {
-    void navigator.clipboard.writeText(session.copyOutline());
+    void copyOutput(appRoot, session.copyOutline(), "Outline");
   } else if (action === "copy-mermaid") {
-    void navigator.clipboard.writeText(session.copyMermaid());
+    void copyOutput(appRoot, session.copyMermaid(), "Mermaid");
   } else if (action === "download") {
     downloadBoard(session);
   } else if (action === "clear") {
@@ -411,6 +425,23 @@ function handleAction(appRoot: HTMLDivElement, session: ArgumentBoardSession, ta
   } else if (action === "redo") {
     session.redo();
     render(appRoot, session);
+  }
+}
+
+async function copyOutput(appRoot: HTMLDivElement, contents: string, label: "Outline" | "Mermaid") {
+  const view = views.get(appRoot)!;
+  const request = Symbol();
+  const update = (message: string) => {
+    view.copyFeedback = { message, request };
+    const status = appRoot.querySelector(".copy-feedback span");
+    if (status) status.textContent = message;
+  };
+  update(`Copying ${label.toLowerCase()}…`);
+  try {
+    await navigator.clipboard.writeText(contents);
+    if (view.copyFeedback?.request === request) update(`${label} copied.`);
+  } catch {
+    if (view.copyFeedback?.request === request) update(`Could not copy ${label.toLowerCase()}. Try Copy ${label} again.`);
   }
 }
 

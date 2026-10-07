@@ -1040,3 +1040,18 @@ summary:focus-visible { outline: 3px solid #b4b4b4; outline-offset: 3px; }
   .writing-document a, .writing-document .reasoning-note, .writing-document .verification-note { color: black; }
   .writing-document .verification-note { border-color: #aaa; }
 }
+.copy-feedback {
+  position: fixed;
+  z-index: 20;
+  bottom: 1rem;
+  right: 1rem;
+  max-width: min(28rem, calc(100vw - 2rem));
+  background: var(--paper);
+  color: var(--ink);
+}
+.copy-feedback:has(span:not(:empty)) {
+  padding: .75rem 1rem;
+  border: 1px solid currentColor;
+  box-shadow: 0 2px 10px #0002;
+}
+@media print { .copy-feedback { display: none; } }

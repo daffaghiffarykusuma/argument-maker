@@ -55,6 +55,7 @@ export function createExportFileName(title: string): string {
 function hasBoardShape(value: Record<string, unknown>): value is Record<string, unknown> & ArgumentBoard {
   if (
     typeof value["title"] !== "string" ||
+    !optionalStrings(value, ["audience", "intendedOutcome"]) ||
     typeof value["createdAt"] !== "string" ||
     typeof value["updatedAt"] !== "string" ||
     !Array.isArray(value["gatheredFacts"]) ||
