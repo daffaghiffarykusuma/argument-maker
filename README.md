@@ -125,7 +125,7 @@ Install the browser once with `bunx playwright install chromium`. Use Node.js 24
 for the Playwright workflow. The Bun browser test runs that
 workflow in Node because Chromium's pipe hangs under Bun on Windows. `bun test`
 runs both test suites. Browser workflows start their own Vite servers on ports
-3000, 3002, 3005, and 3008; keep those ports free. The shared runner closes
+3000, 3002, 3005, 3008, and 3011; keep those ports free. The shared runner closes
 Chromium and its test server after success, failure, or timeout.
 Temporary smoke-test files use `output/browser-smoke/`
 and are removed after the run. Local browser-review artifacts live in

@@ -234,7 +234,10 @@ function mermaidId(id: string): string {
 }
 
 function escapeMermaidLabel(label: string): string {
-  return label.replace(/"/g, '\\"');
+  // Mermaid entities keep HTML, quotes and directives inert until label rendering.
+  // Backslashes do not escape Mermaid quotes, and literal # can introduce entities.
+  // Its style preprocessor also runs on labels, so hide those keywords from it.
+  return label.replace(/["%<>&#]|style|classDef/g, (value) => `#${value.codePointAt(0)};${value.slice(1)}`);
 }
 
 function formatSupportMode(mode: SupportingArgument["mode"]): string {
