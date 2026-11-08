@@ -31,6 +31,7 @@ test("citation-only research can be entered, found, attached, revised and shared
     mkdirSync(output, { recursive: true });
     await page.screenshot({ path: join(output, "desktop-entry.png"), fullPage: true });
     await page.getByRole("tab", { name: /Construct Argument/ }).click();
+    await page.locator('details[data-disclosure="context"] > summary').click();
     for (const destination of ["situation", "complication"]) {
       await page.locator(`[data-disclosure="destination-${destination}"] > summary`).click();
       await page.locator(`[data-action="attach-fact"][data-destination-id="${destination}"]`).selectOption("fact-1");
