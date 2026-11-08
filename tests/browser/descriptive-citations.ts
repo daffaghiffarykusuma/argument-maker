@@ -50,7 +50,8 @@ test("citation-only research can be entered, found, attached, revised and shared
     await page.screenshot({ path: join(output, "mobile-outline.png"), fullPage: true });
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
     const downloadPromise = page.waitForEvent("download");
-    await page.getByRole("button", { name: "Download Markdown", exact: true }).click();
+    await page.locator("#writing-menu-toggle").click();
+    await page.getByRole("button", { name: "Markdown", exact: true }).click();
     await page.getByRole("button", { name: "Export draft", exact: true }).click();
     const download = await downloadPromise;
     const stream = await download.createReadStream();
@@ -58,7 +59,8 @@ test("citation-only research can be entered, found, attached, revised and shared
     for await (const chunk of stream!) contents += chunk.toString();
     assert.match(contents, /Interview \\<notes\\>, page 4/);
     await page.evaluate(() => { window.print = () => {}; });
-    await page.getByRole("button", { name: "Print / Save PDF", exact: true }).click();
+    await page.locator("#writing-menu-toggle").click();
+    await page.getByRole("button", { name: "Print/PDF", exact: true }).click();
     await page.emulateMedia({ media: "print" });
     assert.match(await page.locator(".print-document").innerText(), /Interview <notes>, page 4/);
     await page.screenshot({ path: join(output, "print.png"), fullPage: true });

@@ -25,7 +25,8 @@ export async function verifyReviewNavigation06(browser: Browser, appUrl: string)
     assert.equal(await answer.inputValue(), "Run a small pilot first.\n".repeat(40));
     await page.getByRole("textbox", { name: "Audience (optional)", exact: true }).fill("Private planning audience");
     await page.getByRole("tab", { name: /Preview/ }).click();
-    await page.getByRole("button", { name: "Download text", exact: true }).click();
+    await page.locator("#writing-menu-toggle").click();
+    await page.getByRole("button", { name: "Text", exact: true }).click();
     await page.getByRole("button", { name: "Review now", exact: true }).press("Enter");
     await review.getByRole("button", { name: "Back to editing", exact: true }).press("Enter");
     assert.equal(await page.getByRole("tab", { name: /Preview/ }).getAttribute("aria-selected"), "true");

@@ -212,7 +212,7 @@ test("supports the question-first Argument Maker workflow in Chromium", { timeou
 
       const downloadPromise = page.waitForEvent("download");
       await page.locator("#board-menu-toggle").click();
-      await page.getByRole("button", { name: "Download Board" }).click();
+      await page.getByRole("button", { name: "Download editable board" }).click();
       const download = await downloadPromise;
       const downloadedPath = await download.path();
       expect(downloadedPath).toBeTruthy();
@@ -283,14 +283,16 @@ test("supports the question-first Argument Maker workflow in Chromium", { timeou
       expect(await page.locator(".outline-preview").innerText()).toContain("Demand may fall next year.");
       expect(await page.locator(".outline-preview .writing-document > section:last-of-type li").count()).toBe(3);
       const markdownDownloadPromise = page.waitForEvent("download");
-      await page.getByRole("button", { name: "Download Markdown" }).click();
+      await page.locator("#writing-menu-toggle").click();
+      await page.getByRole("button", { name: "Markdown" }).click();
       await page.getByRole("button", { name: "Export draft", exact: true }).click();
       const markdownDownload = await markdownDownloadPromise;
       const markdown = await import("node:fs/promises").then(async (fs) => fs.readFile((await markdownDownload.path())!, "utf8"));
       expect(markdown).toContain("Source date: September 2026");
       expect(markdown).toContain("Quotation: Illustrative quotation");
       const textDownloadPromise = page.waitForEvent("download");
-      await page.getByRole("button", { name: "Download text" }).click();
+      await page.locator("#writing-menu-toggle").click();
+      await page.getByRole("button", { name: "Text" }).click();
       expect((await textDownloadPromise).suggestedFilename().endsWith(".txt")).toBe(true);
       await page.emulateMedia({ media: "print" });
       expect(await page.locator(".print-document").isVisible()).toBe(true);
