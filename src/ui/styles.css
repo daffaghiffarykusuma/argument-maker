@@ -890,6 +890,13 @@ summary:focus-visible { outline: 3px solid #b4b4b4; outline-offset: 3px; }
 .construction-editor .answer-panel > textarea { font-size: 18px; }
 .construction-outline { position: sticky; top: 20px; background: var(--paper); border: 1px solid var(--line); border-radius: 8px; padding: 18px; max-height: calc(100vh - 40px); overflow: auto; }
 .construction-outline h3 { margin: 0 0 12px; font-size: 16px; }
+.view-outline { display: none; }
+.outline-panel { width: min(620px, calc(100% - 24px)); max-height: calc(100dvh - 32px); padding: 22px; border: 1px solid var(--line); border-radius: 10px; background: var(--paper); color: var(--ink); overflow: auto; overscroll-behavior: contain; }
+.outline-panel::backdrop { background: #000b; }
+.outline-panel .section-heading { gap: 16px; flex-wrap: wrap; }
+.outline-panel h2 { margin: 0; font-size: 20px; }
+.outline-panel .outline-item p { font-size: 16px; line-height: 1.65; }
+body:has(.outline-panel[open]) { overflow: hidden; }
 .outline-item { border-top: 1px solid var(--line); padding-block: 12px; overflow-wrap: anywhere; }
 .outline-item strong { font-size: 12px; }
 .outline-item p { margin: 6px 0; white-space: pre-wrap; font-size: 13px; }
@@ -922,6 +929,7 @@ summary:focus-visible { outline: 3px solid #b4b4b4; outline-offset: 3px; }
 @media (max-width: 1200px) {
   .construction-layout { grid-template-columns: minmax(0, 1fr); }
   .construction-outline { display: none; }
+  .view-outline { display: inline-flex; }
 }
 @media (max-width: 700px) {
   .draft-controls { align-items: flex-start; gap: 6px; flex-direction: column; }
