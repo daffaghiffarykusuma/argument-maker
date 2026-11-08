@@ -35,6 +35,7 @@ test("citation-only research can be entered, found, attached, revised and shared
       await page.locator(`[data-disclosure="destination-${destination}"] > summary`).click();
       await page.locator(`[data-action="attach-fact"][data-destination-id="${destination}"]`).selectOption("fact-1");
     }
+    await page.locator('.attached-fact').first().getByText("Edit fact", { exact: true }).click();
     await page.getByLabel("Descriptive citation", { exact: true }).first().fill("Interview <notes>, page 4");
     await page.getByLabel("Descriptive citation", { exact: true }).first().press("Tab");
     assert.equal(await page.getByLabel("Descriptive citation", { exact: true }).nth(1).inputValue(), "Interview <notes>, page 4");

@@ -41,6 +41,7 @@ export async function verifySourceReuse(browser: Browser, appUrl: string) {
     await page.getByRole("checkbox", { name: "Save draft in this browser" }).check();
     await page.reload();
     await page.getByRole("tab", { name: /Gather Facts/ }).click();
+    await copy.getByText("Edit fact", { exact: true }).click();
     assert.equal(await copy.getByLabel("Descriptive citation", { exact: true }).inputValue(), "Notebook, p. 4");
     assert.equal(await copy.getByRole("textbox", { name: "Fact text", exact: true }).inputValue(), "A separate finding");
   } finally {
