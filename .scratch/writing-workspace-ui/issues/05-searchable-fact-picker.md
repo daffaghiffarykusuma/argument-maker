@@ -4,7 +4,7 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** implemented; integration verification in progress
+**Status:** complete
 
 - [x] Search with finding snippets, Source references and usage; distinguish eligible, incomplete, already-attached, empty research and no results.
 - [x] Provide relevant recovery actions; keep eligibility aligned with existing completeness including Descriptive citations.
@@ -22,3 +22,12 @@
 - `bun install --frozen-lockfile` succeeded. Initial browser attempts were infrastructure failures: missing dependencies, sandbox process timeout, then the owned stalled server occupying 3025. Stopped only the identified owned process tree; focused browser runs use approved process access and harness cleanup. These are not behavioral reds.
 - `bun run typecheck` passes. `bun run build` passes with existing large-chunk advisory. `git diff --check` passes. Final integrated validation and additional shared-summary/native-undo coverage are recorded below when complete.
 - Limits: no broad browser or unit suite run in this isolated implementation, per assignment. Parent runs full regressions sequentially. Screenshots document observed desktop/mobile states; keyboard assertions and focus checks do not establish full accessibility compliance.
+
+## Final integrated verification
+
+- Implementation commit `4da61d2`; merged integration `7579f2af596e65b5f0adc2f960b8118cabe53ad3` in `a09e713`. Resolved the shared `board-controls.ts` click/keydown conflict by retaining both Board-menu close/Escape handling and picker actions/Escape handling.
+- Integration advanced again to `4f0641dc3315bc2ee2def83f1353e6f87e6b5f66` with ticket02. Merged cleanly into this branch; new picker workflow now opens Context through its visible disclosure. Integration was not modified by this implementer.
+- Final `bun test ./tests/browser/fact-picker-05.test.ts`: **1 pass, 0 fail**, 15.69 seconds. Windows Node runs Chromium through the existing harness on port3025. Includes all recovery/eligibility checks above plus canonical shared-summary updates and native text undo after opening/closing the picker.
+- Final `bun run typecheck`: exit0. Final `bun run build`: exit0, 7.40 seconds, existing >500kB chunk advisory. Final `git diff --check`: exit0.
+- Desktop and 390px mobile screenshots inspected under `output/playwright/fact-picker-05/`; no horizontal overflow in the mobile workflow. Screenshot artifacts are ignored, not committed.
+- Adapted existing broader workflows were not run separately here. Full browser/unit regressions, board-file round trips, draft restoration, export/review coverage, long-source stress cases and full accessibility review remain for sequential integration verification. Focused tests establish shared editing and native undo through observed behavior, not every existing contract.

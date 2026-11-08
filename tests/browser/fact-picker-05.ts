@@ -17,6 +17,7 @@ await withBrowserWorkflow(3025, async (browser, url) => {
     await card.getByLabel('Descriptive citation', { exact: true }).fill(citation!);
   }
   await page.getByRole('tab', { name: /Construct Argument/ }).click();
+  await page.locator('[data-disclosure="context"] > summary').click();
   const situation = page.getByLabel('Facts supporting Situation', { exact: true });
   await situation.locator(':scope > summary').click();
   const trigger = situation.getByText('Choose Gathered Facts', { exact: true });
@@ -93,6 +94,7 @@ await withBrowserWorkflow(3025, async (browser, url) => {
   console.log('fact-picker-05: canonical shared summaries and native undo survive picker use');
   const emptyPage = await browser.newPage({ viewport: { width: 390, height: 844 } });
   await emptyPage.goto(url);
+  await emptyPage.locator('[data-disclosure="context"] > summary').click();
   const empty = emptyPage.getByLabel('Facts supporting Situation', { exact: true });
   await empty.locator(':scope > summary').click();
   await empty.getByText('Choose Gathered Facts', { exact: true }).click();
