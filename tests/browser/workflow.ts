@@ -111,6 +111,7 @@ test("supports the question-first Argument Maker workflow in Chromium", { timeou
       ).toBe("Capacity stayed flat.");
 
       const sharedEditors = page.locator('[data-action="fact-text"][data-fact-id="fact-1"]');
+      await page.locator('.attached-fact[data-fact-id="fact-1"]').first().getByText("Edit fact", { exact: true }).click();
       await sharedEditors.first().fill("Demand rose 25%.");
       expect(
         await page

@@ -46,7 +46,7 @@ export function createGatheredFactEditing(root: HTMLDivElement, session: Argumen
           template.innerHTML = renderFactCard(board, fact, board.gatheredFacts.indexOf(fact), untouchedFacts.has(fact.id));
           card = template.content.firstElementChild as HTMLElement;
           for (const details of card.querySelectorAll<HTMLDetailsElement>("details[data-disclosure]")) {
-            details.open = disclosures.get(details.dataset.disclosure!) ?? false;
+            details.open = disclosures.get(details.dataset.disclosure!) ?? details.open;
           }
           library.insertBefore(card, previous ? previous.nextSibling : library.firstChild);
         }
@@ -62,11 +62,12 @@ export function createGatheredFactEditing(root: HTMLDivElement, session: Argumen
   function refreshFact(fact: GatheredFact) {
     const id = CSS.escape(fact.id);
     const incomplete = factCompleteness(fact);
-    const card = root.querySelector<HTMLElement>(`.fact-card[data-fact-id="${id}"]`);
     for (const container of root.querySelectorAll<HTMLElement>(`.fact-card[data-fact-id="${id}"], .attached-fact[data-fact-id="${id}"]`)) {
       container.classList.toggle("incomplete", incomplete.length > 0);
       const status = container.querySelector(".fact-status");
       if (status) status.textContent = incomplete.length ? "Incomplete" : "Complete";
+      const summary = container.querySelector(".fact-summary");
+      if (summary) summary.innerHTML = renderFactSummary(fact);
       container.querySelector(".fact-writing-prompt")?.remove();
       let guidance = container.querySelector<HTMLUListElement>(".field-guidance");
       if (!incomplete.length) guidance?.remove();
@@ -80,9 +81,7 @@ export function createGatheredFactEditing(root: HTMLDivElement, session: Argumen
         guidance.innerHTML = incomplete.map((reason) => `<li>${escapeHtml(incompleteGuidance(reason))}</li>`).join("");
       }
     }
-    const editors = card
-      ? card.querySelectorAll<Editor>("input, textarea, select")
-      : root.querySelectorAll<Editor>(`input[data-fact-id="${id}"], textarea[data-fact-id="${id}"], select[data-fact-id="${id}"]`);
+    const editors = root.querySelectorAll<Editor>(`input[data-fact-id="${id}"], textarea[data-fact-id="${id}"], select[data-fact-id="${id}"]`);
     for (const editor of editors) {
       if (editor === document.activeElement) continue;
       const field = factField(editor);
@@ -191,6 +190,9 @@ function renderFactCard(board: ArgumentBoard, fact: GatheredFact, index: number,
         </div>
       </div>
       ${usage.length === 0 ? "" : `<p class="shared-warning">Used in ${usage.length} place${usage.length === 1 ? "" : "s"}. Changes update all uses.</p>`}
+      <div class="fact-summary">${renderFactSummary(fact)}</div>
+      <details class="fact-editor" data-disclosure="editor-${prefix}" ${untouched ? "open" : ""}>
+      <summary>Edit fact</summary>
       <div class="fact-fields">
         ${renderDataTypeField(fact, `${prefix}-type`)}
         <label for="${prefix}-text">
@@ -212,6 +214,7 @@ function renderFactCard(board: ArgumentBoard, fact: GatheredFact, index: number,
               .map((reason) => `<li>${escapeHtml(incompleteGuidance(reason))}</li>`)
               .join("")}</ul>`
       }
+      </details>
       <div class="text-actions" aria-label="Gathered Fact ${index + 1} controls">
         <button type="button" data-action="move-library-fact" data-fact-id="${escapeAttr(fact.id)}" data-direction="up">Move up</button>
         <button type="button" data-action="move-library-fact" data-fact-id="${escapeAttr(fact.id)}" data-direction="down">Move down</button>
@@ -222,6 +225,10 @@ function renderFactCard(board: ArgumentBoard, fact: GatheredFact, index: number,
   `;
 }
 
+function renderFactSummary(fact: GatheredFact): string {
+  const source = [fact.sourceTitle, fact.descriptiveCitation, fact.evidenceLink].filter((value) => value?.trim()).join(" · ");
+  return `<p class="fact-finding">${escapeHtml(fact.text.trim() || "No finding yet")}</p><p class="fact-source"><strong>Source reference</strong> ${escapeHtml(source || "No source yet")}</p>`;
+}
 
 function renderDestinationFacts(board: ArgumentBoard, destinationId: FactDestinationId, untouchedFacts: ReadonlySet<string>): string {
   const { attachedFacts: facts, attachableFacts: available, label } = readFactAttachments(board, destinationId);
@@ -302,6 +309,9 @@ function renderAttachedFact(
         <strong>Fact ${index + 1}</strong>
         <span>Used in ${usage.length} place${usage.length === 1 ? "" : "s"}. Changes update all uses</span>
       </div>
+      <div class="fact-summary">${renderFactSummary(fact)}</div>
+      <details class="fact-editor" data-disclosure="editor-${prefix}" ${untouched ? "open" : ""}>
+      <summary>Edit fact</summary>
       <div class="attached-fields">
         ${renderDataTypeField(fact, `${prefix}-type`)}
         <label for="${prefix}-text">
@@ -314,9 +324,10 @@ function renderAttachedFact(
         </label>
         ${renderCitationField(fact, prefix)}
       </div>
+      ${renderSourceDetails(fact, prefix)}
       ${untouched ? '<p class="fact-writing-prompt">Write a finding and identify its source when you are ready.</p>' : isGatheredFactComplete(fact) ? "" : `<ul class="field-guidance" aria-live="polite">${factCompleteness(fact).map((reason) => `<li>${escapeHtml(incompleteGuidance(reason))}</li>`).join("")}</ul>`}
+      </details>
       <div class="text-actions">
-        <button type="button" data-action="focus-attached-fact" data-focus-id="${prefix}-text">Edit fact</button>
         <button type="button" data-action="open-fact" data-fact-id="${escapeAttr(fact.id)}">Open in Gathered Facts</button>
         <button type="button" data-action="move-attached-fact" data-destination-id="${escapeAttr(destinationId)}" data-fact-id="${escapeAttr(fact.id)}" data-direction="up">Move up</button>
         <button type="button" data-action="move-attached-fact" data-destination-id="${escapeAttr(destinationId)}" data-fact-id="${escapeAttr(fact.id)}" data-direction="down">Move down</button>

@@ -381,6 +381,13 @@ a {
 .fact-card.incomplete {
   border-top-color: #aa8758;
 }
+.fact-summary { min-width: 0; overflow-wrap: anywhere; }
+.fact-finding, .fact-source { display: -webkit-box; -webkit-box-orient: vertical; overflow: hidden; }
+.fact-finding { -webkit-line-clamp: 3; white-space: pre-wrap; line-height: 1.5; }
+.fact-source { -webkit-line-clamp: 2; color: var(--muted); font-size: 13px; }
+.fact-editor > summary { width: fit-content; padding: 12px 4px; cursor: pointer; }
+.fact-editor > summary:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+.fact-editor[open] { margin-bottom: 12px; }
 .fact-card-heading,
 .attached-fact-heading,
 .destination-heading {
