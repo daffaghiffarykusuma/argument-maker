@@ -110,7 +110,7 @@ export function mountBoardControls(root: HTMLDivElement, initial: ArgumentBoardS
     session.finishEdit(); cancelRender();
     // Let the browser finish Tab or the pointer click before replacing the DOM.
     renderTimer = setTimeout(() => {
-      if (target.dataset.factId || document.activeElement?.matches("input, textarea, select")) {
+      if (target.dataset.factId || document.activeElement?.matches("input, textarea, select") || document.activeElement?.closest('.construction-disclosure > summary')) {
         facts.reconcile();
         controls.refresh(root, session);
         draft.flush();

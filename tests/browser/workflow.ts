@@ -90,6 +90,7 @@ test("supports the question-first Argument Maker workflow in Chromium", { timeou
       await page.getByRole("tab", { name: /Construct Argument/ }).click();
       expect(await page.evaluate(() => document.activeElement?.id)).toBe("stage-heading-construct");
 
+      await page.locator('details[data-disclosure="context"] > summary').click();
       await fillAndCommit(page, '[data-action="scqa"][data-field="situation"]', "Demand is rising.");
       await fillAndCommit(page, '[data-action="scqa"][data-field="complication"]', "Capacity is fixed.");
       await fillAndCommit(page, '[data-action="scqa"][data-field="question"]', "What should change?");

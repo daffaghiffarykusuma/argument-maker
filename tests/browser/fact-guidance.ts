@@ -16,6 +16,7 @@ test("new facts invite writing before validation and preserve keyboard editing",
     page.setDefaultTimeout(10_000);
     await page.goto(url, { timeout: 30_000 });
     await page.getByRole("tab", { name: /Construct Argument/ }).click();
+    await page.locator('details[data-disclosure="context"] > summary').click();
     let situation = page.locator('[data-disclosure="destination-situation"]');
     await situation.locator("summary").click();
     assert.match(await situation.innerText(), /No facts gathered yet/);
