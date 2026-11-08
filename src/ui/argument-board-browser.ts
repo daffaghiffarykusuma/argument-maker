@@ -181,6 +181,7 @@ function renderConstructStage(
         <div>
           <h2 id="stage-heading-construct" tabindex="-1">Construct Argument</h2>
         </div>
+        <button type="button" id="view-outline" class="view-outline" data-action="open-outline" aria-haspopup="dialog" aria-controls="outline-panel">View outline</button>
       </div>
       <div class="starting-guidance">${renderStartingGuidance(board)}</div>
       ${renderChecklist(issues)}
@@ -222,6 +223,11 @@ function renderConstructStage(
         </div>
       </section>
       </div><aside class="construction-outline" aria-label="Live argument outline"><h3>Argument outline</h3><div class="construction-outline-content">${renderStartingOutline(board)}</div></aside></div>
+      <dialog id="outline-panel" class="outline-panel" aria-labelledby="outline-panel-heading">
+        <div class="section-heading"><h2 id="outline-panel-heading">Argument outline</h2><button type="button" data-action="close-outline">Close outline</button></div>
+        <p class="verification-note">Read-only. Return to writing to make changes.</p>
+        <div class="construction-outline-content">${renderStartingOutline(board)}</div>
+      </dialog>
     </section>
   `;
 }
@@ -760,8 +766,7 @@ function refreshEditingState(appRoot: HTMLDivElement, session: ArgumentBoardSess
     const summary = appRoot.querySelector(`[data-framing-summary="${section}"]`);
     if (summary) summary.innerHTML = renderFramingSummary(board, section);
   }
-  const outline = appRoot.querySelector(".construction-outline-content");
-  if (outline) outline.innerHTML = renderStartingOutline(board);
+  for (const outline of appRoot.querySelectorAll(".construction-outline-content")) outline.innerHTML = renderStartingOutline(board);
   const guidance = appRoot.querySelector(".starting-guidance");
   if (guidance) guidance.innerHTML = renderStartingGuidance(board);
   for (const field of ["question", "answer", "situation", "complication"] as const) {

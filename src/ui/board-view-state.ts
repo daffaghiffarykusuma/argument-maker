@@ -25,6 +25,7 @@ export interface ViewState {
   reviewOpen?: boolean;
   editingPosition?: EditingPosition;
   reviewReturn?: EditingPosition;
+  outlineReturn?: EditingPosition;
   writingMode?: "draft" | "reviewed";
   writingInvitationOpen?: boolean;
   pendingWriting?: WritingAction;

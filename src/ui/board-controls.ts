@@ -4,6 +4,7 @@ import { type ArgumentBoardSession, type WorkflowStage } from "../board/argument
 import { views, type ViewState } from "./board-view-state";
 import { escapeHtml } from "./html";
 import { createGatheredFactEditing } from "./gathered-fact-editing";
+import { openOutline, closeOutline } from "./responsive-outline";
 
 type Editor = HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
 interface Controls {
@@ -31,9 +32,19 @@ export function mountBoardControls(root: HTMLDivElement, initial: ArgumentBoardS
   const preview = createArgumentPreview(root);
   const view: ViewState = { draft, facts, preview, disclosures };
   views.set(root, view);
+  const wideOutline = window.matchMedia("(min-width: 1201px)");
+  wideOutline.addEventListener("change", () => {
+    if (wideOutline.matches) closeOutline(root, view);
+  });
+  root.addEventListener("cancel", event => {
+    if (event.target instanceof HTMLDialogElement && event.target.id === "outline-panel") {
+      event.preventDefault(); closeOutline(root, view);
+    }
+  }, true);
   // Record the writing location before moving to utility controls can scroll it away.
   const rememberEditingPosition = (target: EventTarget | null) => {
     if (!(target instanceof HTMLElement)) return;
+    if (target.closest("#outline-panel, #view-outline")) return;
     const panel = target.closest('[role="tabpanel"]');
     if (!panel || !target.matches('button, input, textarea, select, summary, [tabindex]')) return;
     view.editingPosition = {
@@ -106,7 +117,7 @@ export function mountBoardControls(root: HTMLDivElement, initial: ArgumentBoardS
     session.finishEdit(); cancelRender();
     // Let the browser finish Tab or the pointer click before replacing the DOM.
     renderTimer = setTimeout(() => {
-      if (target.dataset.factId || document.activeElement?.matches("input, textarea, select") || document.activeElement?.closest('.construction-disclosure > summary')) {
+      if (target.dataset.factId || document.activeElement?.matches("input, textarea, select, #view-outline") || root.querySelector("#outline-panel[open]") || document.activeElement?.closest('.construction-disclosure > summary')) {
         facts.reconcile();
         controls.refresh(root, session);
         draft.flush();
@@ -120,6 +131,12 @@ export function mountBoardControls(root: HTMLDivElement, initial: ArgumentBoardS
       view.disclosures.set("board-menu", false);
     }
     const target = (event.target as HTMLElement).closest<HTMLElement>("[data-action]");
+    if (target?.dataset.action === "open-outline" || target?.dataset.action === "close-outline") {
+      cancelRender(); session.finishEdit();
+      if (target.dataset.action === "open-outline") openOutline(root, view);
+      else closeOutline(root, view);
+      return;
+    }
     if (target?.matches("button")) {
       if (menu?.contains(target)) {
         menu.open = false;
@@ -131,6 +148,11 @@ export function mountBoardControls(root: HTMLDivElement, initial: ArgumentBoardS
   });
   root.addEventListener("keydown", (event) => {
     const target = event.target as HTMLElement;
+    if (event.key === "Tab" && target.closest("#outline-panel[open]")) {
+      event.preventDefault();
+      root.querySelector<HTMLButtonElement>('#outline-panel [data-action="close-outline"]')?.focus();
+      return;
+    }
     const menu = root.querySelector<HTMLDetailsElement>(".board-menu");
     if (event.key === "Escape" && menu?.open) {
       event.preventDefault();

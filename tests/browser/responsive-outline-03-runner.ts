@@ -1,0 +1,96 @@
+import assert from "node:assert/strict";
+import { mkdir } from "node:fs/promises";
+const harnessModule = "./browser-harness.ts";
+const { withBrowserWorkflow }: typeof import("./browser-harness") = await import(harnessModule);
+
+await withBrowserWorkflow(3023, async (browser, url) => {
+  const page = await browser.newPage({ viewport: { width: 1024, height: 900 } });
+  page.setDefaultTimeout(5000);
+  await page.goto(url);
+  const answer = page.getByRole("textbox", { name: /What is your tentative claim/ });
+  await answer.fill("Run a pilot before expanding.");
+  await answer.press("Home");
+  await answer.press("Shift+ArrowRight");
+  const open = page.getByRole("button", { name: "View outline", exact: true });
+  assert.equal(await open.isVisible(), true, "Laptop authors can open the outline");
+  await open.click();
+  const dialog = page.getByRole("dialog", { name: "Argument outline", exact: true });
+  assert.equal(await dialog.isVisible(), true);
+  assert.match(await dialog.innerText(), /Run a pilot before expanding/);
+  assert.equal(await dialog.getByRole("textbox").count(), 0, "Outline is read-only");
+  await page.keyboard.press("Escape");
+  assert.equal(await dialog.isVisible(), false);
+  assert.equal(await answer.evaluate(el => el === document.activeElement), true);
+  assert.deepEqual(await answer.evaluate((el: HTMLTextAreaElement) => [el.selectionStart, el.selectionEnd]), [0, 1]);
+  assert.equal(await answer.inputValue(), "Run a pilot before expanding.");
+  console.log("outline03: laptop panel and editing return passed");
+  await page.goto(url);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await open.focus();
+  await page.keyboard.press("Enter");
+  assert.equal(await dialog.getByRole("button", { name: "Close outline" }).evaluate(el => el === document.activeElement), true);
+  await page.keyboard.press("Tab");
+  assert.equal(await dialog.evaluate(el => el.contains(document.activeElement)), true, "Keyboard stays inside the modal");
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.waitForFunction(() => !document.querySelector("dialog[open]"));
+  assert.equal(await page.getByRole("heading", { name: "Construct Argument", exact: true }).evaluate(el => el === document.activeElement), true, "Widening without a prior editor returns focus to construction");
+  console.log("outline03: fresh mobile keyboard and wide transition passed");
+  const output = "output/playwright/responsive-outline-03";
+  await mkdir(output, { recursive: true });
+  const longAnswer = "Run a limited pilot.\n".repeat(45) + "x".repeat(300);
+  await answer.fill(longAnswer);
+  const reason = page.getByRole("textbox", { name: /Why should someone believe this/ }).first();
+  await reason.fill("A pilot tests demand before a larger commitment.");
+  const outline = page.getByRole("complementary", { name: "Live argument outline" });
+  assert.match(await outline.innerText(), /A pilot tests demand/);
+  assert.equal(await outline.getByRole("textbox").count(), 0);
+  for (const width of [1440, 1280, 1201, 1200, 1024, 390, 320]) {
+    await page.setViewportSize({ width, height: 900 });
+    if (width > 1200) {
+      assert.equal(await outline.isVisible(), true);
+      assert.equal(await open.isVisible(), false);
+      const editorBox = await answer.boundingBox();
+      const outlineBox = await outline.boundingBox();
+      assert.ok(editorBox && outlineBox && editorBox.width >= 500 && outlineBox.width >= 250 && editorBox.x + editorBox.width < outlineBox.x, "Wide layout has readable separate columns");
+      await page.screenshot({ path: `${output}/${width}-editor.png`, fullPage: true });
+    } else {
+      assert.equal(await outline.isVisible(), false);
+      await answer.focus();
+      await answer.press("Control+End");
+      await answer.press("Shift+ArrowLeft");
+      const before = await answer.evaluate((el: HTMLTextAreaElement) => ({ start: el.selectionStart, end: el.selectionEnd, direction: el.selectionDirection, top: el.scrollTop, left: el.scrollLeft, y: window.scrollY }));
+      await open.click();
+      assert.match(await dialog.innerText(), /A pilot tests demand/);
+      assert.match(await dialog.innerText(), /Run a limited pilot/);
+      assert.ok(await dialog.evaluate(el => el.scrollWidth <= el.clientWidth), "Long outline wraps inside its panel");
+      await page.screenshot({ path: `${output}/${width}-panel.png`, fullPage: true });
+      await dialog.getByRole("button", { name: "Close outline" }).press("Enter");
+      assert.deepEqual(await answer.evaluate((el: HTMLTextAreaElement) => ({ start: el.selectionStart, end: el.selectionEnd, direction: el.selectionDirection, top: el.scrollTop, left: el.scrollLeft, y: window.scrollY })), before, `Closing at ${width}px restores selection and editor/page scroll`);
+      assert.equal(await answer.inputValue(), longAnswer);
+      await page.screenshot({ path: `${output}/${width}-editor.png`, fullPage: true });
+    }
+    assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `No page overflow at ${width}px`);
+  }
+  // Modal entry/exit must leave native text history on the original editor intact.
+  await answer.press("Control+End");
+  await answer.pressSequentially("!");
+  await open.focus();
+  await page.keyboard.press("Space");
+  await page.keyboard.press("Shift+Tab");
+  assert.equal(await dialog.getByRole("button", { name: "Close outline" }).evaluate(el => el === document.activeElement), true);
+  await page.keyboard.press("Escape");
+  assert.equal(await answer.evaluate(el => el === document.activeElement), true);
+  await answer.press("Control+z");
+  assert.equal(await answer.inputValue(), longAnswer, "Native undo survives outline inspection");
+  await reason.fill("Updated reasoning remains live.");
+  await open.click();
+  assert.match(await dialog.innerText(), /Updated reasoning remains live/);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.waitForFunction(() => !document.querySelector("dialog[open]"));
+  assert.equal(await reason.evaluate(el => el === document.activeElement), true, "Wide transition restores the last editor");
+  assert.match(await outline.innerText(), /Updated reasoning remains live/);
+  await page.setViewportSize({ width: 1024, height: 900 });
+  assert.equal(await dialog.isVisible(), false, "Narrowing keeps the panel closed until requested");
+  console.log("outline03: live long content, seven viewport widths, scroll/selection, native undo and transitions passed");
+  await page.close();
+});
