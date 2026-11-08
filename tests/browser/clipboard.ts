@@ -9,7 +9,7 @@ export async function verifyClipboardFeedback(page: Page) {
         writeText: () => new Promise<void>((resolve) => { (window as any).completeClipboardWrite = resolve; }),
       } });
     });
-    const button = page.getByRole("button", { name: `Copy ${output}`, exact: true });
+    const button = page.getByRole("button", { name: output === "Outline" ? "Export writing: Copy Outline" : `Copy ${output}`, exact: true });
     await button.focus();
     await button.press("Enter");
     if (output === "Outline") await page.getByRole("button", { name: "Export draft", exact: true }).click();
