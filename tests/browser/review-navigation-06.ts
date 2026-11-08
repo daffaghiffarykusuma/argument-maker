@@ -23,6 +23,7 @@ export async function verifyReviewNavigation06(browser: Browser, appUrl: string)
     assert.equal(await answer.evaluate(el => el === document.activeElement), true, "Back restores the editor that was in use");
     assert.deepEqual(await answer.evaluate((el: HTMLTextAreaElement) => ({ start: el.selectionStart, end: el.selectionEnd, scroll: el.scrollTop, y: window.scrollY })), before);
     assert.equal(await answer.inputValue(), "Run a small pilot first.\n".repeat(40));
+    await page.locator('details[data-disclosure="planning"] > summary').click();
     await page.getByRole("textbox", { name: "Audience (optional)", exact: true }).fill("Private planning audience");
     await page.getByRole("tab", { name: /Preview/ }).click();
     await page.getByRole("button", { name: "Download text", exact: true }).click();

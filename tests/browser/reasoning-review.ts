@@ -19,6 +19,7 @@ export async function verifyReasoningReview(browser: Browser, appUrl: string) {
     const answer = page.locator('[data-action="scqa"][data-field="answer"]');
     assert.equal(await answer.evaluate((el) => el === document.activeElement), true);
     await answer.fill("Run a small pilot first.");
+    await page.locator('details[data-disclosure="planning"] > summary').click();
     await page.getByRole("textbox", { name: "Audience (optional)", exact: true }).fill("Service managers");
     await page.getByRole("textbox", { name: "Intended outcome (optional)", exact: true }).fill("Approve a limited pilot");
     await openReview.click();

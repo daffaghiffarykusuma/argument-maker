@@ -180,9 +180,16 @@ function renderConstructStage(
       <section class="scqa-grid" aria-label="Argument frame">
         ${renderTextPanel(board, "question", "What question must this answer?", "Question", facts)}
         ${renderTextPanel(board, "answer", "What is your tentative claim or main answer?", "Answer", facts)}
+      </section>
+      <details class="construction-disclosure" data-disclosure="context">
+        <summary>Context <span data-framing-summary="context">${renderFramingSummary(board, "context")}</span></summary>
+      <section class="scqa-grid" aria-label="Context fields">
         ${renderTextPanel(board, "situation", "What is happening?", "Situation", facts)}
         ${renderTextPanel(board, "complication", "What changed or makes this matter?", "Complication", facts)}
       </section>
+      </details>
+      <details class="construction-disclosure" data-disclosure="planning">
+        <summary>Planning <span data-framing-summary="planning">${renderFramingSummary(board, "planning")}</span></summary>
       <section class="scqa-grid" aria-label="Planning context">
         <article class="panel">
           <label for="planning-audience"><span class="panel-label">Audience (optional)</span></label>
@@ -194,6 +201,7 @@ function renderConstructStage(
         </article>
       </section>
       <p id="planning-privacy" class="verification-note">Planning context stays in your editable board and is left out of writing exports.</p>
+      </details>
       <section class="support-section" aria-label="Supporting argument structure">
         <div class="section-heading">
           <div>
@@ -208,6 +216,16 @@ function renderConstructStage(
       </div><aside class="construction-outline" aria-label="Live argument outline"><h3>Argument outline</h3><div class="construction-outline-content">${renderStartingOutline(board)}</div></aside></div>
     </section>
   `;
+}
+
+function renderFramingSummary(board: ArgumentBoard, section: "context" | "planning"): string {
+  const fields = section === "context"
+    ? [["Situation", board.scqa.situation.text], ["Complication", board.scqa.complication.text]]
+    : [["Audience", board.audience], ["Intended outcome", board.intendedOutcome]];
+  const populated = fields.filter(([, text]) => text?.trim());
+  return populated.length
+    ? populated.map(([label, text]) => `<span>${label}: ${escapeHtml(text!.trim().replace(/\s+/g, " "))}</span>`).join("")
+    : section === "context" ? "Add Situation and Complication when needed" : "Optional Audience and Intended outcome";
 }
 
 function renderStartingGuidance(board: ArgumentBoard): string {
@@ -730,6 +748,10 @@ function renderCommandButton(control: CommandDeskActionControl, attrs?: string):
 function refreshEditingState(appRoot: HTMLDivElement, session: ArgumentBoardSession) {
   const snapshot = session.snapshot();
   const board = snapshot.board;
+  for (const section of ["context", "planning"] as const) {
+    const summary = appRoot.querySelector(`[data-framing-summary="${section}"]`);
+    if (summary) summary.innerHTML = renderFramingSummary(board, section);
+  }
   const outline = appRoot.querySelector(".construction-outline-content");
   if (outline) outline.innerHTML = renderStartingOutline(board);
   const guidance = appRoot.querySelector(".starting-guidance");

@@ -13,6 +13,7 @@ export async function verifyWritingReview(browser: Browser, appUrl: string) {
       Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: async (text: string) => { (window as any).copiedWriting = text; } } });
       window.print = () => { (window as any).printedWriting = document.querySelector(".print-document")?.textContent; };
     });
+    await page.locator('details[data-disclosure="planning"] > summary').click();
     await page.getByRole("textbox", { name: "Audience (optional)", exact: true }).fill("Private audience notes");
     await page.getByRole("textbox", { name: "Intended outcome (optional)", exact: true }).fill("Private outcome notes");
     const boardDownload = page.waitForEvent("download");

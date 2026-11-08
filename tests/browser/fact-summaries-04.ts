@@ -25,6 +25,7 @@ await withBrowserWorkflow(3024, async (browser, url) => {
   assert.equal(await text.inputValue(), "A revised finding");
   console.log("fact-summaries-04: existing library summary, explicit editing and preserved text passed");
   await page.getByRole("tab", { name: /Construct Argument/ }).click();
+  await page.locator('details[data-disclosure="context"] > summary').click();
   const destinations = page.locator('.destination-facts').filter({ has: page.locator('.attached-fact') });
   for (const destination of await destinations.all()) await destination.locator(':scope > summary').click();
   const attachments = page.locator('.attached-fact');
