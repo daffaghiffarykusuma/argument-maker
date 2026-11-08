@@ -18,7 +18,7 @@ test("new facts invite writing before validation and preserve keyboard editing",
     await page.getByRole("tab", { name: /Construct Argument/ }).click();
     await page.locator('details[data-disclosure="context"] > summary').click();
     let situation = page.locator('[data-disclosure="destination-situation"]');
-    await situation.locator("summary").click();
+    await situation.locator(":scope > summary").click();
     assert.match(await situation.innerText(), /No facts gathered yet/);
     assert.equal(await situation.getByRole("button", { name: "Create new fact here" }).isVisible(), true);
     await page.getByRole("tab", { name: /Gather Facts/ }).click();

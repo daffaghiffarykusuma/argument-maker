@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { mkdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { Browser, Page } from "playwright";
+const attachmentFlowModule = "./attachment-picker-flow.ts";
+const { attachGatheredFact }: typeof import("./attachment-picker-flow") = await import(attachmentFlowModule);
 
 export async function verifyWritingReview(browser: Browser, appUrl: string) {
   const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
@@ -25,7 +27,7 @@ export async function verifyWritingReview(browser: Browser, appUrl: string) {
     await page.locator('details[data-disclosure="context"] > summary').click();
     for (const destination of ["situation", "complication"]) {
       await page.locator(`[data-disclosure="destination-${destination}"] > summary`).click();
-      await page.locator(`[data-action="attach-fact"][data-destination-id="${destination}"]`).selectOption("fact-1");
+      await attachGatheredFact(page.locator(`[data-disclosure="destination-${destination}"]`), 1);
     }
     const boardDownload = page.waitForEvent("download");
     await page.locator("#board-menu-toggle").click();

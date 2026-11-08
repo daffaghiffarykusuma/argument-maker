@@ -45,6 +45,7 @@ import { views, type ViewState, type WritingAction } from "./board-view-state";
 import { mountBoardControls, renderDraftControls, renderPreservingFocus } from "./board-controls";
 import { renderReasoningPrompts, renderCompactOutline, renderPrintDocument } from "./enhancement-view";
 import { escapeHtml, escapeAttr, safeDomId } from "./html";
+import { restoreEditingPosition } from "./editing-position";
 import type { GatheredFactEditing } from "./gathered-fact-editing";
 import { renderReasoningReview, renderWritingInvitation } from "./reasoning-review";
 
@@ -574,17 +575,7 @@ function returnFromReview(appRoot: HTMLDivElement, session: ArgumentBoardSession
   if (!position) { renderAndFocus(appRoot, session, "open-reasoning-review"); return; }
   session.setStage(position.stage);
   render(appRoot, session);
-  const panel = appRoot.querySelector('[role="tabpanel"]');
-  const target = (position.id ? document.getElementById(position.id) : panel?.querySelectorAll<HTMLElement>('button, input, textarea, select, summary, [tabindex]')[position.index])
-    ?? appRoot.querySelector<HTMLElement>("#open-reasoning-review");
-  target?.focus({ preventScroll: true });
-  if (target) {
-    if (position.selection && (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement)) target.setSelectionRange(...position.selection);
-    target.scrollTop = position.scrollTop;
-    target.scrollLeft = position.scrollLeft;
-  }
-  window.scrollTo(position.x, position.y);
-  view.editingPosition = position;
+  restoreEditingPosition(appRoot, view, position, appRoot.querySelector<HTMLElement>("#open-reasoning-review"));
 }
 
 function performWritingAction(appRoot: HTMLDivElement, session: ArgumentBoardSession, action: WritingAction) {

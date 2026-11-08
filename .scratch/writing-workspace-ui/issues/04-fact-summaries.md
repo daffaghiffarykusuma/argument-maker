@@ -4,7 +4,9 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** implemented, focused verification passed; broader browser checks limited below
+**Status:** done
+
+Closed after combined integration verification: all 15 browser tests, 53 board tests, typecheck, production build, and whitespace checks passed. See [combined verification and review](../../../docs/issues/writing-workspace-ui-verification.md) for review outcomes and remaining validation limits.
 
 - [x] Existing library and attached fact summaries show finding, Source reference and usage; Edit expands fields, new facts open expanded.
 - [x] Explain changes update every use. Canonical edits update all Fact Attachments and summaries without losing text, native undo or focus.

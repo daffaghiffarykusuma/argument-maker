@@ -4,7 +4,9 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** complete
+**Status:** done
+
+Closed after combined integration verification: all 15 browser tests, 53 board tests, typecheck, production build, and whitespace checks passed. See [combined verification and review](../../../docs/issues/writing-workspace-ui-verification.md) for review outcomes and remaining validation limits.
 
 - [x] Replace the rail with a compact header; retain board file actions, undo/redo, local saving controls and replacement protection.
 - [x] Group file actions under Board, separate Clear, use labeled mobile More, and remove workflow step numbers without losing keyboard navigation.

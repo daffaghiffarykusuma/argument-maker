@@ -4,7 +4,9 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** implemented
+**Status:** done
+
+Closed after combined integration verification: all 15 browser tests, 53 board tests, typecheck, production build, and whitespace checks passed. See [combined verification and review](../../../docs/issues/writing-workspace-ui-verification.md) for review outcomes and remaining validation limits.
 
 - [x] Give Reasoning review a clear title and Back to editing action; preserve originating tab, scroll/editing position and focus.
 - [x] Keep structural checks separately labeled and preserve optional prompts, planning privacy and no quality-certification claims.

@@ -4,7 +4,9 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** complete
+**Status:** done
+
+Closed after combined integration verification: all 15 browser tests, 53 board tests, typecheck, production build, and whitespace checks passed. See [combined verification and review](../../../docs/issues/writing-workspace-ui-verification.md) for review outcomes and remaining validation limits.
 
 - [x] Search with finding snippets, Source references and usage; distinguish eligible, incomplete, already-attached, empty research and no results.
 - [x] Provide relevant recovery actions; keep eligibility aligned with existing completeness including Descriptive citations.

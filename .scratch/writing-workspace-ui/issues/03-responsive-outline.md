@@ -4,7 +4,9 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** implemented and verified after integration merge
+**Status:** done
+
+Closed after combined integration verification: all 15 browser tests, 53 board tests, typecheck, production build, and whitespace checks passed. See [combined verification and review](../../../docs/issues/writing-workspace-ui-verification.md) for review outcomes and remaining validation limits.
 
 - [x] Retain readable side-by-side live outline where space permits; offer labeled View outline otherwise.
 - [x] Closing the panel restores editing position and sensible focus without discarding edits; outline remains live and read-only.

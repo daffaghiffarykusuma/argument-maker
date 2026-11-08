@@ -1,6 +1,6 @@
 # Create a calmer writing workspace with clearer research, review, and exports
 
-Publication status: local specification with seven approved local tickets under `.scratch/writing-workspace-ui/issues/`. The user approved the ticket graph and browser testing boundary and requested implementation. Project external issue-tracker configuration was not found; run `/setup-matt-pocock-skills` for external publication. Local tickets use `ready-for-agent`; no external label has been applied.
+Delivery status: implemented on `integration/writing-workspace-ui`; all seven approved local tickets under `.scratch/writing-workspace-ui/issues/` are done. The user approved the ticket graph and browser testing boundary before implementation. See [combined verification and review](writing-workspace-ui-verification.md). Project external issue-tracker configuration was not found; no external issue or label was created. Run `/setup-matt-pocock-skills` for external tracking.
 
 ## Problem Statement
 
@@ -116,7 +116,6 @@ Show existing Gathered Facts as concise summaries with explicit editing. Introdu
 
 ## Out of Scope
 
-- Implementing the redesign as part of this specification-writing task.
 - A light theme, theme selector, new font delivery, decorative imagery, or a new visual runtime library.
 - A forced wizard, required planning fields, mandatory reasoning review, or truth, credibility, persuasiveness, or quality scoring.
 - Changes to the Argument Board domain model, schema version, compatibility contract, or writing format definitions.

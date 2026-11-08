@@ -1,6 +1,6 @@
 # Writing workspace UI improvements
 
-Status: design interview complete. The user confirmed the direction, core interactions, visual treatment, toolbar layout, and fact selection. This is an implementation-ready design brief; the UI has not been changed as part of this interview.
+Status: implemented on `integration/writing-workspace-ui`. The user confirmed the design and ticket graph before implementation. All seven local tickets are complete; see [implementation verification](../issues/writing-workspace-ui-verification.md) for checks, review outcomes, and limitations.
 
 ## Agreed direction
 

@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
 const harnessModule = "./browser-harness.ts";
 const { withBrowserWorkflow }: typeof import("./browser-harness") = await import(harnessModule);
+const attachmentFlowModule = "./attachment-picker-flow.ts";
+const { attachGatheredFact }: typeof import("./attachment-picker-flow") = await import(attachmentFlowModule);
 
 await withBrowserWorkflow(3022, async (browser, url) => {
   const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
@@ -72,7 +74,7 @@ await withBrowserWorkflow(3022, async (browser, url) => {
   await page.getByRole("tab", { name: /Construct Argument/ }).click();
   const destination = page.locator('[data-disclosure="destination-situation"]');
   await destination.locator(":scope > summary").click();
-  await destination.getByRole("combobox").selectOption("fact-1");
+  await attachGatheredFact(destination, 1);
   await context.locator(":scope > summary").click();
   await context.locator(":scope > summary").click();
   assert.match(await destination.innerText(), /Shared contextual evidence/);

@@ -1,6 +1,8 @@
 # 02: Focus construction on Question, Answer, and Supporting Arguments
 
-**Status:** implemented and focused checks passed
+**Status:** done
+
+Closed after combined integration verification: all 15 browser tests, 53 board tests, typecheck, production build, and whitespace checks passed. See [combined verification and review](../../../docs/issues/writing-workspace-ui-verification.md) for review outcomes and remaining validation limits.
 
 - [x] Question, Answer and Supporting Arguments remain visible. Situation/Complication are under Context; Audience/Intended outcome are under Planning.
 - [x] Default-collapsed disclosures show labeled snippets of populated fields. Existing disclosure state survives rerenders and stage/review navigation. Draft restoration starts collapsed and summarizes retained content.

@@ -866,10 +866,10 @@ summary:focus-visible { outline: 3px solid #b4b4b4; outline-offset: 3px; }
 .construction-editor { min-width: 0; display: grid; gap: 20px; }
 .construction-editor > .scqa-grid { grid-template-columns: minmax(0, 1fr); gap: 20px; }
 .construction-editor .panel { border: 0; background: #202020; }
-.construction-editor .answer-panel { background: #282828; border-left: 3px solid #b4b4b4; padding: 24px; }
+.construction-editor .answer-panel { background: #2b2e31; border-left: 3px solid #b4b4b4; padding: 24px; }
 .construction-editor .answer-panel .panel-label { font-size: 24px; line-height: 1.35; }
-.construction-editor textarea { font-size: 17px; line-height: 1.65; }
-.construction-editor .answer-panel > textarea { font-size: 20px; min-height: 130px; }
+.construction-editor textarea { font-size: 16px; line-height: 1.65; }
+.construction-editor .answer-panel > textarea { font-size: 18px; min-height: 130px; }
 .construction-disclosure { min-width: 0; border-block: 1px solid var(--line); padding: 4px 0; }
 .construction-disclosure > summary { min-height: 44px; padding: 12px 8px; font-size: 16px; overflow-wrap: anywhere; }
 .construction-disclosure > summary > span { display: block; margin: 8px 0 0 16px; color: var(--muted); font-size: 14px; line-height: 1.5; }
@@ -884,10 +884,6 @@ summary:focus-visible { outline: 3px solid #b4b4b4; outline-offset: 3px; }
   .construction-disclosure .scqa-grid { grid-template-columns: minmax(0, 1fr); }
   .construction-editor .answer-panel, .construction-editor .argument-card { padding: 18px; }
 }
-.construction-editor textarea { font-size: 16px; }
-.construction-editor .panel, .construction-editor .argument-card { border: 0; }
-.construction-editor .answer-panel { background: #2b2e31; }
-.construction-editor .answer-panel > textarea { font-size: 18px; }
 .construction-outline { position: sticky; top: 20px; background: var(--paper); border: 1px solid var(--line); border-radius: 8px; padding: 18px; max-height: calc(100vh - 40px); overflow: auto; }
 .construction-outline h3 { margin: 0 0 12px; font-size: 16px; }
 .view-outline { display: none; }

@@ -4,7 +4,9 @@
 
 **Blocked by:** 01: Replace the command rail with a compact header
 
-**Status:** implemented
+**Status:** done
+
+Closed after combined integration verification: all 15 browser tests, 53 board tests, typecheck, production build, and whitespace checks passed. See [combined verification and review](../../../docs/issues/writing-workspace-ui-verification.md) for review outcomes and remaining validation limits.
 
 - [x] Offer header Export writing with Copy, Markdown, Text and Print/PDF, usable on desktop/mobile and from every stage.
 - [x] Keep Download editable board in board actions, immediately available without writing review; remove fragmented duplicate writing-format entry points.

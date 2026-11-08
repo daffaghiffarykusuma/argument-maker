@@ -1,4 +1,5 @@
 import type { ViewState } from "./board-view-state";
+import { restoreEditingPosition } from "./editing-position";
 
 // Keep the editor mounted while inspecting structure, including its native undo stack.
 export function openOutline(root: HTMLDivElement, view: ViewState) {
@@ -15,15 +16,6 @@ export function closeOutline(root: HTMLDivElement, view: ViewState) {
   const position = view.outlineReturn;
   panel.close();
   view.outlineReturn = undefined;
-  const stage = root.querySelector('[role="tabpanel"]');
-  const target = position
-    ? (position.id ? document.getElementById(position.id) : stage?.querySelectorAll<HTMLElement>('button, input, textarea, select, summary, [tabindex]')[position.index])
-    : root.querySelector<HTMLElement>(window.matchMedia("(min-width: 1201px)").matches ? "#stage-heading-construct" : "#view-outline");
-  target?.focus({ preventScroll: true });
-  if (position) {
-    if (position.selection && (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement)) target.setSelectionRange(...position.selection);
-    if (target) { target.scrollTop = position.scrollTop; target.scrollLeft = position.scrollLeft; }
-    window.scrollTo(position.x, position.y);
-    view.editingPosition = position;
-  }
+  const fallback = root.querySelector<HTMLElement>(window.matchMedia("(min-width: 1201px)").matches ? "#stage-heading-construct" : "#view-outline");
+  restoreEditingPosition(root, view, position, fallback);
 }
