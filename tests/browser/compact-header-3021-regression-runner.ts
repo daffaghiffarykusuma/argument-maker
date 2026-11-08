@@ -4,6 +4,10 @@ if (process.argv.includes("--smoke")) {
   process.env.ARGUMENT_BROWSER_TIMEOUT = "180000";
   const workflow = "./workflow.ts";
   await import(workflow);
+} else if (process.argv.includes("--fact-guidance")) {
+  process.env.ARGUMENT_BROWSER_PORT = "3021";
+  const workflow = "./fact-guidance.ts";
+  await import(workflow);
 } else if (process.argv.includes("--visual")) {
   const { mkdir } = await import("node:fs/promises");
   const harness = "./browser-harness.ts";
