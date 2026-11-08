@@ -1,0 +1,75 @@
+import assert from "node:assert/strict";
+import { mkdir, readFile } from "node:fs/promises";
+import { join } from "node:path";
+import type { Browser } from "playwright";
+
+export async function verifyReviewNavigation06(browser: Browser, appUrl: string) {
+  const context = await browser.newContext({ viewport: { width: 1440, height: 800 } });
+  const page = await context.newPage();
+  try {
+    const screenshots = join(process.cwd(), "output/playwright/review-navigation-06");
+    await mkdir(screenshots, { recursive: true });
+    await page.goto(appUrl);
+    const answer = page.getByRole("textbox", { name: "What is your tentative claim or main answer? Answer", exact: true });
+    await answer.fill("Run a small pilot first.\n".repeat(40));
+    await answer.press("Home");
+    await answer.press("Shift+ArrowRight");
+    const before = await answer.evaluate((el: HTMLTextAreaElement) => ({ start: el.selectionStart, end: el.selectionEnd, scroll: el.scrollTop, y: window.scrollY }));
+    await page.getByRole("button", { name: "Reasoning review", exact: true }).click();
+    const review = page.getByRole("region", { name: "Reasoning review", exact: true });
+    assert.equal(await review.getByRole("heading", { name: "Reasoning review", exact: true }).evaluate(el => el === document.activeElement), true);
+    await page.screenshot({ path: join(screenshots, "review-desktop.png"), fullPage: true });
+    await review.getByRole("button", { name: "Back to editing", exact: true }).press("Enter");
+    assert.equal(await answer.evaluate(el => el === document.activeElement), true, "Back restores the editor that was in use");
+    assert.deepEqual(await answer.evaluate((el: HTMLTextAreaElement) => ({ start: el.selectionStart, end: el.selectionEnd, scroll: el.scrollTop, y: window.scrollY })), before);
+    assert.equal(await answer.inputValue(), "Run a small pilot first.\n".repeat(40));
+    await page.getByRole("textbox", { name: "Audience (optional)", exact: true }).fill("Private planning audience");
+    await page.getByRole("tab", { name: /Preview/ }).click();
+    await page.getByRole("button", { name: "Download text", exact: true }).click();
+    await page.getByRole("button", { name: "Review now", exact: true }).press("Enter");
+    await review.getByRole("button", { name: "Back to editing", exact: true }).press("Enter");
+    assert.equal(await page.getByRole("tab", { name: /Preview/ }).getAttribute("aria-selected"), "true");
+    await page.getByRole("button", { name: "Reasoning review", exact: true }).press("Enter");
+    const continuation = review.getByRole("button", { name: "Continue to export", exact: true });
+    assert.equal(await continuation.count(), 1, "Returning to editing keeps the selected export available on re-entering review");
+    const download = page.waitForEvent("download");
+    await continuation.press("Enter");
+    const contents = await readFile((await (await download).path())!, "utf8");
+    assert.match(contents, /Run a small pilot first/);
+    assert.doesNotMatch(contents, /Private planning audience|\bDraft\b/);
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.getByRole("tab", { name: /Gather Facts/ }).click();
+    await page.getByRole("button", { name: "+ Add fact", exact: true }).click();
+    const fact = page.getByRole("textbox", { name: "Fact text", exact: true });
+    await fact.fill("Interview participants asked for a pilot.");
+    await fact.press("Home");
+    await fact.press("Shift+ArrowRight");
+    const initialY = await page.evaluate(() => window.scrollY);
+    await page.mouse.move(380, 700);
+    await page.mouse.wheel(0, 180);
+    await page.waitForFunction(y => window.scrollY > y, initialY);
+    const gatherY = await page.evaluate(() => window.scrollY);
+    await page.getByRole("button", { name: "Reasoning review", exact: true }).press("Enter");
+    await review.getByRole("button", { name: "Back to editing", exact: true }).press("Enter");
+    assert.equal(await page.getByRole("tab", { name: /Gather Facts/ }).getAttribute("aria-selected"), "true");
+    assert.equal(await fact.evaluate(el => el === document.activeElement), true);
+    assert.deepEqual(await fact.evaluate((el: HTMLTextAreaElement) => [el.selectionStart, el.selectionEnd]), [0, 1]);
+    assert.equal(await page.evaluate(() => window.scrollY), gatherY, "Return preserves scrolling done while gathering facts");
+    assert.equal(await fact.inputValue(), "Interview participants asked for a pilot.");
+    await page.getByRole("tab", { name: /Preview/ }).click();
+    const outline = page.getByRole("button", { name: "Readable outline", exact: true });
+    await outline.click();
+    const previewY = await page.evaluate(() => window.scrollY);
+    await page.getByRole("button", { name: "Reasoning review", exact: true }).press("Enter");
+    assert.match(await review.innerText(), /Every reflection is optional/);
+    await review.getByRole("heading", { name: "Structural completeness", exact: true }).waitFor();
+    await page.screenshot({ path: join(screenshots, "review-mobile.png"), fullPage: true });
+    await review.getByRole("button", { name: "Back to editing", exact: true }).press("Enter");
+    assert.equal(await outline.evaluate(el => el === document.activeElement), true);
+    assert.equal(await outline.getAttribute("aria-pressed"), "true");
+    assert.equal(await page.evaluate(() => window.scrollY), previewY);
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+  } finally {
+    await context.close();
+  }
+}
