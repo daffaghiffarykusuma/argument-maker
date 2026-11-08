@@ -151,9 +151,7 @@ function renderPreviewTools(board: ArgumentBoard, mode: PreviewMode): string {
   return `<div class="preview-tools" aria-label="Preview tools">
     <button type="button" data-action="preview-mode" data-mode="diagram" aria-pressed="${mode === "diagram"}">Diagram</button>
     <button type="button" data-action="preview-mode" data-mode="outline" aria-pressed="${mode === "outline"}">Readable outline</button>
-    <button type="button" data-action="download-writing" data-format="markdown">Download Markdown</button>
-    <button type="button" data-action="download-writing" data-format="text">Download text</button>
-    <button type="button" data-action="print">Print / Save PDF</button></div>
+    </div>
     <div class="outline-preview" ${mode === "outline" ? "" : "hidden"}>${renderWritingDocument(projectWritingDocument(board))}</div>
     <div class="zoom-tools" ${mode === "diagram" ? "" : "hidden"}><button type="button" data-action="zoom" data-zoom="out" aria-label="Zoom out">−</button><output class="zoom-status" aria-live="polite">Fit</output><button type="button" data-action="zoom" data-zoom="in" aria-label="Zoom in">+</button><button type="button" data-action="zoom" data-zoom="fit">Fit to view</button></div>`;
 }

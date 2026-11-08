@@ -24,6 +24,7 @@ export async function verifyQuestionFirst(browser: Browser, appUrl: string) {
     assert.equal(await page.getByText("Add your main answer.", { exact: true }).isVisible(), true);
 
     page.once("dialog", dialog => dialog.accept());
+    await page.locator("#board-menu-toggle").click();
     await page.getByRole("button", { name: "Clear Board", exact: true }).click();
     await page.getByRole("heading", { name: "Construct Argument", exact: true }).waitFor();
     await page.setViewportSize({ width: 390, height: 844 });

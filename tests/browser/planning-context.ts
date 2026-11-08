@@ -9,6 +9,7 @@ export async function verifyPlanningContext(browser: Browser, appUrl: string) {
   try {
     await page.goto(appUrl);
     await page.getByRole("tab", { name: /Construct Argument/ }).click();
+    await page.locator('details[data-disclosure="planning"] > summary').click();
     const audience = page.getByRole("textbox", { name: "Audience (optional)", exact: true });
     const outcome = page.getByRole("textbox", { name: "Intended outcome (optional)", exact: true });
     await audience.fill("Private service managers");
@@ -23,6 +24,7 @@ export async function verifyPlanningContext(browser: Browser, appUrl: string) {
     assert.equal(await outcome.inputValue(), "Private pilot approval");
     await page.getByRole("checkbox", { name: "Save draft in this browser" }).check();
     await page.reload();
+    await page.locator('details[data-disclosure="planning"] > summary').click();
     await page.getByRole("tab", { name: /Construct Argument/ }).click();
     assert.equal(await audience.inputValue(), "Private service managers");
     assert.equal(await outcome.inputValue(), "Private pilot approval");
@@ -38,10 +40,11 @@ export async function verifyPlanningContext(browser: Browser, appUrl: string) {
       assert.equal(text.includes("Private pilot approval"), false);
     };
     assertPrivate(await page.locator(".outline-preview").innerText());
-    for (const name of ["Download Markdown", "Download text"]) {
+    for (const name of ["Markdown", "Text"]) {
       const pending = page.waitForEvent("download");
+      await page.locator("#writing-menu-toggle").click();
       await page.getByRole("button", { name, exact: true }).click();
-      if (name === "Download Markdown") await page.getByRole("button", { name: "Export draft", exact: true }).click();
+      if (name === "Markdown") await page.getByRole("button", { name: "Export draft", exact: true }).click();
       assertPrivate(await readFile((await (await pending).path())!, "utf8"));
     }
     await page.emulateMedia({ media: "print" });

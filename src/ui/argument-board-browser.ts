@@ -27,7 +27,7 @@ interface CommandDeskActionControl {
 
 const commandDeskActions = {
   copyOutline: { action: "copy-outline", label: "Copy Outline", icon: "copy" },
-  download: { action: "download", label: "Download Board", icon: "download" },
+  download: { action: "download", label: "Download editable board", icon: "download" },
   upload: { action: "upload", label: "Upload Board", icon: "upload" },
   undo: { action: "undo", label: "Undo", icon: "undo" },
   redo: { action: "redo", label: "Redo", icon: "redo" },
@@ -45,6 +45,7 @@ import { views, type ViewState, type WritingAction } from "./board-view-state";
 import { mountBoardControls, renderDraftControls, renderPreservingFocus } from "./board-controls";
 import { renderReasoningPrompts, renderCompactOutline, renderPrintDocument } from "./enhancement-view";
 import { escapeHtml, escapeAttr, safeDomId } from "./html";
+import { restoreEditingPosition } from "./editing-position";
 import type { GatheredFactEditing } from "./gathered-fact-editing";
 import { renderReasoningReview, renderWritingInvitation } from "./reasoning-review";
 
@@ -60,18 +61,18 @@ function render(appRoot: HTMLDivElement, session: ArgumentBoardSession) {
   const snapshot = session.snapshot();
 
   appRoot.innerHTML = `
-    <main class="app-shell">
-      ${renderCommandRail(snapshot.canUndo, snapshot.canRedo)}
-      <div class="desk-main">
+    <div class="app-shell">
+      ${renderWorkspaceHeader(snapshot.canUndo, snapshot.canRedo)}
+      <main class="desk-main">
         ${renderTopbar(snapshot.board)}
         <div class="draft-controls">${renderDraftControls(view)}</div>
         ${renderStageNavigation(snapshot.stage)}
         <div class="review-entry"><button id="open-reasoning-review" type="button" data-action="open-review" aria-expanded="${!!view.reviewOpen}">Reasoning review</button>${view.writingMode ? `<button type="button" data-action="toggle-draft-label" aria-pressed="${view.writingMode === "draft"}">Label writing exports as Draft</button>` : ""}</div>
         ${view.writingInvitationOpen ? renderWritingInvitation() : view.reviewOpen ? renderReasoningReview(snapshot.board, snapshot.issues, !!view.pendingWriting) : renderStage(snapshot.board, snapshot.stage, snapshot.issues, view)}
         ${renderPrintDocument(snapshot.board, view.writingMode !== "reviewed")}
-      </div>
+      </main>
       <div class="copy-feedback" role="status" aria-label="Copy feedback" aria-live="polite" aria-atomic="true"><span>${escapeHtml(view.copyFeedback?.message ?? "")}</span></div>
-    </main>
+    </div>
   `;
 
   for (const details of appRoot.querySelectorAll<HTMLDetailsElement>('details[data-disclosure]')) {
@@ -80,23 +81,37 @@ function render(appRoot: HTMLDivElement, session: ArgumentBoardSession) {
   void view.preview.sync();
 }
 
-function renderCommandRail(canUndo: boolean, canRedo: boolean): string {
+function renderWorkspaceHeader(canUndo: boolean, canRedo: boolean): string {
   return `
-    <aside class="command-rail" aria-label="Board tools">
-      <div class="brand"><div class="mark" aria-hidden="true">a.</div><span>Argument<br>Maker</span></div>
-      <div class="rail-actions">
-        ${renderCommandButton(commandDeskActions.copyOutline)}
+    <header class="workspace-header" aria-label="Workspace commands">
+      <div class="workspace-brand">Argument Maker</div>
+      <div class="workspace-actions">
+        <details class="writing-menu" data-disclosure="writing-menu">
+          <summary id="writing-menu-toggle">Export writing</summary>
+          <div class="writing-menu-actions" aria-label="Writing formats">
+            <button type="button" data-action="copy-outline">Copy</button>
+            <button type="button" data-action="download-writing" data-format="markdown">Markdown</button>
+            <button type="button" data-action="download-writing" data-format="text">Text</button>
+            <button type="button" data-action="print">Print/PDF</button>
+          </div>
+        </details>
+        ${renderCommandButton({ ...commandDeskActions.undo, disabled: !canUndo })}
+        ${renderCommandButton({ ...commandDeskActions.redo, disabled: !canRedo })}
+        <details class="board-menu" data-disclosure="board-menu">
+          <summary id="board-menu-toggle"><span class="desktop-label">Board</span><span class="mobile-label">More</span></summary>
+          <div class="board-menu-actions" aria-label="Board file actions">
         ${renderCommandButton(commandDeskActions.download)}
         <label class="icon-button file-button" aria-label="${commandDeskActions.upload.label}" title="${commandDeskActions.upload.label}" data-tooltip="${commandDeskActions.upload.label}" tabindex="0">
           ${renderIcon(commandDeskActions.upload.icon)}<span class="tool-label">Upload Board</span>
           <input type="file" tabindex="-1" accept=".json,.argument.json,application/json" data-action="upload" />
         </label>
-        ${renderCommandButton({ ...commandDeskActions.undo, disabled: !canUndo })}
-        ${renderCommandButton({ ...commandDeskActions.redo, disabled: !canRedo })}
+        <p>Portable editable file for reopening your board. Local drafts are optional.</p>
+        <hr>
         ${renderCommandButton(commandDeskActions.clear)}
+          </div>
+        </details>
       </div>
-      <div class="rail-note"><span class="local-dot"></span> Private by design<p>Local drafts are optional.<br>Download a board for a backup.</p></div>
-    </aside>
+    </header>
   `;
 }
 
@@ -126,7 +141,7 @@ function renderStageNavigation(stage: WorkflowStage): string {
     <nav class="stage-tabs" role="tablist" aria-label="Argument workflow stages">
       ${stages
         .map(
-          ({ id, label }, index) => `
+          ({ id, label }) => `
             <button
               type="button"
               role="tab"
@@ -137,7 +152,7 @@ function renderStageNavigation(stage: WorkflowStage): string {
               data-action="stage"
               data-stage="${id}"
               class="${stage === id ? "active" : ""}"
-            ><span class="step-number">0${index + 1}</span><span>${label}</span><b aria-hidden="true">${stage === id ? "&#8599;" : "&#8594;"}</b></button>
+            ><span>${label}</span></button>
           `,
         )
         .join("")}
@@ -173,16 +188,24 @@ function renderConstructStage(
         <div>
           <h2 id="stage-heading-construct" tabindex="-1">Construct Argument</h2>
         </div>
+        <button type="button" id="view-outline" class="view-outline" data-action="open-outline" aria-haspopup="dialog" aria-controls="outline-panel">View outline</button>
       </div>
       <div class="starting-guidance">${renderStartingGuidance(board)}</div>
-      ${renderChecklist(issues)}
       <div class="construction-layout"><div class="construction-editor">
+      ${renderChecklist(issues)}
       <section class="scqa-grid" aria-label="Argument frame">
         ${renderTextPanel(board, "question", "What question must this answer?", "Question", facts)}
         ${renderTextPanel(board, "answer", "What is your tentative claim or main answer?", "Answer", facts)}
+      </section>
+      <details class="construction-disclosure" data-disclosure="context">
+        <summary>Context <span data-framing-summary="context">${renderFramingSummary(board, "context")}</span></summary>
+      <section class="scqa-grid" aria-label="Context fields">
         ${renderTextPanel(board, "situation", "What is happening?", "Situation", facts)}
         ${renderTextPanel(board, "complication", "What changed or makes this matter?", "Complication", facts)}
       </section>
+      </details>
+      <details class="construction-disclosure" data-disclosure="planning">
+        <summary>Planning <span data-framing-summary="planning">${renderFramingSummary(board, "planning")}</span></summary>
       <section class="scqa-grid" aria-label="Planning context">
         <article class="panel">
           <label for="planning-audience"><span class="panel-label">Audience (optional)</span></label>
@@ -194,6 +217,7 @@ function renderConstructStage(
         </article>
       </section>
       <p id="planning-privacy" class="verification-note">Planning context stays in your editable board and is left out of writing exports.</p>
+      </details>
       <section class="support-section" aria-label="Supporting argument structure">
         <div class="section-heading">
           <div>
@@ -206,8 +230,23 @@ function renderConstructStage(
         </div>
       </section>
       </div><aside class="construction-outline" aria-label="Live argument outline"><h3>Argument outline</h3><div class="construction-outline-content">${renderStartingOutline(board)}</div></aside></div>
+      <dialog id="outline-panel" class="outline-panel" aria-labelledby="outline-panel-heading">
+        <div class="section-heading"><h2 id="outline-panel-heading">Argument outline</h2><button type="button" data-action="close-outline">Close outline</button></div>
+        <p class="verification-note">Read-only. Return to writing to make changes.</p>
+        <div class="construction-outline-content">${renderStartingOutline(board)}</div>
+      </dialog>
     </section>
   `;
+}
+
+function renderFramingSummary(board: ArgumentBoard, section: "context" | "planning"): string {
+  const fields = section === "context"
+    ? [["Situation", board.scqa.situation.text], ["Complication", board.scqa.complication.text]]
+    : [["Audience", board.audience], ["Intended outcome", board.intendedOutcome]];
+  const populated = fields.filter(([, text]) => text?.trim());
+  return populated.length
+    ? populated.map(([label, text]) => `<span>${label}: ${escapeHtml(text!.trim().replace(/\s+/g, " "))}</span>`).join("")
+    : section === "context" ? "Add Situation and Complication when needed" : "Optional Audience and Intended outcome";
 }
 
 function renderStartingGuidance(board: ArgumentBoard): string {
@@ -352,12 +391,6 @@ function handleChange(
       argumentId,
       changes: { mode: target.value as SupportMode },
     });
-  } else if (action === "attach-fact" && target instanceof HTMLSelectElement && target.value) {
-    dispatch({
-      type: "attach-fact",
-      destinationId: target.dataset.destinationId ?? "",
-      factId: target.value,
-    });
   } else if (action === "reasoning-note" && argumentId) {
     const field = target.dataset.field as "connection" | "assumptions" | "objection" | "weakensClaim";
     dispatch({ type: "update-supporting-argument", argumentId, changes: { [field]: target.value } });
@@ -377,13 +410,13 @@ function handleAction(appRoot: HTMLDivElement, session: ArgumentBoardSession, ta
 
   const view = views.get(appRoot)!;
   if (action === "open-review") {
+    if (!view.reviewOpen && !view.writingInvitationOpen) rememberReviewReturn(appRoot, session);
     view.writingInvitationOpen = false;
     view.reviewOpen = true;
     renderAndFocus(appRoot, session, "reasoning-review-heading");
   } else if (action === "close-review") {
     view.reviewOpen = false;
-    view.pendingWriting = undefined;
-    renderAndFocus(appRoot, session, "open-reasoning-review");
+    returnFromReview(appRoot, session);
   } else if (action === "review-writing") {
     view.writingMode = "reviewed";
     view.writingInvitationOpen = false;
@@ -465,6 +498,10 @@ function handleAction(appRoot: HTMLDivElement, session: ArgumentBoardSession, ta
   } else if (action === "delete-argument" && argumentId) {
     session.dispatch({ type: "delete-supporting-argument", argumentId });
     renderAndFocus(appRoot, session, "supporting-arguments");
+  } else if (action === "attach-fact" && factId && destinationId) {
+    session.dispatch({ type: "attach-fact", destinationId, factId });
+    render(appRoot, session);
+    document.getElementById(`attachment-picker-${safeDomId(destinationId)}`)?.focus();
   } else if (action === "create-fact-here" && destinationId) {
     const board = session.dispatch({ type: "create-gathered-fact", destinationId });
     const newFact = board.gatheredFacts.at(-1)!;
@@ -501,6 +538,8 @@ function handleAction(appRoot: HTMLDivElement, session: ArgumentBoardSession, ta
 }
 
 function resetWritingReview(view: ViewState) {
+  view.editingPosition = undefined;
+  view.reviewReturn = undefined;
   view.writingMode = undefined;
   view.writingInvitationOpen = false;
   view.pendingWriting = undefined;
@@ -513,10 +552,30 @@ function requestWritingAction(appRoot: HTMLDivElement, session: ArgumentBoardSes
     performWritingAction(appRoot, session, action);
     return;
   }
+  if (!view.reviewOpen && !view.writingInvitationOpen) rememberReviewReturn(appRoot, session);
   view.pendingWriting = action;
   view.writingInvitationOpen = true;
   view.reviewOpen = false;
   renderAndFocus(appRoot, session, "writing-invitation-heading");
+}
+
+function rememberReviewReturn(appRoot: HTMLDivElement, session: ArgumentBoardSession) {
+  const view = views.get(appRoot)!;
+  const stage = session.snapshot().stage;
+  view.reviewReturn = view.editingPosition?.stage === stage ? { ...view.editingPosition } : {
+    stage, id: "open-reasoning-review", index: -1,
+    x: window.scrollX, y: window.scrollY, scrollTop: 0, scrollLeft: 0,
+  };
+}
+
+function returnFromReview(appRoot: HTMLDivElement, session: ArgumentBoardSession) {
+  const view = views.get(appRoot)!;
+  const position = view.reviewReturn;
+  view.reviewReturn = undefined;
+  if (!position) { renderAndFocus(appRoot, session, "open-reasoning-review"); return; }
+  session.setStage(position.stage);
+  render(appRoot, session);
+  restoreEditingPosition(appRoot, view, position, appRoot.querySelector<HTMLElement>("#open-reasoning-review"));
 }
 
 function performWritingAction(appRoot: HTMLDivElement, session: ArgumentBoardSession, action: WritingAction) {
@@ -528,9 +587,8 @@ function performWritingAction(appRoot: HTMLDivElement, session: ArgumentBoardSes
   } else downloadFile(createWritingExport(session.snapshot().board, action, { draft }));
 }
 
-function focusWritingAction(appRoot: HTMLDivElement, action: WritingAction) {
-  const selector = action === "markdown" || action === "text" ? `[data-action="download-writing"][data-format="${action}"]` : `[data-action="${action}"]`;
-  (appRoot.querySelector<HTMLElement>(selector) ?? appRoot.querySelector<HTMLElement>("#open-reasoning-review"))?.focus();
+function focusWritingAction(appRoot: HTMLDivElement, _action: WritingAction) {
+  appRoot.querySelector<HTMLElement>("#writing-menu-toggle")?.focus();
 }
 
 async function copyOutput(appRoot: HTMLDivElement, contents: string, label: "Outline" | "Mermaid") {
@@ -698,8 +756,11 @@ function renderCommandButton(control: CommandDeskActionControl, attrs?: string):
 function refreshEditingState(appRoot: HTMLDivElement, session: ArgumentBoardSession) {
   const snapshot = session.snapshot();
   const board = snapshot.board;
-  const outline = appRoot.querySelector(".construction-outline-content");
-  if (outline) outline.innerHTML = renderStartingOutline(board);
+  for (const section of ["context", "planning"] as const) {
+    const summary = appRoot.querySelector(`[data-framing-summary="${section}"]`);
+    if (summary) summary.innerHTML = renderFramingSummary(board, section);
+  }
+  for (const outline of appRoot.querySelectorAll(".construction-outline-content")) outline.innerHTML = renderStartingOutline(board);
   const guidance = appRoot.querySelector(".starting-guidance");
   if (guidance) guidance.innerHTML = renderStartingGuidance(board);
   for (const field of ["question", "answer", "situation", "complication"] as const) {

@@ -4,6 +4,7 @@ import { type ArgumentBoardSession, type WorkflowStage } from "../board/argument
 import { views, type ViewState } from "./board-view-state";
 import { escapeHtml } from "./html";
 import { createGatheredFactEditing } from "./gathered-fact-editing";
+import { openOutline, closeOutline } from "./responsive-outline";
 
 type Editor = HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
 interface Controls {
@@ -31,6 +32,36 @@ export function mountBoardControls(root: HTMLDivElement, initial: ArgumentBoardS
   const preview = createArgumentPreview(root);
   const view: ViewState = { draft, facts, preview, disclosures };
   views.set(root, view);
+  const wideOutline = window.matchMedia("(min-width: 1201px)");
+  wideOutline.addEventListener("change", () => {
+    if (wideOutline.matches) closeOutline(root, view);
+  });
+  root.addEventListener("cancel", event => {
+    if (event.target instanceof HTMLDialogElement && event.target.id === "outline-panel") {
+      event.preventDefault(); closeOutline(root, view);
+    }
+  }, true);
+  // Record the writing location before moving to utility controls can scroll it away.
+  const rememberEditingPosition = (target: EventTarget | null) => {
+    if (!(target instanceof HTMLElement)) return;
+    if (target.closest("#outline-panel, #view-outline")) return;
+    const panel = target.closest('[role="tabpanel"]');
+    if (!panel || !target.matches('button, input, textarea, select, summary, [tabindex]')) return;
+    view.editingPosition = {
+      stage: session.snapshot().stage, id: target.id,
+      index: [...panel.querySelectorAll('button, input, textarea, select, summary, [tabindex]')].indexOf(target),
+      x: window.scrollX, y: window.scrollY, scrollTop: target.scrollTop, scrollLeft: target.scrollLeft,
+      selection: target instanceof HTMLTextAreaElement || (target instanceof HTMLInputElement && ["text", "search", "url"].includes(target.type))
+        ? [target.selectionStart, target.selectionEnd, target.selectionDirection ?? "none"] : undefined,
+    };
+  };
+  for (const event of ["focusin", "input", "keyup", "pointerup"]) root.addEventListener(event, event => rememberEditingPosition(event.target));
+  for (const event of ["wheel", "touchmove"]) root.addEventListener(event, () => {
+    const active = document.activeElement;
+    requestAnimationFrame(() => {
+      if (active === document.activeElement) rememberEditingPosition(active);
+    });
+  }, { passive: true });
   let renderTimer: ReturnType<typeof setTimeout> | undefined;
   const render = () => renderPreservingFocus(root, session, controls.render);
   const cancelRender = () => { if (renderTimer) clearTimeout(renderTimer); renderTimer = undefined; };
@@ -43,6 +74,10 @@ export function mountBoardControls(root: HTMLDivElement, initial: ArgumentBoardS
   window.addEventListener("pagehide", () => draft.flush());
   window.addEventListener("storage", (event) => draft.storageChanged(event.key));
   root.addEventListener("toggle", (event) => {
+    if (event.target instanceof HTMLDetailsElement && event.target.matches('.attachment-picker') && event.target.open) {
+      cancelRender();
+      event.target.querySelector<HTMLInputElement>('input')?.focus();
+    }
     if (event.target instanceof HTMLDetailsElement && event.target.dataset.disclosure) view.disclosures.set(event.target.dataset.disclosure, event.target.open);
   }, true);
   root.addEventListener("input", (event) => {
@@ -61,7 +96,12 @@ export function mountBoardControls(root: HTMLDivElement, initial: ArgumentBoardS
   });
   root.addEventListener("change", (event) => {
     const target = event.target;
-    if (target instanceof HTMLInputElement && target.type === "file") { cancelRender(); void controls.upload(root, session, target); return; }
+    if (target instanceof HTMLInputElement && target.type === "file") {
+      const menu = root.querySelector<HTMLDetailsElement>(".board-menu");
+      if (menu) menu.open = false;
+      view.disclosures.set("board-menu", false);
+      cancelRender(); void controls.upload(root, session, target); return;
+    }
     if (target instanceof HTMLInputElement && target.dataset.action === "autosave") {
       cancelRender();
       draft.setEnabled(target.checked);
@@ -76,12 +116,12 @@ export function mountBoardControls(root: HTMLDivElement, initial: ArgumentBoardS
   });
   root.addEventListener("focusout", (event) => {
     const target = event.target;
-    if (!(target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) || !target.dataset.action || ["fact-search", "autosave", "upload", "mode-change"].includes(target.dataset.action)) return;
+    if (!(target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) || !target.dataset.action || ["attachment-search", "fact-search", "autosave", "upload", "mode-change"].includes(target.dataset.action)) return;
     facts.finishInteraction(target);
     session.finishEdit(); cancelRender();
     // Let the browser finish Tab or the pointer click before replacing the DOM.
     renderTimer = setTimeout(() => {
-      if (document.activeElement?.matches("input, textarea, select")) {
+      if (target.dataset.factId || document.activeElement?.matches("input, textarea, select, #view-outline") || root.querySelector("#outline-panel[open]") || document.activeElement?.closest('.construction-disclosure > summary')) {
         facts.reconcile();
         controls.refresh(root, session);
         draft.flush();
@@ -89,14 +129,62 @@ export function mountBoardControls(root: HTMLDivElement, initial: ArgumentBoardS
     }, 0);
   });
   root.addEventListener("click", (event) => {
+    for (const menu of root.querySelectorAll<HTMLDetailsElement>(".board-menu, .writing-menu")) {
+      if (menu.open && !menu.contains(event.target as Node)) {
+        menu.open = false;
+        view.disclosures.set(menu.dataset.disclosure!, false);
+      }
+    }
     const target = (event.target as HTMLElement).closest<HTMLElement>("[data-action]");
+    if (target?.dataset.action === "open-outline" || target?.dataset.action === "close-outline") {
+      cancelRender(); session.finishEdit();
+      if (target.dataset.action === "open-outline") openOutline(root, view);
+      else closeOutline(root, view);
+      return;
+    }
     if (target?.matches("button")) {
+      if (['close-fact-picker', 'clear-attachment-search', 'show-attached-fact'].includes(target.dataset.action ?? '')) {
+        cancelRender();
+        const picker = target.closest<HTMLDetailsElement>('.attachment-picker')!;
+        if (target.dataset.action === 'clear-attachment-search') {
+          const search = picker.querySelector<HTMLInputElement>('input')!;
+          search.value = ''; facts.filter(search); search.focus();
+        } else {
+          picker.open = false;
+          if (target.dataset.action === 'show-attached-fact') {
+            const attachment = picker.closest('.destination-facts')!.querySelector<HTMLElement>(`.attached-fact[data-fact-id="${CSS.escape(target.dataset.factId!)}"]`)!;
+            attachment.querySelector<HTMLElement>('summary')?.focus();
+          } else picker.querySelector<HTMLElement>('summary')?.focus();
+        }
+        return;
+      }
+      const menu = target.closest<HTMLDetailsElement>(".board-menu, .writing-menu");
+      if (menu) {
+        menu.open = false;
+        view.disclosures.set(menu.dataset.disclosure!, false);
+        menu.querySelector<HTMLElement>("summary")?.focus();
+      }
       cancelRender(); session.finishEdit(); controls.action(root, session, target);
     }
   });
   root.addEventListener("keydown", (event) => {
     const target = event.target as HTMLElement;
-    if (target.matches('[role="tab"]') && ["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) {
+    if (event.key === "Tab" && target.closest("#outline-panel[open]")) {
+      event.preventDefault();
+      root.querySelector<HTMLButtonElement>('#outline-panel [data-action="close-outline"]')?.focus();
+      return;
+    }
+    const picker = target.closest<HTMLDetailsElement>('.attachment-picker');
+    if (event.key === 'Escape' && picker?.open) {
+      event.preventDefault(); picker.open = false; picker.querySelector<HTMLElement>('summary')?.focus(); return;
+    }
+    const menu = root.querySelector<HTMLDetailsElement>(".board-menu[open], .writing-menu[open]");
+    if (event.key === "Escape" && menu?.open) {
+      event.preventDefault();
+      menu.open = false;
+      view.disclosures.set(menu.dataset.disclosure!, false);
+      menu.querySelector<HTMLElement>("summary")?.focus();
+    } else if (target.matches('[role="tab"]') && ["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) {
       event.preventDefault(); cancelRender();
       const tabs = [...root.querySelectorAll<HTMLButtonElement>('[role="tab"]')];
       const index = tabs.indexOf(target as HTMLButtonElement);

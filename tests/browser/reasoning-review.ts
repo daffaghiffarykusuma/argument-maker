@@ -19,6 +19,7 @@ export async function verifyReasoningReview(browser: Browser, appUrl: string) {
     const answer = page.locator('[data-action="scqa"][data-field="answer"]');
     assert.equal(await answer.evaluate((el) => el === document.activeElement), true);
     await answer.fill("Run a small pilot first.");
+    await page.locator('details[data-disclosure="planning"] > summary').click();
     await page.getByRole("textbox", { name: "Audience (optional)", exact: true }).fill("Service managers");
     await page.getByRole("textbox", { name: "Intended outcome (optional)", exact: true }).fill("Approve a limited pilot");
     await openReview.click();
@@ -30,7 +31,7 @@ export async function verifyReasoningReview(browser: Browser, appUrl: string) {
     await connection.press("Tab");
     assert.equal(await review.getByRole("textbox", { name: "What are you assuming?", exact: true }).evaluate((el) => el === document.activeElement), true);
     await page.getByRole("button", { name: "Back to editing", exact: true }).click();
-    assert.equal(await openReview.evaluate((el) => el === document.activeElement), true);
+    assert.equal(await page.getByRole("textbox", { name: "Intended outcome (optional)", exact: true }).evaluate((el) => el === document.activeElement), true);
     await page.getByText("Challenge this reason", { exact: false }).click();
     assert.equal(await page.getByRole("textbox", { name: "How does this reason support your answer?", exact: true }).inputValue(), "A pilot tests the assumption before committing resources.");
     await page.getByRole("button", { name: "Undo", exact: true }).click();
@@ -52,7 +53,7 @@ export async function verifyReasoningReview(browser: Browser, appUrl: string) {
     await openReview.click();
     await page.getByRole("button", { name: "Back to editing", exact: true }).click();
     assert.equal(await page.getByRole("tab", { name: /Gather Facts/ }).getAttribute("aria-selected"), "true");
-    assert.equal(await openReview.evaluate((el) => el === document.activeElement), true);
+    assert.equal(await page.getByRole("heading", { name: "Gather Facts", exact: true }).evaluate((el) => el === document.activeElement), true);
   } finally {
     await context.close();
   }

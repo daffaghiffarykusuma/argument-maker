@@ -11,6 +11,13 @@ construction compact, with structural checks available in a collapsed checklist 
 wide screens. Optional reasoning notes cover the connection to the answer,
 assumptions, objections, and evidence that would weaken the claim.
 
+Question, Answer, and Supporting Arguments stay visible. Expand Context for
+Situation and Complication, or Planning for Audience and Intended outcome;
+collapsed sections summarize existing content. On narrower screens, View outline
+opens the live outline and returns you to your editing position when closed.
+Existing facts show summaries with explicit Edit fact controls. The searchable
+fact picker shows sources, usage, and why unavailable items cannot be attached.
+
 Use the worked example to explore a complete board. Search facts by content or
 source metadata, or filter for unused and incomplete facts. Source titles, dates,
 quotations, and reasoning notes are optional and round-trip in version-2 files.
@@ -27,8 +34,9 @@ files and enabled local drafts, and appear during Reasoning review. Writing
 exports omit them.
 
 Preview includes a fitted diagram with zoom controls and a readable outline with
-numbered citations. Download Markdown or text for writing, or use Print / Save PDF
-for the print layout. Reused facts share one source number. These outputs include
+numbered citations. Use Export writing in the header for Copy Outline, Markdown,
+Text, or Print / Save PDF. Board actions include Download editable board for a
+portable backup. Reused facts share one source number. Writing outputs include
 attached facts; board JSON also preserves unused research.
 
 Before the first writing export in a board session, choose **Review now** or

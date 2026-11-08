@@ -1,3 +1,5 @@
+const attachmentFlowModule = './attachment-picker-flow.ts';
+const { attachGatheredFact }: typeof import('./attachment-picker-flow') = await import(attachmentFlowModule);
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { dirname } from "node:path";
@@ -17,9 +19,9 @@ const screenshotPath = join(smokeDir, "argument-workflow.png");
 const harnessModule = "./browser-harness.ts";
 const { withBrowserWorkflow }: typeof import("./browser-harness") = await import(harnessModule);
 
-test("supports the question-first Argument Maker workflow in Chromium", { timeout: 90_000 }, async () => {
+test("supports the question-first Argument Maker workflow in Chromium", { timeout: Number(process.env.ARGUMENT_BROWSER_TIMEOUT ?? 90_000) }, async () => {
   try {
-    await withBrowserWorkflow(3000, async (browser, appUrl) => {
+    await withBrowserWorkflow(Number(process.env.ARGUMENT_BROWSER_PORT ?? 3000), async (browser, appUrl) => {
       const questionFirstModule = "./question-first.ts";
       const { verifyQuestionFirst } = await import(questionFirstModule);
       await verifyQuestionFirst(browser, appUrl);
@@ -88,6 +90,7 @@ test("supports the question-first Argument Maker workflow in Chromium", { timeou
       await page.getByRole("tab", { name: /Construct Argument/ }).click();
       expect(await page.evaluate(() => document.activeElement?.id)).toBe("stage-heading-construct");
 
+      await page.locator('details[data-disclosure="context"] > summary').click();
       await fillAndCommit(page, '[data-action="scqa"][data-field="situation"]', "Demand is rising.");
       await fillAndCommit(page, '[data-action="scqa"][data-field="complication"]', "Capacity is fixed.");
       await fillAndCommit(page, '[data-action="scqa"][data-field="question"]', "What should change?");
@@ -97,9 +100,9 @@ test("supports the question-first Argument Maker workflow in Chromium", { timeou
       for (const destination of ["situation", "argument-1"]) {
         await page.locator(`[data-disclosure="destination-${destination}"] > summary`).click();
       }
-      await page.locator('[data-action="attach-fact"][data-destination-id="situation"]').selectOption("fact-1");
-      await page.locator('[data-action="attach-fact"][data-destination-id="situation"]').selectOption("fact-2");
-      await page.locator('[data-action="attach-fact"][data-destination-id="argument-1"]').selectOption("fact-1");
+      await attachGatheredFact(page.locator('[data-disclosure="destination-situation"]'), 1);
+      await attachGatheredFact(page.locator('[data-disclosure="destination-situation"]'), 2);
+      await attachGatheredFact(page.locator('[data-disclosure="destination-argument-1"]'), 1);
       await page
         .locator('[data-action="move-attached-fact"][data-destination-id="situation"][data-fact-id="fact-2"][data-direction="up"]')
         .click();
@@ -111,6 +114,7 @@ test("supports the question-first Argument Maker workflow in Chromium", { timeou
       ).toBe("Capacity stayed flat.");
 
       const sharedEditors = page.locator('[data-action="fact-text"][data-fact-id="fact-1"]');
+      await page.locator('.attached-fact[data-fact-id="fact-1"]').first().getByText("Edit fact", { exact: true }).click();
       await sharedEditors.first().fill("Demand rose 25%.");
       expect(
         await page
@@ -136,12 +140,12 @@ test("supports the question-first Argument Maker workflow in Chromium", { timeou
       await activeFactEditor!.dispose();
 
       const sharedLinks = page.locator('[data-action="fact-link"][data-fact-id="fact-1"]');
-      const picker = page.locator('[data-action="attach-fact"][data-destination-id="complication"]');
+      const picker = page.locator('[data-disclosure="destination-complication"] .attachment-picker');
       await sharedLinks.first().fill("invalid-link");
       expect(await sharedLinks.evaluateAll((elements) => elements.map((element) => (element as HTMLInputElement).value)))
         .toEqual(["invalid-link", "invalid-link"]);
       expect(await page.locator('.attached-fact.incomplete[data-fact-id="fact-1"]').count()).toBe(2);
-      expect(await picker.locator('option[value="fact-1"]').count()).toBe(0);
+      expect(await picker.getByRole('article', { name: 'Gathered Fact 1', exact: true, includeHidden: true }).getByRole('button', { name: 'Attach fact', exact: true, includeHidden: true }).count()).toBe(0);
       expect(await page.evaluate(() => document.activeElement?.getAttribute("data-action"))).toBe("fact-link");
       await sharedLinks.first().fill("https://example.com/report");
       expect(await page.locator('.attached-fact.incomplete[data-fact-id="fact-1"]').count()).toBe(0);
@@ -210,13 +214,15 @@ test("supports the question-first Argument Maker workflow in Chromium", { timeou
       expect(existsSync(screenshotPath)).toBe(true);
 
       const downloadPromise = page.waitForEvent("download");
-      await page.getByRole("button", { name: "Download Board" }).click();
+      await page.locator("#board-menu-toggle").click();
+      await page.getByRole("button", { name: "Download editable board" }).click();
       const download = await downloadPromise;
       const downloadedPath = await download.path();
       expect(downloadedPath).toBeTruthy();
       console.log("browser-smoke: downloaded version-2 board");
 
       page.once("dialog", (dialog) => dialog.accept());
+      await page.locator("#board-menu-toggle").click();
       await page.getByRole("button", { name: "Clear Board" }).click();
       await page.getByRole("tab", { name: /Gather Facts/ }).click();
       expect(await page.locator(".fact-card").count()).toBe(0);
@@ -280,18 +286,20 @@ test("supports the question-first Argument Maker workflow in Chromium", { timeou
       expect(await page.locator(".outline-preview").innerText()).toContain("Demand may fall next year.");
       expect(await page.locator(".outline-preview .writing-document > section:last-of-type li").count()).toBe(3);
       const markdownDownloadPromise = page.waitForEvent("download");
-      await page.getByRole("button", { name: "Download Markdown" }).click();
+      await page.locator("#writing-menu-toggle").click();
+      await page.getByRole("button", { name: "Markdown" }).click();
       await page.getByRole("button", { name: "Export draft", exact: true }).click();
       const markdownDownload = await markdownDownloadPromise;
       const markdown = await import("node:fs/promises").then(async (fs) => fs.readFile((await markdownDownload.path())!, "utf8"));
       expect(markdown).toContain("Source date: September 2026");
       expect(markdown).toContain("Quotation: Illustrative quotation");
       const textDownloadPromise = page.waitForEvent("download");
-      await page.getByRole("button", { name: "Download text" }).click();
+      await page.locator("#writing-menu-toggle").click();
+      await page.getByRole("button", { name: "Text" }).click();
       expect((await textDownloadPromise).suggestedFilename().endsWith(".txt")).toBe(true);
       await page.emulateMedia({ media: "print" });
       expect(await page.locator(".print-document").isVisible()).toBe(true);
-      expect(await page.locator(".command-rail").isVisible()).toBe(false);
+      expect(await page.getByRole("banner", { name: "Workspace commands" }).isVisible()).toBe(false);
       const pdf = await page.pdf({ format: "A4" });
       expect(pdf.length > 1000).toBe(true);
       await page.emulateMedia({ media: "screen" });
