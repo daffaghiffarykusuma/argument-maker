@@ -67,7 +67,8 @@ test("new facts invite writing before validation and preserve keyboard editing",
     page.once("dialog", (dialog) => dialog.accept());
     await page.getByRole("button", { name: "Worked example", exact: true }).click();
     await page.getByRole("button", { name: "Reasoning review", exact: true }).click();
-    await page.getByRole("button", { name: "Export writing: Copy Outline", exact: true }).click();
+    await page.locator("#writing-menu-toggle").click();
+    await page.getByRole("button", { name: "Copy", exact: true }).click();
     await page.getByRole("button", { name: "Review now", exact: true }).click();
     await page.getByRole("button", { name: "Back to editing", exact: true }).click();
     await page.getByRole("tab", { name: /Gather Facts/ }).click();

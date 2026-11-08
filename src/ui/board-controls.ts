@@ -118,10 +118,11 @@ export function mountBoardControls(root: HTMLDivElement, initial: ArgumentBoardS
     }, 0);
   });
   root.addEventListener("click", (event) => {
-    const menu = root.querySelector<HTMLDetailsElement>(".board-menu");
-    if (menu?.open && !menu.contains(event.target as Node)) {
-      menu.open = false;
-      view.disclosures.set("board-menu", false);
+    for (const menu of root.querySelectorAll<HTMLDetailsElement>(".board-menu, .writing-menu")) {
+      if (menu.open && !menu.contains(event.target as Node)) {
+        menu.open = false;
+        view.disclosures.set(menu.dataset.disclosure!, false);
+      }
     }
     const target = (event.target as HTMLElement).closest<HTMLElement>("[data-action]");
     if (target?.matches("button")) {
@@ -140,9 +141,10 @@ export function mountBoardControls(root: HTMLDivElement, initial: ArgumentBoardS
         }
         return;
       }
-      if (menu?.contains(target)) {
+      const menu = target.closest<HTMLDetailsElement>(".board-menu, .writing-menu");
+      if (menu) {
         menu.open = false;
-        view.disclosures.set("board-menu", false);
+        view.disclosures.set(menu.dataset.disclosure!, false);
         menu.querySelector<HTMLElement>("summary")?.focus();
       }
       cancelRender(); session.finishEdit(); controls.action(root, session, target);
@@ -154,11 +156,11 @@ export function mountBoardControls(root: HTMLDivElement, initial: ArgumentBoardS
     if (event.key === 'Escape' && picker?.open) {
       event.preventDefault(); picker.open = false; picker.querySelector<HTMLElement>('summary')?.focus(); return;
     }
-    const menu = root.querySelector<HTMLDetailsElement>(".board-menu");
+    const menu = root.querySelector<HTMLDetailsElement>(".board-menu[open], .writing-menu[open]");
     if (event.key === "Escape" && menu?.open) {
       event.preventDefault();
       menu.open = false;
-      view.disclosures.set("board-menu", false);
+      view.disclosures.set(menu.dataset.disclosure!, false);
       menu.querySelector<HTMLElement>("summary")?.focus();
     } else if (target.matches('[role="tab"]') && ["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) {
       event.preventDefault(); cancelRender();

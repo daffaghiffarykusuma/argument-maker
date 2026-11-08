@@ -10,14 +10,14 @@ await withBrowserWorkflow(3021, async (browser, url) => {
   const header = page.getByRole("banner", { name: "Workspace commands" });
   await header.waitFor();
   assert.ok((await header.boundingBox())!.height < 100, "desktop commands should occupy a compact header");
-  const board = header.locator("summary");
+  const board = header.locator("#board-menu-toggle");
   assert.equal(await board.innerText(), "Board");
   await board.focus();
   await page.keyboard.press("Enter");
-  await page.getByRole("button", { name: "Download Board", exact: true }).waitFor();
+  await page.getByRole("button", { name: "Download editable board", exact: true }).waitFor();
   await page.keyboard.press("Escape");
   assert.equal(await board.evaluate(el => el === document.activeElement), true);
-  assert.equal(await page.getByRole("button", { name: "Download Board", exact: true }).isVisible(), false);
+  assert.equal(await page.getByRole("button", { name: "Download editable board", exact: true }).isVisible(), false);
   const construct = page.getByRole("tab", { name: "Construct Argument", exact: true });
   await construct.focus();
   await page.keyboard.press("ArrowRight");
@@ -28,10 +28,10 @@ await withBrowserWorkflow(3021, async (browser, url) => {
   await page.getByRole("textbox", { name: "Board title", exact: true }).press("Tab");
   await board.click();
   const pending = page.waitForEvent("download");
-  await page.getByRole("button", { name: "Download Board", exact: true }).click();
+  await page.getByRole("button", { name: "Download editable board", exact: true }).click();
   const file = await readFile((await (await pending).path())!, "utf8");
   assert.equal(JSON.parse(file).title, "A portable argument");
-  assert.equal(await page.getByRole("button", { name: "Download Board", exact: true }).isVisible(), false);
+  assert.equal(await page.getByRole("button", { name: "Download editable board", exact: true }).isVisible(), false);
   assert.equal(await board.evaluate(el => el === document.activeElement), true);
   await board.click();
   page.once("dialog", dialog => dialog.dismiss());
@@ -46,7 +46,7 @@ await withBrowserWorkflow(3021, async (browser, url) => {
   await page.screenshot({ path: "output/playwright/compact-header-3021/desktop.png", fullPage: true });
   await page.setViewportSize({ width: 390, height: 844 });
   assert.equal(await board.innerText(), "More");
-  assert.equal(await header.getByRole("button", { name: "Export writing: Copy Outline", exact: true }).innerText(), "Export");
+  assert.equal(await header.locator("#writing-menu-toggle").innerText(), "Export writing");
   for (const width of [1440, 1024, 390, 320]) {
     await page.setViewportSize({ width, height: 900 });
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, `no overflow at ${width}`);
@@ -58,7 +58,7 @@ await withBrowserWorkflow(3021, async (browser, url) => {
   await board.click();
   await page.screenshot({ path: "output/playwright/compact-header-3021/mobile-menu.png", fullPage: true });
   await header.getByText("Argument Maker", { exact: true }).click();
-  assert.equal(await page.getByRole("button", { name: "Download Board", exact: true }).isVisible(), false);
+  assert.equal(await page.getByRole("button", { name: "Download editable board", exact: true }).isVisible(), false);
   await page.close();
 });
 console.log("Compact header 3021 browser workflow passed");
