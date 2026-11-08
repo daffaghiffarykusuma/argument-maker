@@ -1,13 +1,13 @@
 :root {
   font-family: "Segoe UI", Arial, sans-serif;
   color: #ededed;
-  background: #000000;
+  background: #18191b;
   line-height: 1.5;
   color-scheme: dark;
   --ink: #ededed;
   --muted: #a0a0a0;
-  --line: #2b2b2b;
-  --paper: #111111;
+  --line: #393b3e;
+  --paper: #222426;
 }
 * {
   box-sizing: border-box;
@@ -88,43 +88,42 @@ a {
   text-underline-offset: 3px;
 }
 .app-shell {
-  display: grid;
-  grid-template-columns: 216px minmax(0, 1fr);
   min-height: 100vh;
 }
-.command-rail {
-  position: sticky;
-  top: 0;
-  height: 100vh;
+.workspace-header {
   display: flex;
-  flex-direction: column;
-  background: #0a0a0a;
-  border-right: 1px solid var(--line);
-  padding: 30px 20px 24px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 32px;
+  background: var(--paper);
+  border-bottom: 1px solid var(--line);
 }
-.brand {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  font-family: "Segoe UI", sans-serif;
-  font-size: 23px;
-  line-height: 1.06;
-  letter-spacing: -0.7px;
-}
-.mark {
-  width: 40px;
-  height: 46px;
-  color: var(--ink);
-  font-family: Georgia, serif;
-  font-style: italic;
-  font-size: 49px;
-  line-height: 0.9;
-}
-.rail-actions {
-  margin-top: 40px;
+.workspace-brand { font-size: 16px; font-weight: 600; white-space: nowrap; }
+.workspace-actions { display: flex; align-items: center; gap: 8px; }
+.workspace-actions .icon-button { width: auto; gap: 8px; min-height: 44px; }
+.workspace-actions .tool-label { display: inline; }
+.board-menu { position: relative; }
+.board-menu > summary { min-height: 44px; padding: 10px 14px; border-radius: 7px; }
+.board-menu > summary:hover { background: #303235; }
+.board-menu-actions {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  z-index: 10;
   display: grid;
-  gap: 5px;
+  gap: 6px;
+  width: 280px;
+  padding: 12px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: 0 12px 32px #0006;
 }
+.board-menu-actions .icon-button { justify-content: flex-start; width: 100%; }
+.board-menu-actions p { margin: 8px 4px; font-size: 12px; color: var(--muted); }
+.board-menu-actions hr { width: 100%; border: 0; border-top: 1px solid var(--line); }
+.mobile-label { display: none; }
 .icon-button {
   display: inline-flex;
   justify-content: center;
@@ -142,60 +141,11 @@ a {
 .tool-label {
   display: none;
 }
-.rail-actions .icon-button {
-  justify-content: flex-start;
-  width: 100%;
-  gap: 12px;
-  border-color: transparent;
-  background: transparent;
-  padding: 11px 12px;
-  font-weight: 500;
-  color: #c4c4c4;
-}
-.rail-actions .tool-label {
-  display: inline;
-}
-.rail-actions .icon-button:hover {
-  background: #202020;
-}
-.rail-actions [data-action="download"] {
-  background: var(--ink);
-  color: #111111;
-}
-.rail-actions [data-action="download"]:hover {
-  background: #d4d4d4;
-}
-.rail-actions [data-action="undo"] {
-  margin-top: 26px;
-}
-.rail-actions [data-action="clear"] {
-  margin-top: 26px;
-  color: #f18d8d;
-}
 .file-button input {
   position: absolute;
   width: 1px;
   height: 1px;
   opacity: 0;
-}
-.rail-note {
-  margin-top: auto;
-  padding: 26px 10px 0;
-  color: #b4b4b4;
-  font-size: 11px;
-}
-.rail-note p {
-  color: #969696;
-  font-size: 10px;
-  line-height: 1.8;
-}
-.local-dot {
-  display: inline-block;
-  width: 6px;
-  height: 6px;
-  background: #84b69c;
-  border-radius: 50%;
-  margin-right: 6px;
 }
 .desk-main {
   width: 100%;
@@ -257,7 +207,7 @@ a {
 .stage-tabs {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  border-block: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
 }
 .stage-tabs button {
   display: flex;
@@ -266,25 +216,14 @@ a {
   text-align: left;
   border: 0;
   border-radius: 0;
-  padding: 20px 18px;
+  padding: 14px 18px;
   background: transparent;
   color: #a0a0a0;
   font-size: 13px;
   position: relative;
 }
 .stage-tabs button + button {
-  border-left: 1px solid var(--line);
-}
-.stage-tabs .step-number {
-  font:
-    24px "Segoe UI",
-    sans-serif;
-  color: #939393;
-}
-.stage-tabs b {
-  margin-left: auto;
-  font-size: 18px;
-  font-weight: 400;
+  border-left: 0;
 }
 .stage-tabs button.active {
   background: #1b1b1b;
@@ -298,9 +237,6 @@ a {
   bottom: -1px;
   left: 0;
   right: 0;
-}
-.stage-tabs button.active .step-number {
-  color: var(--ink);
 }
 .workflow-stage {
   display: grid;
@@ -799,12 +735,6 @@ label small {
   .desk-main {
     padding: 32px 28px;
   }
-  .app-shell {
-    grid-template-columns: 190px minmax(0, 1fr);
-  }
-  .command-rail {
-    padding-inline: 14px;
-  }
   .title-input {
     font-size: 34px;
   }
@@ -821,50 +751,18 @@ label small {
   }
 }
 @media (max-width: 980px) {
-  .app-shell {
-    grid-template-columns: 1fr;
-  }
-  .command-rail {
-    position: static;
-    height: auto;
-    flex-direction: row;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 20px;
-    padding: 16px 24px;
-    border-right: 0;
-    border-bottom: 1px solid var(--line);
-  }
-  .brand {
-    font-size: 19px;
-  }
-  .rail-note {
-    display: none;
-  }
-  .mark {
-    font-size: 43px;
-    width: 30px;
-    height: 36px;
-  }
-  .rail-actions {
-    margin-top: 0;
-    display: flex;
-    gap: 5px;
-    margin-left: auto;
-  }
-  .rail-actions .icon-button {
-    width: 40px;
-    justify-content: center;
-    margin: 0;
-  }
-  .rail-actions .tool-label {
-    display: none;
-  }
   .title-input {
     font-size: 38px;
   }
 }
 @media (max-width: 700px) {
+  .workspace-header { flex-wrap: wrap; padding: 12px; gap: 10px; }
+  .workspace-brand { font-size: 14px; }
+  .workspace-actions { width: 100%; gap: 4px; justify-content: space-between; }
+  .workspace-actions .icon-button { font-size: 12px; padding: 8px; gap: 4px; }
+  .board-menu > summary { font-size: 13px; padding-inline: 10px; }
+  .desktop-label { display: none; }
+  .mobile-label { display: inline; }
   .desk-main {
     padding: 26px 18px;
   }
@@ -879,12 +777,6 @@ label small {
     gap: 8px;
     font-size: 11px;
   }
-  .stage-tabs b {
-    display: none;
-  }
-  .stage-tabs .step-number {
-    font-size: 17px;
-  }
   .scqa-grid {
     grid-template-columns: 1fr;
   }
@@ -897,10 +789,6 @@ label small {
   #add-fact {
     flex-shrink: 0;
     padding: 9px 12px;
-  }
-  .command-rail {
-    padding: 14px 18px;
-    gap: 12px;
   }
   .title-input {
     font-size: 33px;
@@ -928,21 +816,6 @@ label small {
   }
 }
 @media (max-width: 420px) {
-  .brand {
-    font-size: 16px;
-    gap: 5px;
-  }
-  .mark {
-    width: 24px;
-    font-size: 37px;
-  }
-  .rail-actions {
-    gap: 1px;
-  }
-  .rail-actions .icon-button {
-    width: 32px;
-    padding: 7px;
-  }
   .stage-tabs button {
     font-size: 10px;
     gap: 6px;
@@ -1009,6 +882,10 @@ summary:focus-visible { outline: 3px solid #b4b4b4; outline-offset: 3px; }
   .construction-disclosure .scqa-grid { grid-template-columns: minmax(0, 1fr); }
   .construction-editor .answer-panel, .construction-editor .argument-card { padding: 18px; }
 }
+.construction-editor textarea { font-size: 16px; }
+.construction-editor .panel, .construction-editor .argument-card { border: 0; }
+.construction-editor .answer-panel { background: #2b2e31; }
+.construction-editor .answer-panel > textarea { font-size: 18px; }
 .construction-outline { position: sticky; top: 20px; background: var(--paper); border: 1px solid var(--line); border-radius: 8px; padding: 18px; max-height: calc(100vh - 40px); overflow: auto; }
 .construction-outline h3 { margin: 0 0 12px; font-size: 16px; }
 .outline-item { border-top: 1px solid var(--line); padding-block: 12px; overflow-wrap: anywhere; }
@@ -1059,8 +936,8 @@ summary:focus-visible { outline: 3px solid #b4b4b4; outline-offset: 3px; }
   @page { margin: 18mm; }
   :root { color-scheme: light; }
   body { background: white; color: black; min-width: 0; }
-  .app-shell { display: block; min-height: 0; }
-  .command-rail, .desk-main > :not(.print-document) { display: none !important; }
+  .app-shell { min-height: 0; }
+  .workspace-header, .desk-main > :not(.print-document) { display: none !important; }
   .desk-main { padding: 0; max-width: none; margin: 0; }
   .print-document { display: block; }
   .writing-document { border: 0; border-radius: 0; padding: 0; background: white; color: black; font: 11pt/1.5 Arial, sans-serif; }

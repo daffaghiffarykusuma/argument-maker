@@ -8,7 +8,7 @@ const harnessModule = "./browser-harness.ts";
 const { withBrowserWorkflow }: typeof import("./browser-harness") = await import(harnessModule);
 
 test("new facts invite writing before validation and preserve keyboard editing", { timeout: 90_000 }, async () => {
-  await withBrowserWorkflow(3002, async (browser, url) => {
+  await withBrowserWorkflow(Number(process.env.ARGUMENT_BROWSER_PORT ?? 3002), async (browser, url) => {
     const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
     page.on("pageerror", (error) => console.error("fact-guidance page error:", error));
     page.setDefaultTimeout(10_000);
@@ -63,7 +63,7 @@ test("new facts invite writing before validation and preserve keyboard editing",
     page.once("dialog", (dialog) => dialog.accept());
     await page.getByRole("button", { name: "Worked example", exact: true }).click();
     await page.getByRole("button", { name: "Reasoning review", exact: true }).click();
-    await page.getByRole("button", { name: "Copy Outline", exact: true }).click();
+    await page.getByRole("button", { name: "Export writing: Copy Outline", exact: true }).click();
     await page.getByRole("button", { name: "Review now", exact: true }).click();
     await page.getByRole("button", { name: "Back to editing", exact: true }).click();
     await page.getByRole("tab", { name: /Gather Facts/ }).click();

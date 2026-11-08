@@ -17,9 +17,9 @@ const screenshotPath = join(smokeDir, "argument-workflow.png");
 const harnessModule = "./browser-harness.ts";
 const { withBrowserWorkflow }: typeof import("./browser-harness") = await import(harnessModule);
 
-test("supports the question-first Argument Maker workflow in Chromium", { timeout: 90_000 }, async () => {
+test("supports the question-first Argument Maker workflow in Chromium", { timeout: Number(process.env.ARGUMENT_BROWSER_TIMEOUT ?? 90_000) }, async () => {
   try {
-    await withBrowserWorkflow(3000, async (browser, appUrl) => {
+    await withBrowserWorkflow(Number(process.env.ARGUMENT_BROWSER_PORT ?? 3000), async (browser, appUrl) => {
       const questionFirstModule = "./question-first.ts";
       const { verifyQuestionFirst } = await import(questionFirstModule);
       await verifyQuestionFirst(browser, appUrl);
@@ -212,6 +212,7 @@ test("supports the question-first Argument Maker workflow in Chromium", { timeou
       expect(existsSync(screenshotPath)).toBe(true);
 
       const downloadPromise = page.waitForEvent("download");
+      await page.locator("#board-menu-toggle").click();
       await page.getByRole("button", { name: "Download Board" }).click();
       const download = await downloadPromise;
       const downloadedPath = await download.path();
@@ -219,6 +220,7 @@ test("supports the question-first Argument Maker workflow in Chromium", { timeou
       console.log("browser-smoke: downloaded version-2 board");
 
       page.once("dialog", (dialog) => dialog.accept());
+      await page.locator("#board-menu-toggle").click();
       await page.getByRole("button", { name: "Clear Board" }).click();
       await page.getByRole("tab", { name: /Gather Facts/ }).click();
       expect(await page.locator(".fact-card").count()).toBe(0);
@@ -293,7 +295,7 @@ test("supports the question-first Argument Maker workflow in Chromium", { timeou
       expect((await textDownloadPromise).suggestedFilename().endsWith(".txt")).toBe(true);
       await page.emulateMedia({ media: "print" });
       expect(await page.locator(".print-document").isVisible()).toBe(true);
-      expect(await page.locator(".command-rail").isVisible()).toBe(false);
+      expect(await page.getByRole("banner", { name: "Workspace commands" }).isVisible()).toBe(false);
       const pdf = await page.pdf({ format: "A4" });
       expect(pdf.length > 1000).toBe(true);
       await page.emulateMedia({ media: "screen" });
