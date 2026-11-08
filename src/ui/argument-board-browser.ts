@@ -60,18 +60,18 @@ function render(appRoot: HTMLDivElement, session: ArgumentBoardSession) {
   const snapshot = session.snapshot();
 
   appRoot.innerHTML = `
-    <main class="app-shell">
-      ${renderCommandRail(snapshot.canUndo, snapshot.canRedo)}
-      <div class="desk-main">
+    <div class="app-shell">
+      ${renderWorkspaceHeader(snapshot.canUndo, snapshot.canRedo)}
+      <main class="desk-main">
         ${renderTopbar(snapshot.board)}
         <div class="draft-controls">${renderDraftControls(view)}</div>
         ${renderStageNavigation(snapshot.stage)}
         <div class="review-entry"><button id="open-reasoning-review" type="button" data-action="open-review" aria-expanded="${!!view.reviewOpen}">Reasoning review</button>${view.writingMode ? `<button type="button" data-action="toggle-draft-label" aria-pressed="${view.writingMode === "draft"}">Label writing exports as Draft</button>` : ""}</div>
         ${view.writingInvitationOpen ? renderWritingInvitation() : view.reviewOpen ? renderReasoningReview(snapshot.board, snapshot.issues, !!view.pendingWriting) : renderStage(snapshot.board, snapshot.stage, snapshot.issues, view)}
         ${renderPrintDocument(snapshot.board, view.writingMode !== "reviewed")}
-      </div>
+      </main>
       <div class="copy-feedback" role="status" aria-label="Copy feedback" aria-live="polite" aria-atomic="true"><span>${escapeHtml(view.copyFeedback?.message ?? "")}</span></div>
-    </main>
+    </div>
   `;
 
   for (const details of appRoot.querySelectorAll<HTMLDetailsElement>('details[data-disclosure]')) {
@@ -80,23 +80,31 @@ function render(appRoot: HTMLDivElement, session: ArgumentBoardSession) {
   void view.preview.sync();
 }
 
-function renderCommandRail(canUndo: boolean, canRedo: boolean): string {
+function renderWorkspaceHeader(canUndo: boolean, canRedo: boolean): string {
   return `
-    <aside class="command-rail" aria-label="Board tools">
-      <div class="brand"><div class="mark" aria-hidden="true">a.</div><span>Argument<br>Maker</span></div>
-      <div class="rail-actions">
-        ${renderCommandButton(commandDeskActions.copyOutline)}
+    <header class="workspace-header" aria-label="Workspace commands">
+      <div class="workspace-brand">Argument Maker</div>
+      <div class="workspace-actions">
+        <button type="button" class="icon-button" data-action="copy-outline" aria-label="Export writing: Copy Outline">
+          ${renderIcon("copy")}<span class="tool-label"><span class="desktop-label">Copy Outline</span><span class="mobile-label">Export</span></span>
+        </button>
+        ${renderCommandButton({ ...commandDeskActions.undo, disabled: !canUndo })}
+        ${renderCommandButton({ ...commandDeskActions.redo, disabled: !canRedo })}
+        <details class="board-menu" data-disclosure="board-menu">
+          <summary id="board-menu-toggle"><span class="desktop-label">Board</span><span class="mobile-label">More</span></summary>
+          <div class="board-menu-actions" aria-label="Board file actions">
         ${renderCommandButton(commandDeskActions.download)}
         <label class="icon-button file-button" aria-label="${commandDeskActions.upload.label}" title="${commandDeskActions.upload.label}" data-tooltip="${commandDeskActions.upload.label}" tabindex="0">
           ${renderIcon(commandDeskActions.upload.icon)}<span class="tool-label">Upload Board</span>
           <input type="file" tabindex="-1" accept=".json,.argument.json,application/json" data-action="upload" />
         </label>
-        ${renderCommandButton({ ...commandDeskActions.undo, disabled: !canUndo })}
-        ${renderCommandButton({ ...commandDeskActions.redo, disabled: !canRedo })}
+        <p>Download an editable board for a backup. Local drafts are optional.</p>
+        <hr>
         ${renderCommandButton(commandDeskActions.clear)}
+          </div>
+        </details>
       </div>
-      <div class="rail-note"><span class="local-dot"></span> Private by design<p>Local drafts are optional.<br>Download a board for a backup.</p></div>
-    </aside>
+    </header>
   `;
 }
 
@@ -126,7 +134,7 @@ function renderStageNavigation(stage: WorkflowStage): string {
     <nav class="stage-tabs" role="tablist" aria-label="Argument workflow stages">
       ${stages
         .map(
-          ({ id, label }, index) => `
+          ({ id, label }) => `
             <button
               type="button"
               role="tab"
@@ -137,7 +145,7 @@ function renderStageNavigation(stage: WorkflowStage): string {
               data-action="stage"
               data-stage="${id}"
               class="${stage === id ? "active" : ""}"
-            ><span class="step-number">0${index + 1}</span><span>${label}</span><b aria-hidden="true">${stage === id ? "&#8599;" : "&#8594;"}</b></button>
+            ><span>${label}</span></button>
           `,
         )
         .join("")}

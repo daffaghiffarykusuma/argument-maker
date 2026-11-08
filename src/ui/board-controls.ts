@@ -81,7 +81,12 @@ export function mountBoardControls(root: HTMLDivElement, initial: ArgumentBoardS
   });
   root.addEventListener("change", (event) => {
     const target = event.target;
-    if (target instanceof HTMLInputElement && target.type === "file") { cancelRender(); void controls.upload(root, session, target); return; }
+    if (target instanceof HTMLInputElement && target.type === "file") {
+      const menu = root.querySelector<HTMLDetailsElement>(".board-menu");
+      if (menu) menu.open = false;
+      view.disclosures.set("board-menu", false);
+      cancelRender(); void controls.upload(root, session, target); return;
+    }
     if (target instanceof HTMLInputElement && target.dataset.action === "autosave") {
       cancelRender();
       draft.setEnabled(target.checked);
@@ -109,14 +114,30 @@ export function mountBoardControls(root: HTMLDivElement, initial: ArgumentBoardS
     }, 0);
   });
   root.addEventListener("click", (event) => {
+    const menu = root.querySelector<HTMLDetailsElement>(".board-menu");
+    if (menu?.open && !menu.contains(event.target as Node)) {
+      menu.open = false;
+      view.disclosures.set("board-menu", false);
+    }
     const target = (event.target as HTMLElement).closest<HTMLElement>("[data-action]");
     if (target?.matches("button")) {
+      if (menu?.contains(target)) {
+        menu.open = false;
+        view.disclosures.set("board-menu", false);
+        menu.querySelector<HTMLElement>("summary")?.focus();
+      }
       cancelRender(); session.finishEdit(); controls.action(root, session, target);
     }
   });
   root.addEventListener("keydown", (event) => {
     const target = event.target as HTMLElement;
-    if (target.matches('[role="tab"]') && ["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) {
+    const menu = root.querySelector<HTMLDetailsElement>(".board-menu");
+    if (event.key === "Escape" && menu?.open) {
+      event.preventDefault();
+      menu.open = false;
+      view.disclosures.set("board-menu", false);
+      menu.querySelector<HTMLElement>("summary")?.focus();
+    } else if (target.matches('[role="tab"]') && ["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) {
       event.preventDefault(); cancelRender();
       const tabs = [...root.querySelectorAll<HTMLButtonElement>('[role="tab"]')];
       const index = tabs.indexOf(target as HTMLButtonElement);
