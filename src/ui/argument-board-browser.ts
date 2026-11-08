@@ -377,13 +377,13 @@ function handleAction(appRoot: HTMLDivElement, session: ArgumentBoardSession, ta
 
   const view = views.get(appRoot)!;
   if (action === "open-review") {
+    if (!view.reviewOpen && !view.writingInvitationOpen) rememberReviewReturn(appRoot, session);
     view.writingInvitationOpen = false;
     view.reviewOpen = true;
     renderAndFocus(appRoot, session, "reasoning-review-heading");
   } else if (action === "close-review") {
     view.reviewOpen = false;
-    view.pendingWriting = undefined;
-    renderAndFocus(appRoot, session, "open-reasoning-review");
+    returnFromReview(appRoot, session);
   } else if (action === "review-writing") {
     view.writingMode = "reviewed";
     view.writingInvitationOpen = false;
@@ -501,6 +501,8 @@ function handleAction(appRoot: HTMLDivElement, session: ArgumentBoardSession, ta
 }
 
 function resetWritingReview(view: ViewState) {
+  view.editingPosition = undefined;
+  view.reviewReturn = undefined;
   view.writingMode = undefined;
   view.writingInvitationOpen = false;
   view.pendingWriting = undefined;
@@ -513,10 +515,40 @@ function requestWritingAction(appRoot: HTMLDivElement, session: ArgumentBoardSes
     performWritingAction(appRoot, session, action);
     return;
   }
+  if (!view.reviewOpen && !view.writingInvitationOpen) rememberReviewReturn(appRoot, session);
   view.pendingWriting = action;
   view.writingInvitationOpen = true;
   view.reviewOpen = false;
   renderAndFocus(appRoot, session, "writing-invitation-heading");
+}
+
+function rememberReviewReturn(appRoot: HTMLDivElement, session: ArgumentBoardSession) {
+  const view = views.get(appRoot)!;
+  const stage = session.snapshot().stage;
+  view.reviewReturn = view.editingPosition?.stage === stage ? { ...view.editingPosition } : {
+    stage, id: "open-reasoning-review", index: -1,
+    x: window.scrollX, y: window.scrollY, scrollTop: 0, scrollLeft: 0,
+  };
+}
+
+function returnFromReview(appRoot: HTMLDivElement, session: ArgumentBoardSession) {
+  const view = views.get(appRoot)!;
+  const position = view.reviewReturn;
+  view.reviewReturn = undefined;
+  if (!position) { renderAndFocus(appRoot, session, "open-reasoning-review"); return; }
+  session.setStage(position.stage);
+  render(appRoot, session);
+  const panel = appRoot.querySelector('[role="tabpanel"]');
+  const target = (position.id ? document.getElementById(position.id) : panel?.querySelectorAll<HTMLElement>('button, input, textarea, select, summary, [tabindex]')[position.index])
+    ?? appRoot.querySelector<HTMLElement>("#open-reasoning-review");
+  target?.focus({ preventScroll: true });
+  if (target) {
+    if (position.selection && (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement)) target.setSelectionRange(...position.selection);
+    target.scrollTop = position.scrollTop;
+    target.scrollLeft = position.scrollLeft;
+  }
+  window.scrollTo(position.x, position.y);
+  view.editingPosition = position;
 }
 
 function performWritingAction(appRoot: HTMLDivElement, session: ArgumentBoardSession, action: WritingAction) {
