@@ -26,3 +26,9 @@ Passed before integration merge:
 Initial sandbox Chromium runs stalled. The sandboxed Bun run timed out and a direct run was terminated by its identified process tree. Running the existing harness with execution escalation succeeded. These setup failures are not behavioral red evidence. Locked dependencies were installed without lockfile changes.
 
 Full browser and board suites are intentionally deferred to the parent for sequential integration validation. Adapted fact-guidance, fact04, descriptive-citation, broad smoke and writing-review workflows retain assertions but were not run in this child. No assistive-technology compliance claim. No new test seams, dependencies, PR, push, or integration-branch mutation.
+
+## Integration handoff verification
+
+Merged integration tip 7579f2af596e65b5f0adc2f960b8118cabe53ad3, including ticket01, into this branch with merge commit 7684427. The only conflict was adjacent construction CSS additions; retained both ticket02 disclosure/hierarchy rules and ticket01 charcoal construction rules. No unresolved conflicts.
+
+Post-merge `bun test tests/browser/focused-construction-02.test.ts` passed, 1 pass / 0 fail, 36.99 seconds. Its four included existing workflows passed with assertions intact. Post-merge typecheck, production build and whitespace checks passed. Re-inspected desktop and mobile screenshots against the merged compact header. Broad suites remain the parent's responsibility.
