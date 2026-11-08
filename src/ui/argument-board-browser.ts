@@ -352,12 +352,6 @@ function handleChange(
       argumentId,
       changes: { mode: target.value as SupportMode },
     });
-  } else if (action === "attach-fact" && target instanceof HTMLSelectElement && target.value) {
-    dispatch({
-      type: "attach-fact",
-      destinationId: target.dataset.destinationId ?? "",
-      factId: target.value,
-    });
   } else if (action === "reasoning-note" && argumentId) {
     const field = target.dataset.field as "connection" | "assumptions" | "objection" | "weakensClaim";
     dispatch({ type: "update-supporting-argument", argumentId, changes: { [field]: target.value } });
@@ -465,6 +459,10 @@ function handleAction(appRoot: HTMLDivElement, session: ArgumentBoardSession, ta
   } else if (action === "delete-argument" && argumentId) {
     session.dispatch({ type: "delete-supporting-argument", argumentId });
     renderAndFocus(appRoot, session, "supporting-arguments");
+  } else if (action === "attach-fact" && factId && destinationId) {
+    session.dispatch({ type: "attach-fact", destinationId, factId });
+    render(appRoot, session);
+    document.getElementById(`attachment-picker-${safeDomId(destinationId)}`)?.focus();
   } else if (action === "create-fact-here" && destinationId) {
     const board = session.dispatch({ type: "create-gathered-fact", destinationId });
     const newFact = board.gatheredFacts.at(-1)!;

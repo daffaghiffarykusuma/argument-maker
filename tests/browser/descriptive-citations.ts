@@ -1,5 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+const attachmentFlowModule = './attachment-picker-flow.ts';
+const { attachGatheredFact }: typeof import('./attachment-picker-flow') = await import(attachmentFlowModule);
 import { mkdirSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -33,7 +35,7 @@ test("citation-only research can be entered, found, attached, revised and shared
     await page.getByRole("tab", { name: /Construct Argument/ }).click();
     for (const destination of ["situation", "complication"]) {
       await page.locator(`[data-disclosure="destination-${destination}"] > summary`).click();
-      await page.locator(`[data-action="attach-fact"][data-destination-id="${destination}"]`).selectOption("fact-1");
+      await attachGatheredFact(page.locator(`[data-disclosure="destination-${destination}"]`), 1);
     }
     await page.locator('.attached-fact').first().getByText("Edit fact", { exact: true }).click();
     await page.getByLabel("Descriptive citation", { exact: true }).first().fill("Interview <notes>, page 4");

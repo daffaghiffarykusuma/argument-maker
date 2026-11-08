@@ -1081,3 +1081,11 @@ summary:focus-visible { outline: 3px solid #b4b4b4; outline-offset: 3px; }
 .review-entry [aria-pressed="true"] { background: var(--ink); color: var(--paper); }
 .writing-invitation { max-width: 760px; margin: 24px auto; }
 .writing-status { font-weight: 700; border: 1px solid currentColor; padding: 8px 12px; width: fit-content; }
+.attachment-picker { min-width: 0; width: min(100%, 36rem); }
+.attachment-picker > summary { cursor: pointer; padding: .75rem; }
+.attachment-picker label { display: block; }
+.attachment-picker input { width: 100%; }
+.attachment-results { max-height: 26rem; overflow-y: auto; overflow-wrap: anywhere; }
+.attachment-result { padding: .75rem; border-bottom: 1px solid var(--line); }
+.attachment-result .fact-finding { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.attachment-result button, .attachment-picker > button { min-height: 44px; }
