@@ -31,6 +31,26 @@ export function mountBoardControls(root: HTMLDivElement, initial: ArgumentBoardS
   const preview = createArgumentPreview(root);
   const view: ViewState = { draft, facts, preview, disclosures };
   views.set(root, view);
+  // Record the writing location before moving to utility controls can scroll it away.
+  const rememberEditingPosition = (target: EventTarget | null) => {
+    if (!(target instanceof HTMLElement)) return;
+    const panel = target.closest('[role="tabpanel"]');
+    if (!panel || !target.matches('button, input, textarea, select, summary, [tabindex]')) return;
+    view.editingPosition = {
+      stage: session.snapshot().stage, id: target.id,
+      index: [...panel.querySelectorAll('button, input, textarea, select, summary, [tabindex]')].indexOf(target),
+      x: window.scrollX, y: window.scrollY, scrollTop: target.scrollTop, scrollLeft: target.scrollLeft,
+      selection: target instanceof HTMLTextAreaElement || (target instanceof HTMLInputElement && ["text", "search", "url"].includes(target.type))
+        ? [target.selectionStart, target.selectionEnd, target.selectionDirection ?? "none"] : undefined,
+    };
+  };
+  for (const event of ["focusin", "input", "keyup", "pointerup"]) root.addEventListener(event, event => rememberEditingPosition(event.target));
+  for (const event of ["wheel", "touchmove"]) root.addEventListener(event, () => {
+    const active = document.activeElement;
+    requestAnimationFrame(() => {
+      if (active === document.activeElement) rememberEditingPosition(active);
+    });
+  }, { passive: true });
   let renderTimer: ReturnType<typeof setTimeout> | undefined;
   const render = () => renderPreservingFocus(root, session, controls.render);
   const cancelRender = () => { if (renderTimer) clearTimeout(renderTimer); renderTimer = undefined; };
@@ -65,7 +85,12 @@ export function mountBoardControls(root: HTMLDivElement, initial: ArgumentBoardS
   });
   root.addEventListener("change", (event) => {
     const target = event.target;
-    if (target instanceof HTMLInputElement && target.type === "file") { cancelRender(); void controls.upload(root, session, target); return; }
+    if (target instanceof HTMLInputElement && target.type === "file") {
+      const menu = root.querySelector<HTMLDetailsElement>(".board-menu");
+      if (menu) menu.open = false;
+      view.disclosures.set("board-menu", false);
+      cancelRender(); void controls.upload(root, session, target); return;
+    }
     if (target instanceof HTMLInputElement && target.dataset.action === "autosave") {
       cancelRender();
       draft.setEnabled(target.checked);
@@ -93,6 +118,11 @@ export function mountBoardControls(root: HTMLDivElement, initial: ArgumentBoardS
     }, 0);
   });
   root.addEventListener("click", (event) => {
+    const menu = root.querySelector<HTMLDetailsElement>(".board-menu");
+    if (menu?.open && !menu.contains(event.target as Node)) {
+      menu.open = false;
+      view.disclosures.set("board-menu", false);
+    }
     const target = (event.target as HTMLElement).closest<HTMLElement>("[data-action]");
     if (target?.matches("button")) {
       if (['close-fact-picker', 'clear-attachment-search', 'show-attached-fact'].includes(target.dataset.action ?? '')) {
@@ -110,6 +140,11 @@ export function mountBoardControls(root: HTMLDivElement, initial: ArgumentBoardS
         }
         return;
       }
+      if (menu?.contains(target)) {
+        menu.open = false;
+        view.disclosures.set("board-menu", false);
+        menu.querySelector<HTMLElement>("summary")?.focus();
+      }
       cancelRender(); session.finishEdit(); controls.action(root, session, target);
     }
   });
@@ -119,7 +154,13 @@ export function mountBoardControls(root: HTMLDivElement, initial: ArgumentBoardS
     if (event.key === 'Escape' && picker?.open) {
       event.preventDefault(); picker.open = false; picker.querySelector<HTMLElement>('summary')?.focus(); return;
     }
-    if (target.matches('[role="tab"]') && ["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) {
+    const menu = root.querySelector<HTMLDetailsElement>(".board-menu");
+    if (event.key === "Escape" && menu?.open) {
+      event.preventDefault();
+      menu.open = false;
+      view.disclosures.set("board-menu", false);
+      menu.querySelector<HTMLElement>("summary")?.focus();
+    } else if (target.matches('[role="tab"]') && ["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) {
       event.preventDefault(); cancelRender();
       const tabs = [...root.querySelectorAll<HTMLButtonElement>('[role="tab"]')];
       const index = tabs.indexOf(target as HTMLButtonElement);
