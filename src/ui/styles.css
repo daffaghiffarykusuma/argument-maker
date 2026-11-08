@@ -103,10 +103,10 @@ a {
 .workspace-actions { display: flex; align-items: center; gap: 8px; }
 .workspace-actions .icon-button { width: auto; gap: 8px; min-height: 44px; }
 .workspace-actions .tool-label { display: inline; }
-.board-menu { position: relative; }
-.board-menu > summary { min-height: 44px; padding: 10px 14px; border-radius: 7px; }
-.board-menu > summary:hover { background: #303235; }
-.board-menu-actions {
+.board-menu, .writing-menu { position: relative; }
+.board-menu > summary, .writing-menu > summary { min-height: 44px; padding: 10px 14px; border-radius: 7px; }
+.board-menu > summary:hover, .writing-menu > summary:hover { background: #303235; }
+.board-menu-actions, .writing-menu-actions {
   position: absolute;
   right: 0;
   top: calc(100% + 8px);
@@ -120,6 +120,8 @@ a {
   border-radius: 8px;
   box-shadow: 0 12px 32px #0006;
 }
+.writing-menu-actions { left: 0; right: auto; width: 220px; }
+.writing-menu-actions button { min-height: 44px; text-align: left; }
 .board-menu-actions .icon-button { justify-content: flex-start; width: 100%; }
 .board-menu-actions p { margin: 8px 4px; font-size: 12px; color: var(--muted); }
 .board-menu-actions hr { width: 100%; border: 0; border-top: 1px solid var(--line); }
@@ -986,3 +988,11 @@ body:has(.outline-panel[open]) { overflow: hidden; }
 .review-entry [aria-pressed="true"] { background: var(--ink); color: var(--paper); }
 .writing-invitation { max-width: 760px; margin: 24px auto; }
 .writing-status { font-weight: 700; border: 1px solid currentColor; padding: 8px 12px; width: fit-content; }
+.attachment-picker { min-width: 0; width: min(100%, 36rem); }
+.attachment-picker > summary { cursor: pointer; padding: .75rem; }
+.attachment-picker label { display: block; }
+.attachment-picker input { width: 100%; }
+.attachment-results { max-height: 26rem; overflow-y: auto; overflow-wrap: anywhere; }
+.attachment-result { padding: .75rem; border-bottom: 1px solid var(--line); }
+.attachment-result .fact-finding { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.attachment-result button, .attachment-picker > button { min-height: 44px; }

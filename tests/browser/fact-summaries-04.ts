@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+const attachmentFlowModule = './attachment-picker-flow.ts';
+const { attachGatheredFact }: typeof import('./attachment-picker-flow') = await import(attachmentFlowModule);
 import { mkdir } from "node:fs/promises";
 const harnessModule = "./browser-harness.ts";
 const { withBrowserWorkflow }: typeof import("./browser-harness") = await import(harnessModule);
@@ -82,7 +84,7 @@ await withBrowserWorkflow(3024, async (browser, url) => {
   assert.equal(await newAttachment.getByLabel("Fact text", { exact: true }).evaluate((el) => el === document.activeElement), true);
   await newAttachment.getByLabel("Fact text", { exact: true }).fill("Created at destination");
   await newAttachment.getByLabel("Descriptive citation", { exact: true }).fill("Field notes, p. 11");
-  await situation.getByRole("combobox", { name: /Choose Gathered Facts/ }).selectOption('fact-1');
+  await attachGatheredFact(situation, 1);
   assert.match(await situation.locator('.attached-fact').first().innerText(), /Created at destination/);
   await situation.locator('.attached-fact').last().getByRole("button", { name: "Move up", exact: true }).click();
   assert.match(await situation.locator('.attached-fact').first().innerText(), /Shared revision/);

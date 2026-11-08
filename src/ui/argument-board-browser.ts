@@ -27,7 +27,7 @@ interface CommandDeskActionControl {
 
 const commandDeskActions = {
   copyOutline: { action: "copy-outline", label: "Copy Outline", icon: "copy" },
-  download: { action: "download", label: "Download Board", icon: "download" },
+  download: { action: "download", label: "Download editable board", icon: "download" },
   upload: { action: "upload", label: "Upload Board", icon: "upload" },
   undo: { action: "undo", label: "Undo", icon: "undo" },
   redo: { action: "redo", label: "Redo", icon: "redo" },
@@ -85,9 +85,15 @@ function renderWorkspaceHeader(canUndo: boolean, canRedo: boolean): string {
     <header class="workspace-header" aria-label="Workspace commands">
       <div class="workspace-brand">Argument Maker</div>
       <div class="workspace-actions">
-        <button type="button" class="icon-button" data-action="copy-outline" aria-label="Export writing: Copy Outline">
-          ${renderIcon("copy")}<span class="tool-label"><span class="desktop-label">Copy Outline</span><span class="mobile-label">Export</span></span>
-        </button>
+        <details class="writing-menu" data-disclosure="writing-menu">
+          <summary id="writing-menu-toggle">Export writing</summary>
+          <div class="writing-menu-actions" aria-label="Writing formats">
+            <button type="button" data-action="copy-outline">Copy</button>
+            <button type="button" data-action="download-writing" data-format="markdown">Markdown</button>
+            <button type="button" data-action="download-writing" data-format="text">Text</button>
+            <button type="button" data-action="print">Print/PDF</button>
+          </div>
+        </details>
         ${renderCommandButton({ ...commandDeskActions.undo, disabled: !canUndo })}
         ${renderCommandButton({ ...commandDeskActions.redo, disabled: !canRedo })}
         <details class="board-menu" data-disclosure="board-menu">
@@ -98,7 +104,7 @@ function renderWorkspaceHeader(canUndo: boolean, canRedo: boolean): string {
           ${renderIcon(commandDeskActions.upload.icon)}<span class="tool-label">Upload Board</span>
           <input type="file" tabindex="-1" accept=".json,.argument.json,application/json" data-action="upload" />
         </label>
-        <p>Download an editable board for a backup. Local drafts are optional.</p>
+        <p>Portable editable file for reopening your board. Local drafts are optional.</p>
         <hr>
         ${renderCommandButton(commandDeskActions.clear)}
           </div>
@@ -384,12 +390,6 @@ function handleChange(
       argumentId,
       changes: { mode: target.value as SupportMode },
     });
-  } else if (action === "attach-fact" && target instanceof HTMLSelectElement && target.value) {
-    dispatch({
-      type: "attach-fact",
-      destinationId: target.dataset.destinationId ?? "",
-      factId: target.value,
-    });
   } else if (action === "reasoning-note" && argumentId) {
     const field = target.dataset.field as "connection" | "assumptions" | "objection" | "weakensClaim";
     dispatch({ type: "update-supporting-argument", argumentId, changes: { [field]: target.value } });
@@ -497,6 +497,10 @@ function handleAction(appRoot: HTMLDivElement, session: ArgumentBoardSession, ta
   } else if (action === "delete-argument" && argumentId) {
     session.dispatch({ type: "delete-supporting-argument", argumentId });
     renderAndFocus(appRoot, session, "supporting-arguments");
+  } else if (action === "attach-fact" && factId && destinationId) {
+    session.dispatch({ type: "attach-fact", destinationId, factId });
+    render(appRoot, session);
+    document.getElementById(`attachment-picker-${safeDomId(destinationId)}`)?.focus();
   } else if (action === "create-fact-here" && destinationId) {
     const board = session.dispatch({ type: "create-gathered-fact", destinationId });
     const newFact = board.gatheredFacts.at(-1)!;
@@ -592,9 +596,8 @@ function performWritingAction(appRoot: HTMLDivElement, session: ArgumentBoardSes
   } else downloadFile(createWritingExport(session.snapshot().board, action, { draft }));
 }
 
-function focusWritingAction(appRoot: HTMLDivElement, action: WritingAction) {
-  const selector = action === "markdown" || action === "text" ? `[data-action="download-writing"][data-format="${action}"]` : `[data-action="${action}"]`;
-  (appRoot.querySelector<HTMLElement>(selector) ?? appRoot.querySelector<HTMLElement>("#open-reasoning-review"))?.focus();
+function focusWritingAction(appRoot: HTMLDivElement, _action: WritingAction) {
+  appRoot.querySelector<HTMLElement>("#writing-menu-toggle")?.focus();
 }
 
 async function copyOutput(appRoot: HTMLDivElement, contents: string, label: "Outline" | "Mermaid") {

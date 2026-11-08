@@ -1,5 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+const attachmentFlowModule = './attachment-picker-flow.ts';
+const { attachGatheredFact }: typeof import('./attachment-picker-flow') = await import(attachmentFlowModule);
 import { mkdirSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -34,7 +36,7 @@ test("citation-only research can be entered, found, attached, revised and shared
     await page.locator('details[data-disclosure="context"] > summary').click();
     for (const destination of ["situation", "complication"]) {
       await page.locator(`[data-disclosure="destination-${destination}"] > summary`).click();
-      await page.locator(`[data-action="attach-fact"][data-destination-id="${destination}"]`).selectOption("fact-1");
+      await attachGatheredFact(page.locator(`[data-disclosure="destination-${destination}"]`), 1);
     }
     await page.locator('.attached-fact').first().getByText("Edit fact", { exact: true }).click();
     await page.getByLabel("Descriptive citation", { exact: true }).first().fill("Interview <notes>, page 4");
@@ -51,7 +53,8 @@ test("citation-only research can be entered, found, attached, revised and shared
     await page.screenshot({ path: join(output, "mobile-outline.png"), fullPage: true });
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
     const downloadPromise = page.waitForEvent("download");
-    await page.getByRole("button", { name: "Download Markdown", exact: true }).click();
+    await page.locator("#writing-menu-toggle").click();
+    await page.getByRole("button", { name: "Markdown", exact: true }).click();
     await page.getByRole("button", { name: "Export draft", exact: true }).click();
     const download = await downloadPromise;
     const stream = await download.createReadStream();
@@ -59,7 +62,8 @@ test("citation-only research can be entered, found, attached, revised and shared
     for await (const chunk of stream!) contents += chunk.toString();
     assert.match(contents, /Interview \\<notes\\>, page 4/);
     await page.evaluate(() => { window.print = () => {}; });
-    await page.getByRole("button", { name: "Print / Save PDF", exact: true }).click();
+    await page.locator("#writing-menu-toggle").click();
+    await page.getByRole("button", { name: "Print/PDF", exact: true }).click();
     await page.emulateMedia({ media: "print" });
     assert.match(await page.locator(".print-document").innerText(), /Interview <notes>, page 4/);
     await page.screenshot({ path: join(output, "print.png"), fullPage: true });
