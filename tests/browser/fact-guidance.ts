@@ -1,5 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+const attachmentFlowModule = './attachment-picker-flow.ts';
+const { attachGatheredFact }: typeof import('./attachment-picker-flow') = await import(attachmentFlowModule);
 import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
 
@@ -40,7 +42,7 @@ test("new facts invite writing before validation and preserve keyboard editing",
     assert.equal(await page.locator(".field-guidance").count(), 0);
     console.log("fact-guidance: fresh and interacted fields, citation completion and Tab focus passed");
     await page.getByRole("tab", { name: /Construct Argument/ }).click();
-    await situation.getByRole("combobox").selectOption("fact-1");
+    await attachGatheredFact(situation, 1);
     assert.match(await situation.innerText(), /All complete facts are already attached here/);
     await page.getByRole("tab", { name: /Gather Facts/ }).click();
     await page.getByRole("button", { name: "Add fact" }).click();
@@ -52,11 +54,13 @@ test("new facts invite writing before validation and preserve keyboard editing",
     await page.getByRole("textbox", { name: "Fact text", exact: true }).nth(1).fill("Another finding");
     await page.getByLabel("Descriptive citation", { exact: true }).nth(1).fill("Field notes, page 4");
     await page.getByRole("tab", { name: /Construct Argument/ }).click();
-    await situation.getByRole("combobox").first().selectOption("fact-2");
+    await attachGatheredFact(situation, 2);
     assert.equal(await situation.locator(".attached-fact").count(), 2);
     assert.equal(await situation.getByRole("button", { name: "Complete a gathered fact" }).count(), 0);
     await situation.getByRole("button", { name: "Remove from here" }).last().click();
-    assert.equal(await situation.locator('[data-action="attach-fact"]').isEnabled(), true);
+    await situation.getByText('Choose Gathered Facts', { exact: true }).click();
+    assert.equal(await situation.getByRole('article', { name: 'Gathered Fact 2', exact: true }).getByRole('button', { name: 'Attach fact', exact: true }).isEnabled(), true);
+    await situation.getByRole('button', { name: 'Close picker' }).click();
     assert.doesNotMatch(await situation.locator(".attachment-guidance").innerText(), /already attached/);
     console.log("fact-guidance: empty, incomplete, all-attached, mixed and attachment recovery passed");
     await page.getByRole("tab", { name: /Gather Facts/ }).click();

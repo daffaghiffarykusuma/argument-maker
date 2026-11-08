@@ -63,6 +63,10 @@ export function mountBoardControls(root: HTMLDivElement, initial: ArgumentBoardS
   window.addEventListener("pagehide", () => draft.flush());
   window.addEventListener("storage", (event) => draft.storageChanged(event.key));
   root.addEventListener("toggle", (event) => {
+    if (event.target instanceof HTMLDetailsElement && event.target.matches('.attachment-picker') && event.target.open) {
+      cancelRender();
+      event.target.querySelector<HTMLInputElement>('input')?.focus();
+    }
     if (event.target instanceof HTMLDetailsElement && event.target.dataset.disclosure) view.disclosures.set(event.target.dataset.disclosure, event.target.open);
   }, true);
   root.addEventListener("input", (event) => {
@@ -101,7 +105,7 @@ export function mountBoardControls(root: HTMLDivElement, initial: ArgumentBoardS
   });
   root.addEventListener("focusout", (event) => {
     const target = event.target;
-    if (!(target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) || !target.dataset.action || ["fact-search", "autosave", "upload", "mode-change"].includes(target.dataset.action)) return;
+    if (!(target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) || !target.dataset.action || ["attachment-search", "fact-search", "autosave", "upload", "mode-change"].includes(target.dataset.action)) return;
     facts.finishInteraction(target);
     session.finishEdit(); cancelRender();
     // Let the browser finish Tab or the pointer click before replacing the DOM.
@@ -121,6 +125,21 @@ export function mountBoardControls(root: HTMLDivElement, initial: ArgumentBoardS
     }
     const target = (event.target as HTMLElement).closest<HTMLElement>("[data-action]");
     if (target?.matches("button")) {
+      if (['close-fact-picker', 'clear-attachment-search', 'show-attached-fact'].includes(target.dataset.action ?? '')) {
+        cancelRender();
+        const picker = target.closest<HTMLDetailsElement>('.attachment-picker')!;
+        if (target.dataset.action === 'clear-attachment-search') {
+          const search = picker.querySelector<HTMLInputElement>('input')!;
+          search.value = ''; facts.filter(search); search.focus();
+        } else {
+          picker.open = false;
+          if (target.dataset.action === 'show-attached-fact') {
+            const attachment = picker.closest('.destination-facts')!.querySelector<HTMLElement>(`.attached-fact[data-fact-id="${CSS.escape(target.dataset.factId!)}"]`)!;
+            attachment.querySelector<HTMLElement>('summary')?.focus();
+          } else picker.querySelector<HTMLElement>('summary')?.focus();
+        }
+        return;
+      }
       if (menu?.contains(target)) {
         menu.open = false;
         view.disclosures.set("board-menu", false);
@@ -131,6 +150,10 @@ export function mountBoardControls(root: HTMLDivElement, initial: ArgumentBoardS
   });
   root.addEventListener("keydown", (event) => {
     const target = event.target as HTMLElement;
+    const picker = target.closest<HTMLDetailsElement>('.attachment-picker');
+    if (event.key === 'Escape' && picker?.open) {
+      event.preventDefault(); picker.open = false; picker.querySelector<HTMLElement>('summary')?.focus(); return;
+    }
     const menu = root.querySelector<HTMLDetailsElement>(".board-menu");
     if (event.key === "Escape" && menu?.open) {
       event.preventDefault();

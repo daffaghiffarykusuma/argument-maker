@@ -88,11 +88,10 @@ export function createGatheredFactEditing(root: HTMLDivElement, session: Argumen
       if (field && editor.value !== (fact[field] ?? "")) editor.value = fact[field] ?? "";
     }
     const board = session.snapshot().board;
-    for (const picker of root.querySelectorAll<HTMLSelectElement>('[data-action="attach-fact"]')) {
+    for (const picker of root.querySelectorAll<HTMLElement>('.attachment-picker')) {
       const state = attachmentAvailability(board, picker.dataset.destinationId!);
-      const options = renderAttachmentOptions(state);
-      if (picker.innerHTML !== options) picker.innerHTML = options;
-      picker.disabled = state.available.length === 0;
+      const query = picker.querySelector<HTMLInputElement>('input')?.value ?? '';
+      picker.querySelector('.attachment-results')!.innerHTML = renderAttachmentResults(board, picker.dataset.destinationId!, query);
       const guidance = picker.closest(".destination-facts")?.querySelector(".attachment-guidance");
       const html = renderAttachmentGuidance(state);
       if (guidance && guidance.innerHTML !== html) guidance.innerHTML = html;
@@ -124,6 +123,11 @@ export function createGatheredFactEditing(root: HTMLDivElement, session: Argumen
       return true;
     },
     filter(target: Editor): boolean {
+      if (target.dataset.action === 'attachment-search') {
+        const picker = target.closest<HTMLElement>('.attachment-picker')!;
+        picker.querySelector('.attachment-results')!.innerHTML = renderAttachmentResults(session.snapshot().board, picker.dataset.destinationId!, target.value);
+        return true;
+      }
       if (target.dataset.action === "fact-search" && target instanceof HTMLInputElement) search.query = target.value;
       else if (target.dataset.action === "fact-filter" && target instanceof HTMLSelectElement) search.filter = target.value as FactFilter;
       else return false;
@@ -231,7 +235,7 @@ function renderFactSummary(fact: GatheredFact): string {
 }
 
 function renderDestinationFacts(board: ArgumentBoard, destinationId: FactDestinationId, untouchedFacts: ReadonlySet<string>): string {
-  const { attachedFacts: facts, attachableFacts: available, label } = readFactAttachments(board, destinationId);
+  const { attachedFacts: facts, label } = readFactAttachments(board, destinationId);
   const availability = attachmentAvailability(board, destinationId);
   const guidanceId = `attachment-guidance-${safeDomId(destinationId)}`;
 
@@ -243,12 +247,13 @@ function renderDestinationFacts(board: ArgumentBoard, destinationId: FactDestina
           <span>${facts.length} attached</span>
         </div>
         <div class="fact-picker">
-          <label>
-            <span class="sr-only">Choose Gathered Facts for ${escapeHtml(label)}</span>
-            <select data-action="attach-fact" data-destination-id="${escapeAttr(destinationId)}" aria-describedby="${guidanceId}" ${available.length === 0 ? "disabled" : ""}>
-              ${renderAttachmentOptions(availability)}
-            </select>
-          </label>
+          <details class="attachment-picker" data-destination-id="${escapeAttr(destinationId)}">
+            <summary id="attachment-picker-${safeDomId(destinationId)}">Choose Gathered Facts</summary>
+            <p>Attach to ${escapeHtml(label)}</p>
+            <label>Search facts to attach<input type="search" data-action="attachment-search" placeholder="Finding, source, date, or quotation"></label>
+            <div class="attachment-results">${renderAttachmentResults(board, destinationId, '')}</div>
+            <button type="button" data-action="close-fact-picker">Close picker</button>
+          </details>
           <button type="button" data-action="create-fact-here" data-destination-id="${escapeAttr(destinationId)}">Create new fact here</button>
         </div>
       </div>
@@ -285,8 +290,24 @@ function attachmentAvailability(board: ArgumentBoard, destinationId: FactDestina
   return { available, message, placeholder, unfinished };
 }
 
-function renderAttachmentOptions(state: ReturnType<typeof attachmentAvailability>) {
-  return `<option value="">${state.placeholder}</option>${state.available.map((fact) => `<option value="${escapeAttr(fact.id)}">${escapeHtml(fact.text)}</option>`).join("")}`;
+function renderAttachmentResults(board: ArgumentBoard, destinationId: string, query: string) {
+  const facts = filterFacts(board, query, 'all');
+  const attached = new Set(readFactAttachments(board, destinationId).attachedFacts.map(fact => fact.id));
+  if (!board.gatheredFacts.length) return '<p role="status">No facts gathered yet. Create a fact here to start gathering evidence.</p>';
+  if (!facts.length) return '<p role="status">No matching facts. Try another finding or source.</p><button type="button" data-action="clear-attachment-search">Clear search</button>';
+  return `<p role="status">${facts.length} matching fact${facts.length === 1 ? '' : 's'}</p>${facts.map(fact => {
+    const index = board.gatheredFacts.indexOf(fact) + 1;
+    const usage = factUsageLabels(board, fact.id);
+    const incomplete = factCompleteness(fact);
+    const alreadyAttached = attached.has(fact.id);
+    return `<article class="attachment-result" aria-label="Gathered Fact ${index}">
+      ${renderFactSummary(fact)}
+      <p>${escapeHtml(usage.length ? `Used in ${usage.join(', ')}` : 'Unused')}</p>
+      <p>${alreadyAttached ? 'Already attached here' : incomplete.length ? 'Incomplete' : 'Available to attach'}</p>
+      ${incomplete.length ? `<p>${incomplete.map(reason => escapeHtml(incompleteGuidance(reason))).join(' ')}</p>` : ''}
+      ${alreadyAttached ? `<button type="button" data-action="show-attached-fact" data-fact-id="${escapeAttr(fact.id)}">View attached fact</button>` : incomplete.length ? `<button type="button" data-action="open-fact" data-fact-id="${escapeAttr(fact.id)}">Complete this fact</button>` : `<button type="button" data-action="attach-fact" data-fact-id="${escapeAttr(fact.id)}" data-destination-id="${escapeAttr(destinationId)}">Attach fact</button>`}
+    </article>`;
+  }).join('')}`;
 }
 
 function renderAttachmentGuidance(state: ReturnType<typeof attachmentAvailability>) {

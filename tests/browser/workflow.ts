@@ -1,3 +1,5 @@
+const attachmentFlowModule = './attachment-picker-flow.ts';
+const { attachGatheredFact }: typeof import('./attachment-picker-flow') = await import(attachmentFlowModule);
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { dirname } from "node:path";
@@ -98,9 +100,9 @@ test("supports the question-first Argument Maker workflow in Chromium", { timeou
       for (const destination of ["situation", "argument-1"]) {
         await page.locator(`[data-disclosure="destination-${destination}"] > summary`).click();
       }
-      await page.locator('[data-action="attach-fact"][data-destination-id="situation"]').selectOption("fact-1");
-      await page.locator('[data-action="attach-fact"][data-destination-id="situation"]').selectOption("fact-2");
-      await page.locator('[data-action="attach-fact"][data-destination-id="argument-1"]').selectOption("fact-1");
+      await attachGatheredFact(page.locator('[data-disclosure="destination-situation"]'), 1);
+      await attachGatheredFact(page.locator('[data-disclosure="destination-situation"]'), 2);
+      await attachGatheredFact(page.locator('[data-disclosure="destination-argument-1"]'), 1);
       await page
         .locator('[data-action="move-attached-fact"][data-destination-id="situation"][data-fact-id="fact-2"][data-direction="up"]')
         .click();
@@ -138,12 +140,12 @@ test("supports the question-first Argument Maker workflow in Chromium", { timeou
       await activeFactEditor!.dispose();
 
       const sharedLinks = page.locator('[data-action="fact-link"][data-fact-id="fact-1"]');
-      const picker = page.locator('[data-action="attach-fact"][data-destination-id="complication"]');
+      const picker = page.locator('[data-disclosure="destination-complication"] .attachment-picker');
       await sharedLinks.first().fill("invalid-link");
       expect(await sharedLinks.evaluateAll((elements) => elements.map((element) => (element as HTMLInputElement).value)))
         .toEqual(["invalid-link", "invalid-link"]);
       expect(await page.locator('.attached-fact.incomplete[data-fact-id="fact-1"]').count()).toBe(2);
-      expect(await picker.locator('option[value="fact-1"]').count()).toBe(0);
+      expect(await picker.getByRole('article', { name: 'Gathered Fact 1', exact: true, includeHidden: true }).getByRole('button', { name: 'Attach fact', exact: true, includeHidden: true }).count()).toBe(0);
       expect(await page.evaluate(() => document.activeElement?.getAttribute("data-action"))).toBe("fact-link");
       await sharedLinks.first().fill("https://example.com/report");
       expect(await page.locator('.attached-fact.incomplete[data-fact-id="fact-1"]').count()).toBe(0);
