@@ -4,7 +4,7 @@ import type { ViewState } from "./board-view-state";
 export function openOutline(root: HTMLDivElement, view: ViewState) {
   const panel = root.querySelector<HTMLDialogElement>("#outline-panel");
   if (!panel || panel.open) return;
-  view.outlineReturn = view.editingPosition ? { ...view.editingPosition } : undefined;
+  view.outlineReturn = view.editingPosition?.stage === "construct" ? { ...view.editingPosition } : undefined;
   panel.showModal();
   panel.querySelector<HTMLButtonElement>("button")?.focus({ preventScroll: true });
 }

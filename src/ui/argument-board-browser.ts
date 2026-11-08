@@ -190,8 +190,8 @@ function renderConstructStage(
         <button type="button" id="view-outline" class="view-outline" data-action="open-outline" aria-haspopup="dialog" aria-controls="outline-panel">View outline</button>
       </div>
       <div class="starting-guidance">${renderStartingGuidance(board)}</div>
-      ${renderChecklist(issues)}
       <div class="construction-layout"><div class="construction-editor">
+      ${renderChecklist(issues)}
       <section class="scqa-grid" aria-label="Argument frame">
         ${renderTextPanel(board, "question", "What question must this answer?", "Question", facts)}
         ${renderTextPanel(board, "answer", "What is your tentative claim or main answer?", "Answer", facts)}
