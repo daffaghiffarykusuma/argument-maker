@@ -22,6 +22,7 @@ export async function verifyWritingReview(browser: Browser, appUrl: string) {
     await page.getByLabel("Descriptive citation", { exact: true }).fill("Workshop notes, page 7");
     await page.getByLabel("Descriptive citation", { exact: true }).press("Tab");
     await page.getByRole("tab", { name: "Construct Argument", exact: true }).click();
+    await page.locator('details[data-disclosure="context"] > summary').click();
     for (const destination of ["situation", "complication"]) {
       await page.locator(`[data-disclosure="destination-${destination}"] > summary`).click();
       await page.locator(`[data-action="attach-fact"][data-destination-id="${destination}"]`).selectOption("fact-1");
