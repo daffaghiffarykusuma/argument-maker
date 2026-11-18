@@ -1,9 +1,8 @@
+import type { Browser } from "playwright";
 import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
-const harnessModule = "./browser-harness.ts";
-const { withBrowserWorkflow }: typeof import("./browser-harness") = await import(harnessModule);
 
-await withBrowserWorkflow(3023, async (browser, url) => {
+export async function verifyResponsiveOutline(browser: Browser, url: string) {
   const page = await browser.newPage({ viewport: { width: 1024, height: 900 } });
   page.setDefaultTimeout(5000);
   await page.goto(url);
@@ -149,4 +148,4 @@ await withBrowserWorkflow(3023, async (browser, url) => {
   assert.equal(await returning.getByRole('heading', { name: 'Construct Argument', exact: true }).evaluate(el => el === document.activeElement), true, 'Stage navigation remains the sensible return location before a construction field is used');
   await returning.close();
   await page.close();
-});
+}

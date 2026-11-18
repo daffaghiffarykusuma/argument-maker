@@ -1,4 +1,4 @@
-import type { WritingDocument } from "../board/writing-export";
+import type { WritingDocument } from "../board/argument-preview-projection";
 import { escapeAttr, escapeHtml } from "./html";
 
 export function renderWritingDocument(doc: WritingDocument, idPrefix = "outline", options: { draft?: boolean } = {}): string {

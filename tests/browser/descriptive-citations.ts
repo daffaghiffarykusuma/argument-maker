@@ -1,18 +1,15 @@
-import { test } from "node:test";
+import type { Browser } from "playwright";
 import assert from "node:assert/strict";
-const attachmentFlowModule = './attachment-picker-flow.ts';
-const { attachGatheredFact }: typeof import('./attachment-picker-flow') = await import(attachmentFlowModule);
+import { attachGatheredFact } from "./attachment-picker-flow.ts";
 import { mkdirSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "../..");
 
-const harnessModule = "./browser-harness.ts";
-const { withBrowserWorkflow }: typeof import("./browser-harness") = await import(harnessModule);
 
-test("citation-only research can be entered, found, attached, revised and shared on desktop and mobile", { timeout: 90_000 }, async () => {
-  await withBrowserWorkflow(3005, async (browser, url) => {
+export async function verifyDescriptiveCitations(browser: Browser, url: string) {
+  await (async () => {
     const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
     page.setDefaultTimeout(10_000);
     await page.goto(url);
@@ -76,5 +73,5 @@ test("citation-only research can be entered, found, attached, revised and shared
     await page.getByRole("tab", { name: /Preview/ }).click();
     assert.equal(await page.locator('a[href^="javascript:"]').count(), 0);
     assert.match(await page.locator(".outline-preview").innerText(), /Missing or invalid evidence link/);
-  });
-});
+  })();
+}

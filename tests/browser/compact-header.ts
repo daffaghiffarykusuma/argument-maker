@@ -1,9 +1,8 @@
+import type { Browser } from "playwright";
 import assert from "node:assert/strict";
 import { mkdir, readFile } from "node:fs/promises";
-const harness = "./browser-harness.ts";
-const { withBrowserWorkflow }: typeof import("./browser-harness") = await import(harness);
 
-await withBrowserWorkflow(3021, async (browser, url) => {
+export async function verifyCompactHeader(browser: Browser, url: string) {
   const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
   page.setDefaultTimeout(5000);
   await page.goto(url);
@@ -60,5 +59,4 @@ await withBrowserWorkflow(3021, async (browser, url) => {
   await header.getByText("Argument Maker", { exact: true }).click();
   assert.equal(await page.getByRole("button", { name: "Download editable board", exact: true }).isVisible(), false);
   await page.close();
-});
-console.log("Compact header 3021 browser workflow passed");
+}

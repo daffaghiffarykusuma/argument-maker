@@ -2,8 +2,7 @@ import assert from "node:assert/strict";
 import { mkdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { Browser, Page } from "playwright";
-const attachmentFlowModule = "./attachment-picker-flow.ts";
-const { attachGatheredFact }: typeof import("./attachment-picker-flow") = await import(attachmentFlowModule);
+import { attachGatheredFact } from "./attachment-picker-flow.ts";
 
 export async function verifyWritingReview(browser: Browser, appUrl: string) {
   const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } });

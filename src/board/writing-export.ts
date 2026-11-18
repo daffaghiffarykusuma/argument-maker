@@ -1,45 +1,12 @@
-import { type ArgumentBoard, type GatheredFact } from "./argument-board";
-import { projectArgumentPreview, type ArgumentPreviewFact } from "./argument-preview-projection";
+import type { ArgumentBoard } from "./argument-board";
+import { projectArgumentPreview } from "./argument-preview-projection";
 import { createExportFileName } from "./export-file-contract";
 
-export interface WritingSection { label: string; text: string; supportMode?: string; facts: Array<{ text: string; citation: number; markers: string[] }>; notes: Array<{ label: string; text: string }> }
-export interface WritingDocument { title: string; sections: WritingSection[]; sources: Array<GatheredFact & Pick<ArgumentPreviewFact, "sourceReferenceStatus" | "formattedDataType"> & { citation: number }> }
+export type { WritingDocument, WritingSection } from "./argument-preview-projection";
 
-export function projectWritingDocument(board: ArgumentBoard): WritingDocument {
-  const preview = projectArgumentPreview(board);
-  const sources: WritingDocument["sources"] = [];
-  const sections = [...preview.chain, ...preview.arguments].map((item) => {
-    const argument = board.supportingArguments.find(({ id }) => id === item.id);
-    return {
-      label: item.label,
-      text: item.text,
-      supportMode: preview.arguments.find(({ id }) => id === item.id)?.supportMode,
-      facts: item.facts.map((fact) => {
-        let source = sources.find(({ id }) => id === fact.id);
-        if (!source) {
-          source = {
-            ...board.gatheredFacts.find(({ id }) => id === fact.id)!,
-            citation: sources.length + 1,
-            sourceReferenceStatus: fact.sourceReferenceStatus,
-            formattedDataType: fact.formattedDataType,
-          };
-          sources.push(source);
-        }
-        return { text: fact.text, citation: source.citation, markers: fact.markers };
-      }),
-      notes: argument ? [
-        { label: "How this supports the answer", text: argument.connection ?? "" },
-        { label: "Assumptions", text: argument.assumptions ?? "" },
-        { label: "Possible objection", text: argument.objection ?? "" },
-        { label: "What would weaken the claim", text: argument.weakensClaim ?? "" },
-      ].filter(({ text }) => text.trim()) : [],
-    };
-  });
-  return { title: board.title.trim() || "Untitled argument", sections, sources };
-}
-
+/** Formats the projection's writing document as a Markdown or text Writing export. The outline purpose keeps Support Modes and leaves out Reasoning notes. */
 export function createWritingExport(board: ArgumentBoard, format: "markdown" | "text", options: { draft?: boolean; purpose?: "outline" } = {}) {
-  const doc = projectWritingDocument(board);
+  const doc = projectArgumentPreview(board).writing;
   const markdown = format === "markdown";
   const text = (value: string) => markdown ? escapeMarkdown(value) : value;
   const lines = [markdown ? `# ${text(doc.title)}` : doc.title, ""];

@@ -1,11 +1,9 @@
+import type { Browser } from "playwright";
 import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
-const harnessModule = "./browser-harness.ts";
-const { withBrowserWorkflow }: typeof import("./browser-harness") = await import(harnessModule);
-const attachmentFlowModule = "./attachment-picker-flow.ts";
-const { attachGatheredFact }: typeof import("./attachment-picker-flow") = await import(attachmentFlowModule);
+import { attachGatheredFact } from "./attachment-picker-flow.ts";
 
-await withBrowserWorkflow(3022, async (browser, url) => {
+export async function verifyFocusedConstruction(browser: Browser, url: string) {
   const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
   page.setDefaultTimeout(8000);
   await page.goto(url);
@@ -91,10 +89,4 @@ await withBrowserWorkflow(3022, async (browser, url) => {
   await page.screenshot({ path: "output/playwright/focused-construction-02/mobile.png", fullPage: true });
   console.log("focused-construction-02: hierarchy, native undo, review return, draft summaries, attachments and responsive fit passed");
   await page.close();
-  for (const [module, method] of [["./question-first.ts", "verifyQuestionFirst"], ["./planning-context.ts", "verifyPlanningContext"], ["./review-navigation-06.ts", "verifyReviewNavigation06"], ["./reasoning-review.ts", "verifyReasoningReview"]]) {
-    const workflow = await import(module!);
-    await workflow[method!](browser, url);
-    console.log(`focused-construction-02: ${method} passed`);
-  }
-});
-
+}

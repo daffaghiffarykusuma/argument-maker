@@ -1,11 +1,10 @@
+import type { Browser } from "playwright";
 import assert from "node:assert/strict";
-import { test } from "node:test";
-const harnessModule = "./browser-harness.ts";
-const { withBrowserWorkflow }: typeof import("./browser-harness") = await import(harnessModule);
 
-for (const destination of ["review", "outline"] as const) {
-  test(`returning from ${destination} restores Evidence Link focus and scroll without errors`, async () => {
-    await withBrowserWorkflow(3030, async (browser, url) => {
+/** Returning from the Reasoning review and from the outline restores Evidence Link focus and scroll without errors. */
+export async function verifyEvidenceLinkReturn(browser: Browser, url: string) {
+  for (const destination of ["review", "outline"] as const) {
+    await (async () => {
       const page = await browser.newPage({ viewport: { width: 1024, height: 700 } });
       const errors: string[] = [];
       page.on("pageerror", error => errors.push(error.message));
@@ -30,6 +29,6 @@ for (const destination of ["review", "outline"] as const) {
       assert.equal(await link.inputValue(), "https://example.com/research");
       assert.deepEqual(errors, [], "Returning from an Evidence Link must not raise browser errors");
       await page.close();
-    });
-  });
+    })();
+  }
 }

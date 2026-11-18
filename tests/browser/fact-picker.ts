@@ -1,9 +1,8 @@
+import type { Browser } from "playwright";
 import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
-const harnessModule = "./browser-harness.ts";
-const { withBrowserWorkflow }: typeof import("./browser-harness") = await import(harnessModule);
 
-await withBrowserWorkflow(3025, async (browser, url) => {
+export async function verifyFactPicker(browser: Browser, url: string) {
   const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
   page.setDefaultTimeout(10_000);
   page.on('pageerror', error => console.error('picker page error', error));
@@ -102,4 +101,4 @@ await withBrowserWorkflow(3025, async (browser, url) => {
   await empty.getByRole('button', { name: 'Create new fact here' }).click();
   assert.equal(await empty.locator('.attached-fact').getByLabel('Fact text', { exact: true }).evaluate(el => el === document.activeElement), true);
   console.log('fact-picker-05: empty research recovery creates at the intended destination');
-});
+}

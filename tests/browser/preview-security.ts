@@ -1,10 +1,7 @@
-import { test } from "node:test";
+import type { Browser } from "playwright";
 import assert from "node:assert/strict";
 
-const boardModule = "../../src/board/argument-board.ts";
-const { createDefaultBoard }: typeof import("../../src/board/argument-board") = await import(boardModule);
-const harnessModule = "./browser-harness.ts";
-const { withBrowserWorkflow }: typeof import("./browser-harness") = await import(harnessModule);
+import { createDefaultBoard } from "../../src/board/argument-board.ts";
 
 const beacon = "https://diagram-beacon.invalid/pixel";
 const cases = [
@@ -22,8 +19,8 @@ const cases = [
   `\"Yes\" & <notes> > 50% #1; café 日本語 🙂`,
 ];
 
-test("imported SCQA, argument and reused fact labels cannot load external resources", { timeout: 90_000 }, async () => {
-  await withBrowserWorkflow(3011, async (browser, url) => {
+export async function verifyPreviewSecurity(browser: Browser, url: string) {
+  await (async () => {
     const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
     const externalRequests: string[] = [];
     await context.route("**/*", async (route) => {
@@ -69,5 +66,5 @@ test("imported SCQA, argument and reused fact labels cannot load external resour
         } finally { await page.close(); }
       }
     } finally { await context.close(); }
-  });
-});
+  })();
+}

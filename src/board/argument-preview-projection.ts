@@ -14,7 +14,23 @@ export interface ArgumentPreviewProjection {
   arguments: ArgumentPreviewArgument[];
   evidenceGroups: ArgumentPreviewEvidenceGroup[];
   mermaid: string;
-  outline: string;
+  /** Reading order with numbered sources, shared by the readable outline, print, review and Writing exports. */
+  writing: WritingDocument;
+}
+
+export interface WritingSection {
+  label: string;
+  text: string;
+  supportMode?: string;
+  facts: Array<{ text: string; citation: number; markers: string[] }>;
+  notes: Array<{ label: string; text: string }>;
+}
+
+export interface WritingDocument {
+  title: string;
+  sections: WritingSection[];
+  /** One entry per canonical Gathered Fact, numbered by first placement. */
+  sources: Array<GatheredFact & Pick<ArgumentPreviewFact, "sourceReferenceStatus" | "formattedDataType"> & { citation: number }>;
 }
 
 export interface ArgumentPreviewChainItem {
@@ -44,7 +60,6 @@ export interface ArgumentPreviewFact {
   label: string;
   evidenceLink: string;
   descriptiveCitation?: string;
-  evidenceLinkIsValid: boolean;
   sourceReferenceStatus: "valid-link" | "citation-only" | "invalid-link" | "missing";
   dataType: DataType;
   formattedDataType: string;
@@ -68,7 +83,8 @@ export function projectArgumentPreview(board: ArgumentBoard): ArgumentPreviewPro
     { id: "question", label: "Question", text: board.scqa.question.text, facts: [] },
     { id: "answer", label: "Answer", text: board.scqa.answer.text, facts: [] },
   ];
-  const argumentsView = activeArguments(board).map(({ argument, index }) => ({
+  const active = activeArguments(board);
+  const argumentsView = active.map(({ argument, index }) => ({
     id: argument.id,
     label: `Supporting Argument ${index + 1}`,
     text: argument.text,
@@ -87,66 +103,46 @@ export function projectArgumentPreview(board: ArgumentBoard): ArgumentPreviewPro
     arguments: argumentsView,
     evidenceGroups,
     mermaid: generateMermaid(chain, argumentsView),
-    outline: generateOutline(board.title, chain, argumentsView),
+    writing: projectWriting(board, chain, argumentsView, active.map(({ argument }) => argument)),
   };
 }
 
-function generateOutline(
-  title: string,
+function projectWriting(
+  board: ArgumentBoard,
   chain: ArgumentPreviewChainItem[],
   argumentsView: ArgumentPreviewArgument[],
-): string {
-  const lines: string[] = [`# ${title.trim() || "Untitled argument"}`, ""];
-  const incompleteEvidence: string[] = [];
-
-  for (const item of chain) {
-    lines.push(`${item.label}: ${item.text}`);
-    appendFacts(lines, incompleteEvidence, item.label, item.facts);
-  }
-
-  lines.push("");
-
-  for (const argument of argumentsView) {
-    lines.push(`${argument.label}: ${argument.text}`);
-    lines.push(`Support Mode: ${argument.supportMode}`);
-    appendFacts(lines, incompleteEvidence, argument.label, argument.facts);
-    lines.push("");
-  }
-
-  if (incompleteEvidence.length > 0) {
-    lines.push("Incomplete Evidence", ...incompleteEvidence);
-  }
-
-  return lines.join("\n").trimEnd();
+  activeSupportingArguments: SupportingArgument[],
+): WritingDocument {
+  const factsById = new Map(board.gatheredFacts.map((fact) => [fact.id, fact]));
+  const sources: WritingDocument["sources"] = [];
+  const cite = (fact: ArgumentPreviewFact) => {
+    let source = sources.find(({ id }) => id === fact.id);
+    if (!source) {
+      source = { ...factsById.get(fact.id)!, citation: sources.length + 1, sourceReferenceStatus: fact.sourceReferenceStatus, formattedDataType: fact.formattedDataType };
+      sources.push(source);
+    }
+    return { text: fact.text, citation: source.citation, markers: fact.markers };
+  };
+  const sections: WritingSection[] = [
+    ...chain.map((item) => ({ label: item.label, text: item.text, facts: item.facts.map(cite), notes: [] })),
+    ...argumentsView.map((item, index) => ({
+      label: item.label,
+      text: item.text,
+      supportMode: item.supportMode,
+      facts: item.facts.map(cite),
+      notes: reasoningNotes(activeSupportingArguments[index]!),
+    })),
+  ];
+  return { title: board.title.trim() || "Untitled argument", sections, sources };
 }
 
-function appendFacts(
-  lines: string[],
-  incompleteEvidence: string[],
-  destinationLabel: string,
-  facts: ArgumentPreviewFact[],
-) {
-  for (const fact of facts) {
-    const displayText = [fact.text.trim(), ...fact.markers].filter(Boolean).join(" ");
-    lines.push(`- ${displayText}`);
-
-    if (fact.dataType) {
-      lines.push(`  Data Type: ${fact.formattedDataType}`);
-    }
-
-    if (fact.sourceReferenceStatus === "valid-link") {
-      lines.push(`  Evidence Link: ${fact.evidenceLink}`);
-    } else if (fact.sourceReferenceStatus === "invalid-link") {
-      lines.push("  Evidence Link: [Invalid evidence link]");
-    } else if (fact.sourceReferenceStatus === "missing") {
-      lines.push("  Source reference: [Needs evidence link or descriptive citation]");
-    }
-    if (fact.descriptiveCitation?.trim()) lines.push(`  Descriptive citation: ${fact.descriptiveCitation}`);
-
-    if (fact.markers.length > 0) {
-      incompleteEvidence.push(`- ${destinationLabel}: ${displayText}`);
-    }
-  }
+function reasoningNotes(argument: SupportingArgument): WritingSection["notes"] {
+  return [
+    { label: "How this supports the answer", text: argument.connection ?? "" },
+    { label: "Assumptions", text: argument.assumptions ?? "" },
+    { label: "Possible objection", text: argument.objection ?? "" },
+    { label: "What would weaken the claim", text: argument.weakensClaim ?? "" },
+  ].filter(({ text }) => text.trim());
 }
 
 function activeArguments(board: ArgumentBoard): Array<{ argument: SupportingArgument; index: number }> {
@@ -164,8 +160,7 @@ function projectFact(fact: GatheredFact): ArgumentPreviewFact {
   const text = fact.text.trim();
   const labelParts = [text, ...markers].filter(Boolean);
   const content = labelParts.join(" ");
-  const evidenceLinkIsValid = isValidEvidenceLink(fact.evidenceLink);
-  const sourceReferenceStatus = evidenceLinkIsValid ? "valid-link"
+  const sourceReferenceStatus = isValidEvidenceLink(fact.evidenceLink) ? "valid-link"
     : fact.evidenceLink.trim() ? "invalid-link"
     : fact.descriptiveCitation?.trim() ? "citation-only" : "missing";
 
@@ -175,7 +170,6 @@ function projectFact(fact: GatheredFact): ArgumentPreviewFact {
     label: fact.dataType ? `${formatDataType(fact.dataType)}: ${content}` : content,
     evidenceLink: fact.evidenceLink,
     descriptiveCitation: fact.descriptiveCitation,
-    evidenceLinkIsValid,
     sourceReferenceStatus,
     dataType: fact.dataType,
     formattedDataType: formatDataType(fact.dataType),

@@ -57,18 +57,18 @@ describe("Argument Preview projection", () => {
     expect(preview.chain[1]!.facts[0]).toMatchObject({
       id: blankId,
       markers: ["[Needs fact text]", "[Needs evidence link or descriptive citation]"],
-      evidenceLinkIsValid: false,
+      sourceReferenceStatus: "missing",
     });
     expect(preview.arguments[0]!.facts[0]).toMatchObject({
       id: invalidId,
       markers: ["[Invalid evidence link]"],
-      evidenceLinkIsValid: false,
+      sourceReferenceStatus: "invalid-link",
     });
     expect(preview.mermaid).toContain("[Needs fact text]");
     expect(preview.mermaid).toContain("[Invalid evidence link]");
   });
 
-  test("generates the outline from the same ordered evidence projection", () => {
+  test("numbers writing sources once per canonical fact in reading order", () => {
     let board = { ...completeFrame(createDefaultBoard()), title: "Capacity case" };
     const argumentId = board.supportingArguments[0]!.id;
     board = applyArgumentBoardCommand(board, {
@@ -93,17 +93,20 @@ describe("Argument Preview projection", () => {
       changes: { text: "Capacity has not changed.", dataType: "observation" },
     });
 
-    const outline = projectArgumentPreview(board).outline;
+    const { writing } = projectArgumentPreview(board);
 
-    expect(outline).toContain("# Capacity case");
-    expect(outline).toContain("Situation: Demand is rising.");
-    expect(outline).toContain("- Demand rose 20%.");
-    expect(outline).toContain("  Data Type: Fact");
-    expect(outline).toContain("  Evidence Link: https://example.com/report");
-    expect(outline).toContain("- Capacity has not changed. [Invalid evidence link]");
-    expect(outline).toContain("Incomplete Evidence");
-    expect(outline).not.toContain("Unused research");
-    expect((outline.match(/Demand rose 20%\./g) ?? [])).toHaveLength(2);
+    expect(writing.title).toBe("Capacity case");
+    expect(writing.sections[0]).toMatchObject({ label: "Situation", text: "Demand is rising." });
+    expect(writing.sections.flatMap((section) => section.facts.map((fact) => [section.label, fact.citation]))).toEqual([
+      ["Situation", 1], ["Complication", 2], ["Supporting Argument 1", 1],
+    ]);
+    expect(writing.sections[1]!.facts[0]!.markers).toEqual(["[Invalid evidence link]"]);
+    expect(writing.sections.at(-1)!.supportMode).toBe("Evidence-backed");
+    expect(writing.sources.map((source) => [source.citation, source.text, source.formattedDataType, source.sourceReferenceStatus])).toEqual([
+      [1, "Demand rose 20%.", "Fact", "valid-link"],
+      [2, "Capacity has not changed.", "Observation", "invalid-link"],
+    ]);
+    expect(JSON.stringify(writing)).not.toContain("Unused research");
   });
 });
 

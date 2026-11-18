@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { createExampleBoard } from "./example-board";
-import { createWritingExport, projectWritingDocument } from "./writing-export";
+import { createWritingExport } from "./writing-export";
+import { projectArgumentPreview } from "./argument-preview-projection";
 import { createLocalDraft } from "./local-draft";
 import { createArgumentBoardSession } from "./argument-board-session";
 
@@ -64,7 +65,7 @@ test("planning context survives board files and opt-in draft restore while stayi
   expect(imported.importFile(session.exportFile().contents, () => true)?.ok).toBe(true);
   expect(imported.snapshot().board).toEqual(session.snapshot().board);
   expect(imported.snapshot().issues).toEqual(originalIssues);
-  for (const output of [session.copyOutline(), createWritingExport(session.snapshot().board, "markdown").contents, createWritingExport(session.snapshot().board, "text").contents, JSON.stringify(projectWritingDocument(session.snapshot().board))]) {
+  for (const output of [session.copyOutline(), createWritingExport(session.snapshot().board, "markdown").contents, createWritingExport(session.snapshot().board, "text").contents, JSON.stringify(projectArgumentPreview(session.snapshot().board).writing)]) {
     expect(output).not.toContain("Private audience");
     expect(output).not.toContain("Private intended outcome");
   }

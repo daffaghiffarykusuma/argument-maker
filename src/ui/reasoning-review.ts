@@ -1,6 +1,6 @@
 import type { ArgumentBoard } from "../board/argument-board";
 import type { ReviewIssue } from "../board/review";
-import { projectWritingDocument } from "../board/writing-export";
+import { projectArgumentPreview } from "../board/argument-preview-projection";
 import { renderReasoningPrompts } from "./enhancement-view";
 import { escapeAttr, escapeHtml } from "./html";
 import { renderWritingDocument } from "./writing-view";
@@ -22,7 +22,7 @@ export function renderReasoningReview(board: ArgumentBoard, issues: ReviewIssue[
       <p>Completeness checks required fields and support. It does not establish truth or reasoning quality.</p>
       ${issues.length ? `<ul>${issues.map((issue) => `<li><button type="button" class="issue-link" data-action="open-issue" data-target-id="${escapeAttr(issue.targetId)}">${escapeHtml(issue.message)}</button>${issue.fieldMessages?.map((message) => `<p>${escapeHtml(message)}</p>`).join("") ?? ""}</li>`).join("")}</ul>` : "<p>No structural gaps found. You decide whether the reasoning is convincing.</p>"}
     </section>
-    <details class="review-evidence" data-disclosure="review-evidence"><summary>Read current argument and evidence</summary>${renderWritingDocument(projectWritingDocument(board), "screen")}</details>
+    <details class="review-evidence" data-disclosure="review-evidence"><summary>Read current argument and evidence</summary>${renderWritingDocument(projectArgumentPreview(board).writing, "screen")}</details>
     <section aria-labelledby="review-notes-heading"><h3 id="review-notes-heading">Reflect on each Supporting Argument</h3>
       <p>Notes are saved with your board and can also be edited under Construct Argument.</p>
       ${board.supportingArguments.map((argument, index) => `<article class="argument-card"><h4>Supporting Argument ${index + 1}</h4><p>${escapeHtml(argument.text.trim() || "Reason not written yet")}</p>${renderReasoningPrompts(argument, true)}</article>`).join("") || "<p>No Supporting Arguments yet. Return to Construct Argument to add a reason.</p>"}
