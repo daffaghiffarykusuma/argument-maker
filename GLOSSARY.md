@@ -114,4 +114,14 @@ A read-only visualization of the current argument structure. The preview helps u
 
 ## Argument Preview Projection
 
-The render-ready structure derived from an Argument Board for Argument Preview, Mermaid source, outline export, and readiness labels. It owns active branch selection and evidence-link labeling so those rules stay consistent across outputs.
+The render-ready structure derived from an Argument Board for Argument Preview, Mermaid source, Reasoning review, the readable outline, print, and every Writing export. It owns active branch selection, evidence-link labeling, reading order, and source numbering so those rules stay consistent across outputs. Writing exports only format its writing document.
+
+## Writing review gate
+
+The optional step before the first Writing export in a board session. The author chooses **Review now**, which opens the Reasoning review and then continues the waiting export, or **Export draft**. Once chosen, later exports run immediately with that choice, and the Draft label can be toggled. Writing produced before any choice, such as a browser print, carries the Draft label. Importing, clearing, or replacing the board resets the choice.
+_Avoid_: Export approval, review requirement
+
+## Draft label
+
+A visible "Draft" marker on Copy Outline, Markdown, text, and print output. It tells readers the author shared the writing for feedback without completing a Reasoning review. It does not describe Local draft saving.
+_Avoid_: Local draft

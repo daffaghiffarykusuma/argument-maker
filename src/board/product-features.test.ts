@@ -4,7 +4,8 @@ import { createArgumentBoardSession } from "./argument-board-session";
 import { createExampleBoard } from "./example-board";
 import { createExportFile, parseExportFile } from "./export-file-contract";
 import { filterFacts } from "./fact-library";
-import { createWritingExport, projectWritingDocument } from "./writing-export";
+import { createWritingExport } from "./writing-export";
+import { projectArgumentPreview } from "./argument-preview-projection";
 
 test("field typing is one board undo step without losing redo or later independent edits", () => {
   const session = createArgumentBoardSession();
@@ -41,7 +42,7 @@ test("writing exports reuse citation numbers, preserve source metadata, and mark
   let board = createExampleBoard();
   board.gatheredFacts[0]!.quotation = "Keyboard navigation";
   board.gatheredFacts.push({ id: "unused", text: "Unused finding", touched: true, evidenceLink: "https://example.com/unused", dataType: "" });
-  const doc = projectWritingDocument(board);
+  const doc = projectArgumentPreview(board).writing;
   expect(doc.sources).toHaveLength(1);
   expect(doc.sections[1]!.facts[0]!.citation).toBe(doc.sections[4]!.facts[0]!.citation);
   expect(createWritingExport(board, "markdown").contents).toContain("Possible objection:");
@@ -72,7 +73,7 @@ test("Copy Outline retains support modes and citations without adding reasoning 
     expect(createWritingExport(board, "text").contents).toContain(text);
     expect(createWritingExport(board, "markdown").contents).toContain(text);
   }
-  expect(projectWritingDocument(board).sections[4]!.notes).toHaveLength(4);
+  expect(projectArgumentPreview(board).writing.sections[4]!.notes).toHaveLength(4);
 });
 
 test("fact search combines terms across metadata and filters unused or incomplete drafts", () => {

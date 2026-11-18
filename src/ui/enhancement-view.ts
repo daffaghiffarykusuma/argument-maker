@@ -1,5 +1,5 @@
 import type { ArgumentBoard } from "../board/argument-board";
-import { projectWritingDocument } from "../board/writing-export";
+import { projectArgumentPreview } from "../board/argument-preview-projection";
 import { escapeAttr, escapeHtml, safeDomId } from "./html";
 import { renderWritingDocument } from "./writing-view";
 
@@ -10,9 +10,9 @@ export function renderReasoningPrompts(argument: ArgumentBoard["supportingArgume
 }
 
 export function renderCompactOutline(board: ArgumentBoard): string {
-  return projectWritingDocument(board).sections.map((section) => `<div class="outline-item"><strong>${escapeHtml(section.label)}</strong><p>${escapeHtml(section.text || "Not written yet")}</p>${section.facts.length ? `<span>${section.facts.length} attached fact${section.facts.length === 1 ? "" : "s"}</span>` : ""}</div>`).join("");
+  return projectArgumentPreview(board).writing.sections.map((section) => `<div class="outline-item"><strong>${escapeHtml(section.label)}</strong><p>${escapeHtml(section.text || "Not written yet")}</p>${section.facts.length ? `<span>${section.facts.length} attached fact${section.facts.length === 1 ? "" : "s"}</span>` : ""}</div>`).join("");
 }
 
 export function renderPrintDocument(board: ArgumentBoard, draft = false) {
-  return `<div class="print-document">${renderWritingDocument(projectWritingDocument(board), "print", { draft })}</div>`;
+  return `<div class="print-document">${renderWritingDocument(projectArgumentPreview(board).writing, "print", { draft })}</div>`;
 }

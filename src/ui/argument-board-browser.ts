@@ -1,8 +1,4 @@
-import {
-  factUsageLabels,
-  type ArgumentBoard,
-  type SupportMode,
-} from "../board/argument-board";
+import type { ArgumentBoard, SupportMode } from "../board/argument-board";
 import { type ArgumentBoardSession, type WorkflowStage } from "../board/argument-board-session";
 
 type IconName = "copy" | "download" | "upload" | "undo" | "redo" | "trash" | "up" | "down" | "eye" | "eyeOff";
@@ -39,15 +35,17 @@ const commandDeskActions = {
   copyMermaid: { action: "copy-mermaid", label: "Copy Mermaid", icon: "copy" },
 } as const satisfies Record<string, CommandDeskActionControl>;
 
+import { hasOutlineContent, narrativeGuidance, suggestStartingStep } from "../board/construction-guidance";
 import { createExampleBoard } from "../board/example-board";
-import { createWritingExport } from "../board/writing-export";
-import { views, type ViewState, type WritingAction } from "./board-view-state";
-import { mountBoardControls, renderDraftControls, renderPreservingFocus } from "./board-controls";
+import { factDeletionImpact, usedFactCount } from "../board/fact-library";
+import { views, type ViewState } from "./board-view-state";
+import { mountBoardControls, renderDraftControls } from "./board-controls";
 import { renderReasoningPrompts, renderCompactOutline, renderPrintDocument } from "./enhancement-view";
 import { escapeHtml, escapeAttr, safeDomId } from "./html";
-import { restoreEditingPosition } from "./editing-position";
 import type { GatheredFactEditing } from "./gathered-fact-editing";
 import { renderReasoningReview, renderWritingInvitation } from "./reasoning-review";
+import { replaceRegion } from "./region";
+import type { WritingAction, WritingGateEvent } from "./writing-review-gate";
 
 export function mountArgumentBoardApp(appRoot: HTMLDivElement, initialSession?: ArgumentBoardSession) {
   const session = mountBoardControls(appRoot, initialSession, { render, change: handleChange, action: handleAction, upload: handleUpload, refresh: refreshEditingState });
@@ -59,6 +57,7 @@ function render(appRoot: HTMLDivElement, session: ArgumentBoardSession) {
   for (const details of appRoot.querySelectorAll<HTMLDetailsElement>('details[data-disclosure]')) view.disclosures.set(details.dataset.disclosure!, details.open);
   view.draft.flush();
   const snapshot = session.snapshot();
+  const writing = view.writing.view();
 
   appRoot.innerHTML = `
     <div class="app-shell">
@@ -68,10 +67,10 @@ function render(appRoot: HTMLDivElement, session: ArgumentBoardSession) {
         <div class="draft-controls">${renderDraftControls(view)}</div>
         <div class="stage-bar">
         ${renderStageNavigation(snapshot.stage)}
-        <div class="review-entry"><button id="open-reasoning-review" type="button" data-action="open-review" aria-expanded="${!!view.reviewOpen}">Reasoning review</button>${view.writingMode ? `<button type="button" data-action="toggle-draft-label" aria-pressed="${view.writingMode === "draft"}">Label writing exports as Draft</button>` : ""}</div>
+        <div class="review-entry"><button id="open-reasoning-review" type="button" data-action="open-review" aria-expanded="${writing.panel === "review"}">Reasoning review</button>${writing.label ? `<button type="button" data-action="toggle-draft-label" aria-pressed="${writing.label === "draft"}">Label writing exports as Draft</button>` : ""}</div>
         </div>
-        ${view.writingInvitationOpen ? renderWritingInvitation() : view.reviewOpen ? renderReasoningReview(snapshot.board, snapshot.issues, !!view.pendingWriting) : renderStage(snapshot.board, snapshot.stage, snapshot.issues, view)}
-        ${renderPrintDocument(snapshot.board, view.writingMode !== "reviewed")}
+        ${writing.panel === "invitation" ? renderWritingInvitation() : writing.panel === "review" ? renderReasoningReview(snapshot.board, snapshot.issues, writing.offerContinue) : renderStage(snapshot.board, snapshot.stage, snapshot.issues, view)}
+        ${renderPrintDocument(snapshot.board, writing.draft)}
       </main>
       <div class="copy-feedback" role="status" aria-label="Copy feedback" aria-live="polite" aria-atomic="true"><span>${escapeHtml(view.copyFeedback?.message ?? "")}</span></div>
     </div>
@@ -118,7 +117,7 @@ function renderWorkspaceHeader(canUndo: boolean, canRedo: boolean): string {
 }
 
 function renderTopbar(board: ArgumentBoard): string {
-  const usedCount = board.gatheredFacts.filter((fact) => factUsageLabels(board, fact.id).length > 0).length;
+  const usedCount = usedFactCount(board);
 
   return `
     <header class="topbar" aria-label="Argument board status">
@@ -252,32 +251,16 @@ function renderFramingSummary(board: ArgumentBoard, section: "context" | "planni
 }
 
 function renderStartingGuidance(board: ArgumentBoard): string {
-  if (!board.scqa.question.text.trim() && !board.scqa.answer.text.trim()) {
-    return `<p>Start with a question or a tentative claim. You can revise either as you learn and use any workspace tab at any time.</p><button type="button" data-action="focus-framing" data-target-id="scqa-question">Start with a question</button> <button type="button" data-action="focus-framing" data-target-id="scqa-answer">Start with a tentative claim</button>`;
-  }
-  if (board.gatheredFacts.length === 0) {
-    return `<p>Find material that supports or challenges your idea. You can also keep developing your reasoning here.</p><button type="button" data-action="stage" data-stage="gather">Gather supporting material</button>`;
-  }
-  if (!board.supportingArguments.some(argument => argument.text.trim())) {
-    return `<p>Explain how your supporting material leads to your Answer.</p><button type="button" data-action="focus-framing" data-target-id="supporting-arguments">Develop a supporting reason</button>`;
-  }
-  return `<p>Read your argument as a whole and look for gaps in its reasoning.</p><button type="button" data-action="stage" data-stage="preview">Preview your argument</button>`;
+  return {
+    frame: `<p>Start with a question or a tentative claim. You can revise either as you learn and use any workspace tab at any time.</p><button type="button" data-action="focus-framing" data-target-id="scqa-question">Start with a question</button> <button type="button" data-action="focus-framing" data-target-id="scqa-answer">Start with a tentative claim</button>`,
+    gather: `<p>Find material that supports or challenges your idea. You can also keep developing your reasoning here.</p><button type="button" data-action="stage" data-stage="gather">Gather supporting material</button>`,
+    reason: `<p>Explain how your supporting material leads to your Answer.</p><button type="button" data-action="focus-framing" data-target-id="supporting-arguments">Develop a supporting reason</button>`,
+    preview: `<p>Read your argument as a whole and look for gaps in its reasoning.</p><button type="button" data-action="stage" data-stage="preview">Preview your argument</button>`,
+  }[suggestStartingStep(board)];
 }
 
 function renderStartingOutline(board: ArgumentBoard): string {
-  return Object.values(board.scqa).some(slot => slot.text.trim()) || board.supportingArguments.some(argument => argument.text.trim())
-    ? renderCompactOutline(board)
-    : "<p>Your outline will take shape as you write.</p>";
-}
-
-function narrativeGuidance(board: ArgumentBoard, field: keyof ArgumentBoard["scqa"]): string {
-  if (!board.scqa[field].touched || board.scqa[field].text.trim()) return "";
-  return {
-    question: "Add the question you want your argument to answer.",
-    answer: "Add a tentative claim or main answer when you are ready.",
-    situation: "Describe the context your reader needs.",
-    complication: "Explain what changed or makes this matter.",
-  }[field];
+  return hasOutlineContent(board) ? renderCompactOutline(board) : "<p>Your outline will take shape as you write.</p>";
 }
 
 function renderTextPanel(
@@ -341,8 +324,11 @@ function renderModeControl(argumentId: string, mode: SupportMode): string {
 }
 
 function renderChecklist(issues: ReturnType<ArgumentBoardSession["snapshot"]>["issues"]): string {
+  return `<aside class="checklist" aria-label="Review checklist">${renderChecklistContent(issues)}</aside>`;
+}
+
+function renderChecklistContent(issues: ReturnType<ArgumentBoardSession["snapshot"]>["issues"]): string {
   return `
-    <aside class="checklist" aria-label="Review checklist">
       <h2>Structural checks</h2>
       <p>Check for missing parts whenever you are ready. These checks do not assess your reasoning.</p>
       <details data-disclosure="readiness"><summary>Review ${issues.length} structural issue${issues.length === 1 ? "" : "s"}</summary><ul>
@@ -361,7 +347,6 @@ function renderChecklist(issues: ReturnType<ArgumentBoardSession["snapshot"]>["i
                 .join("")
         }
       </ul></details>
-    </aside>
   `;
 }
 
@@ -400,7 +385,7 @@ function handleChange(
     return;
   }
 
-  if (refresh) renderPreservingFocus(appRoot, session, render);
+  if (refresh) rerender(appRoot, session);
 }
 
 function handleAction(appRoot: HTMLDivElement, session: ArgumentBoardSession, target: HTMLElement) {
@@ -412,43 +397,33 @@ function handleAction(appRoot: HTMLDivElement, session: ArgumentBoardSession, ta
 
   const view = views.get(appRoot)!;
   if (action === "open-review") {
-    if (!view.reviewOpen && !view.writingInvitationOpen) rememberReviewReturn(appRoot, session);
-    view.writingInvitationOpen = false;
-    view.reviewOpen = true;
+    sendWriting(appRoot, { type: "open-review" });
     renderAndFocus(appRoot, session, "reasoning-review-heading");
   } else if (action === "close-review") {
-    view.reviewOpen = false;
+    sendWriting(appRoot, { type: "close-review" });
     returnFromReview(appRoot, session);
   } else if (action === "review-writing") {
-    view.writingMode = "reviewed";
-    view.writingInvitationOpen = false;
-    view.reviewOpen = true;
+    sendWriting(appRoot, { type: "review-now" });
     renderAndFocus(appRoot, session, "reasoning-review-heading");
   } else if (action === "export-draft" || action === "continue-writing") {
-    const output = view.pendingWriting;
-    if (!output) return;
-    view.writingMode = action === "export-draft" ? "draft" : "reviewed";
-    view.writingInvitationOpen = false;
-    view.reviewOpen = false;
-    view.pendingWriting = undefined;
+    const { perform } = sendWriting(appRoot, { type: "choose-label", label: action === "export-draft" ? "draft" : "reviewed" });
+    if (!perform) return;
     render(appRoot, session);
-    focusWritingAction(appRoot, output);
-    performWritingAction(appRoot, session, output);
+    focusWritingMenu(appRoot);
+    performWritingAction(appRoot, session, perform);
   } else if (action === "cancel-writing") {
-    const output = view.pendingWriting;
-    view.writingInvitationOpen = false;
-    view.pendingWriting = undefined;
+    const { settled } = sendWriting(appRoot, { type: "cancel-export" });
     render(appRoot, session);
-    if (output) focusWritingAction(appRoot, output);
+    if (settled) focusWritingMenu(appRoot);
   } else if (action === "toggle-draft-label") {
-    view.writingMode = view.writingMode === "draft" ? "reviewed" : "draft";
-    renderPreservingFocus(appRoot, session, render);
+    sendWriting(appRoot, { type: "toggle-draft-label" });
+    rerender(appRoot, session);
   } else if (action === "load-example") {
     const result = session.importFile(JSON.stringify(createExampleBoard()), () => confirm("Replace this board with the worked example? You can undo this."));
     if (result?.ok) { resetWritingReview(view); view.facts.resetSearch(); session.setStage("construct"); renderAndFocus(appRoot, session, "stage-heading-construct"); }
   } else if (action === "preview-mode") {
     view.preview.setMode(target.dataset.mode === "outline" ? "outline" : "diagram");
-    renderPreservingFocus(appRoot, session, render);
+    rerender(appRoot, session);
   } else if (action === "zoom") {
     view.preview.zoom(target.dataset.zoom === "fit" ? "fit" : target.dataset.zoom === "in" ? "in" : "out");
   } else if (action === "download-writing") {
@@ -457,17 +432,16 @@ function handleAction(appRoot: HTMLDivElement, session: ArgumentBoardSession, ta
     requestWritingAction(appRoot, session, "print");
   } else if (action === "keep-this-draft") {
     view.draft.setEnabled(true);
-    renderPreservingFocus(appRoot, session, render);
+    rerender(appRoot, session);
   } else if (action === "load-other-draft") {
     if (view.draft.loadOther(() => confirm("Load the other tab's draft? You can undo this replacement."))) {
       resetWritingReview(view);
-      renderPreservingFocus(appRoot, session, render);
+      rerender(appRoot, session);
     }
   } else if (action === "focus-framing") {
     appRoot.querySelector<HTMLElement>(`#${target.dataset.targetId}`)?.focus();
   } else if (action === "stage") {
-    view.reviewOpen = false;
-    view.writingInvitationOpen = false;
+    sendWriting(appRoot, { type: "leave" });
     const stage = target.dataset.stage as WorkflowStage;
     session.setStage(stage);
     renderAndFocus(appRoot, session, `stage-heading-${stage}`);
@@ -540,56 +514,42 @@ function handleAction(appRoot: HTMLDivElement, session: ArgumentBoardSession, ta
 }
 
 function resetWritingReview(view: ViewState) {
-  view.editingPosition = undefined;
-  view.reviewReturn = undefined;
-  view.writingMode = undefined;
-  view.writingInvitationOpen = false;
-  view.pendingWriting = undefined;
-  view.reviewOpen = false;
+  view.writing.send({ type: "reset" });
+  view.positions.reset();
+}
+
+/** Every Writing review transition goes through here, so leaving a stage always holds the author's place. */
+function sendWriting(appRoot: HTMLDivElement, event: WritingGateEvent) {
+  const view = views.get(appRoot)!;
+  const outcome = view.writing.send(event);
+  if (outcome.leftStage) view.positions.hold("review", "open-reasoning-review");
+  return outcome;
 }
 
 function requestWritingAction(appRoot: HTMLDivElement, session: ArgumentBoardSession, action: WritingAction) {
-  const view = views.get(appRoot)!;
-  if (view.writingMode) {
-    performWritingAction(appRoot, session, action);
-    return;
-  }
-  if (!view.reviewOpen && !view.writingInvitationOpen) rememberReviewReturn(appRoot, session);
-  view.pendingWriting = action;
-  view.writingInvitationOpen = true;
-  view.reviewOpen = false;
-  renderAndFocus(appRoot, session, "writing-invitation-heading");
-}
-
-function rememberReviewReturn(appRoot: HTMLDivElement, session: ArgumentBoardSession) {
-  const view = views.get(appRoot)!;
-  const stage = session.snapshot().stage;
-  view.reviewReturn = view.editingPosition?.stage === stage ? { ...view.editingPosition } : {
-    stage, id: "open-reasoning-review", index: -1,
-    x: window.scrollX, y: window.scrollY, scrollTop: 0, scrollLeft: 0,
-  };
+  const { perform } = sendWriting(appRoot, { type: "request-export", action });
+  if (perform) performWritingAction(appRoot, session, perform);
+  else renderAndFocus(appRoot, session, "writing-invitation-heading");
 }
 
 function returnFromReview(appRoot: HTMLDivElement, session: ArgumentBoardSession) {
-  const view = views.get(appRoot)!;
-  const position = view.reviewReturn;
-  view.reviewReturn = undefined;
+  const { positions } = views.get(appRoot)!;
+  const position = positions.release("review");
   if (!position) { renderAndFocus(appRoot, session, "open-reasoning-review"); return; }
   session.setStage(position.stage);
   render(appRoot, session);
-  restoreEditingPosition(appRoot, view, position, appRoot.querySelector<HTMLElement>("#open-reasoning-review"));
+  positions.restore(position, appRoot.querySelector<HTMLElement>("#open-reasoning-review"));
 }
 
-function performWritingAction(appRoot: HTMLDivElement, session: ArgumentBoardSession, action: WritingAction) {
-  const draft = views.get(appRoot)!.writingMode === "draft";
+function performWritingAction(appRoot: HTMLDivElement, session: ArgumentBoardSession, { action, draft }: { action: WritingAction; draft: boolean }) {
   if (action === "copy-outline") void copyOutput(appRoot, session.copyOutline({ draft }), "Outline");
   else if (action === "print") {
     appRoot.querySelector(".print-document")!.outerHTML = renderPrintDocument(session.snapshot().board, draft);
     window.print();
-  } else downloadFile(createWritingExport(session.snapshot().board, action, { draft }));
+  } else downloadFile(session.exportWriting(action, { draft }));
 }
 
-function focusWritingAction(appRoot: HTMLDivElement, _action: WritingAction) {
+function focusWritingMenu(appRoot: HTMLDivElement) {
   appRoot.querySelector<HTMLElement>("#writing-menu-toggle")?.focus();
 }
 
@@ -611,25 +571,17 @@ async function copyOutput(appRoot: HTMLDivElement, contents: string, label: "Out
 }
 
 function deleteFact(appRoot: HTMLDivElement, session: ArgumentBoardSession, factId: string) {
-  const board = session.snapshot().board;
-  const index = board.gatheredFacts.findIndex((fact) => fact.id === factId);
-  if (index < 0) return;
+  const impact = factDeletionImpact(session.snapshot().board, factId);
+  if (!impact) return;
+  if (impact.usage.length > 0 && !confirm(`Delete this fact? It will be removed from ${new Intl.ListFormat("en").format(impact.usage)}.`)) return;
 
-  const usage = factUsageLabels(board, factId);
-  if (
-    usage.length > 0 &&
-    !confirm(`Delete this fact? It will be removed from ${new Intl.ListFormat("en").format(usage)}.`)
-  ) {
-    return;
-  }
-
-  const nextFocus = board.gatheredFacts[index + 1]?.id ?? board.gatheredFacts[index - 1]?.id;
+  const nextFocus = impact.nextFocusFactId;
   session.dispatch({ type: "delete-gathered-fact", factId });
   renderAndFocus(appRoot, session, nextFocus ? `fact-${safeDomId(nextFocus)}-text` : "add-fact");
 }
 
 function openIssue(appRoot: HTMLDivElement, session: ArgumentBoardSession, targetId: string) {
-  views.get(appRoot)!.reviewOpen = false;
+  sendWriting(appRoot, { type: "leave" });
   const board = session.snapshot().board;
   if (board.gatheredFacts.some((fact) => fact.id === targetId)) {
     focusCanonicalFact(appRoot, session, targetId);
@@ -654,15 +606,11 @@ function focusCanonicalFact(appRoot: HTMLDivElement, session: ArgumentBoardSessi
 
 function renderAndFocus(appRoot: HTMLDivElement, session: ArgumentBoardSession, focusId?: string) {
   render(appRoot, session);
-  if (focusId) {
-    const target = document.getElementById(focusId);
-    let ancestor = target?.parentElement;
-    while (ancestor) {
-      if (ancestor instanceof HTMLDetailsElement) ancestor.open = true;
-      ancestor = ancestor.parentElement;
-    }
-    target?.focus();
-  }
+  views.get(appRoot)!.positions.focus(focusId);
+}
+
+function rerender(appRoot: HTMLDivElement, session: ArgumentBoardSession) {
+  views.get(appRoot)!.positions.rerender(() => render(appRoot, session));
 }
 
 function downloadBoard(session: ArgumentBoardSession) {
@@ -755,32 +703,20 @@ function renderCommandButton(control: CommandDeskActionControl, attrs?: string):
   return renderIconButton({ ...control, attrs });
 }
 
+/** Update the regions that summarize the board while an editor inside them keeps focus. */
 function refreshEditingState(appRoot: HTMLDivElement, session: ArgumentBoardSession) {
-  const snapshot = session.snapshot();
-  const board = snapshot.board;
+  const { board, issues } = session.snapshot();
   for (const section of ["context", "planning"] as const) {
-    const summary = appRoot.querySelector(`[data-framing-summary="${section}"]`);
-    if (summary) summary.innerHTML = renderFramingSummary(board, section);
+    replaceRegion(appRoot.querySelector(`[data-framing-summary="${section}"]`), renderFramingSummary(board, section));
   }
-  for (const outline of appRoot.querySelectorAll(".construction-outline-content")) outline.innerHTML = renderStartingOutline(board);
-  const guidance = appRoot.querySelector(".starting-guidance");
-  if (guidance) guidance.innerHTML = renderStartingGuidance(board);
+  for (const outline of appRoot.querySelectorAll(".construction-outline-content")) replaceRegion(outline, renderStartingOutline(board));
+  replaceRegion(appRoot.querySelector(".starting-guidance"), renderStartingGuidance(board));
+  replaceRegion(appRoot.querySelector(".checklist"), renderChecklistContent(issues));
   for (const field of ["question", "answer", "situation", "complication"] as const) {
     const message = appRoot.querySelector<HTMLElement>(`#scqa-${field}-guidance`);
     if (message) {
       message.textContent = narrativeGuidance(board, field);
       message.hidden = !message.textContent;
     }
-  }
-  const checklist = appRoot.querySelector(".checklist");
-  if (checklist) {
-    const template = document.createElement("template");
-    template.innerHTML = renderChecklist(snapshot.issues);
-    const message = checklist.querySelector("p");
-    const list = checklist.querySelector("ul");
-    const summary = checklist.querySelector("summary");
-    if (message) message.textContent = template.content.querySelector("p")!.textContent;
-    if (list) list.innerHTML = template.content.querySelector("ul")!.innerHTML;
-    if (summary) summary.textContent = template.content.querySelector("summary")!.textContent;
   }
 }

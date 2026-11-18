@@ -1,11 +1,9 @@
+import type { Browser } from "playwright";
 import assert from "node:assert/strict";
-const attachmentFlowModule = './attachment-picker-flow.ts';
-const { attachGatheredFact }: typeof import('./attachment-picker-flow') = await import(attachmentFlowModule);
+import { attachGatheredFact } from "./attachment-picker-flow.ts";
 import { mkdir } from "node:fs/promises";
-const harnessModule = "./browser-harness.ts";
-const { withBrowserWorkflow }: typeof import("./browser-harness") = await import(harnessModule);
 
-await withBrowserWorkflow(3024, async (browser, url) => {
+export async function verifyFactSummaries(browser: Browser, url: string) {
   const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
   await page.goto(url);
   await page.getByRole("tab", { name: /Gather Facts/ }).click();
@@ -92,4 +90,4 @@ await withBrowserWorkflow(3024, async (browser, url) => {
   assert.equal(await situation.locator('.attached-fact').count(), 1);
   assert.match(await situation.innerText(), /Shared revision/);
   console.log("fact-summaries-04: keyboard disclosure, new attached editor, attachment ordering and removal passed");
-});
+}

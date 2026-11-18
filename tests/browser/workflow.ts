@@ -1,6 +1,4 @@
-const attachmentFlowModule = './attachment-picker-flow.ts';
-const { attachGatheredFact }: typeof import('./attachment-picker-flow') = await import(attachmentFlowModule);
-import { test } from "node:test";
+import { attachGatheredFact } from "./attachment-picker-flow.ts";
 import assert from "node:assert/strict";
 import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -8,32 +6,15 @@ const testDir = dirname(fileURLToPath(import.meta.url));
 function expect(actual: unknown) { return { toBe: (value: unknown) => assert.equal(actual, value), toEqual: (value: unknown) => assert.deepEqual(actual, value), toContain: (value: string) => assert.ok(String(actual).includes(value)), toBeTruthy: () => assert.ok(actual) }; }
 import { existsSync, mkdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
-import type { Page } from "playwright";
-// Node executes this TypeScript workflow directly, so its runtime import needs an extension.
-const clipboardWorkflowPath = "./clipboard.ts";
-const { verifyClipboardFeedback } = await import(clipboardWorkflowPath);
+import type { Browser, Page } from "playwright";
+import { verifyClipboardFeedback } from "./clipboard.ts";
 
 const smokeDir = join(testDir, "../..", "output", "browser-smoke");
 const screenshotPath = join(smokeDir, "argument-workflow.png");
 
-const harnessModule = "./browser-harness.ts";
-const { withBrowserWorkflow }: typeof import("./browser-harness") = await import(harnessModule);
-
-test("supports the question-first Argument Maker workflow in Chromium", { timeout: Number(process.env.ARGUMENT_BROWSER_TIMEOUT ?? 90_000) }, async () => {
+export async function verifyWorkflow(browser: Browser, appUrl: string) {
   try {
-    await withBrowserWorkflow(Number(process.env.ARGUMENT_BROWSER_PORT ?? 3000), async (browser, appUrl) => {
-      const questionFirstModule = "./question-first.ts";
-      const { verifyQuestionFirst } = await import(questionFirstModule);
-      await verifyQuestionFirst(browser, appUrl);
-      const planningContextModule = "./planning-context.ts";
-      const { verifyPlanningContext } = await import(planningContextModule);
-      await verifyPlanningContext(browser, appUrl);
-      const sourceReuseModule = "./source-reuse.ts";
-      const { verifySourceReuse } = await import(sourceReuseModule);
-      await verifySourceReuse(browser, appUrl);
-      const reasoningReviewModule = "./reasoning-review.ts";
-      const { verifyReasoningReview } = await import(reasoningReviewModule);
-      await verifyReasoningReview(browser, appUrl);
+    await (async () => {
       const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
       const page = await context.newPage();
       await page.goto(appUrl);
@@ -357,11 +338,11 @@ test("supports the question-first Argument Maker workflow in Chromium", { timeou
       await page.getByRole("button", { name: "Undo" }).click();
       expect(await page.locator(".fact-card").count()).toBe(3);
       console.log("browser-smoke: restored cascading deletion");
-    });
+    })();
   } finally {
     rmSync(smokeDir, { force: true, recursive: true });
   }
-});
+}
 
 async function fillAndCommit(page: Page, selector: string, value: string) {
   const locator = page.locator(selector).first();

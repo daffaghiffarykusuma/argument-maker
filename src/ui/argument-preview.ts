@@ -1,6 +1,5 @@
 import type { ArgumentBoard } from "../board/argument-board";
 import { projectArgumentPreview, type ArgumentPreviewFact } from "../board/argument-preview-projection";
-import { projectWritingDocument } from "../board/writing-export";
 import { escapeAttr, escapeHtml } from "./html";
 import { renderWritingDocument } from "./writing-view";
 
@@ -38,7 +37,7 @@ export function createArgumentPreview(root: HTMLDivElement, renderDiagram: Diagr
     render(board: ArgumentBoard, copyButton: string): string {
       const projection = projectArgumentPreview(board);
       source = projection.mermaid;
-      return renderPreviewStage(projection, board, mode, copyButton);
+      return renderPreviewStage(projection, mode, copyButton);
     },
     async sync(): Promise<void> {
       const currentGeneration = ++generation;
@@ -86,7 +85,7 @@ async function renderMermaid(id: string, source: string): Promise<string> {
   return (await mermaid.render(id, source)).svg;
 }
 
-function renderPreviewStage(preview: ReturnType<typeof projectArgumentPreview>, board: ArgumentBoard, mode: PreviewMode, copyButton: string): string {
+function renderPreviewStage(preview: ReturnType<typeof projectArgumentPreview>, mode: PreviewMode, copyButton: string): string {
   return `
     <section id="stage-panel-preview" class="workflow-stage preview-view" role="tabpanel" aria-labelledby="stage-tab-preview">
       <div class="section-heading">
@@ -96,7 +95,7 @@ function renderPreviewStage(preview: ReturnType<typeof projectArgumentPreview>, 
         ${copyButton}
       </div>
       <p class="verification-note">Link format checked; source quality and factual accuracy are not verified.</p>
-      ${renderPreviewTools(board, mode)}
+      ${renderPreviewTools(preview, mode)}
       <div class="mermaid-diagram" ${mode === "diagram" ? "" : "hidden"} role="img" aria-label="Rendered Argument Board workflow">
         <div class="mermaid-status">Rendering workflow...</div>
       </div>
@@ -147,12 +146,12 @@ function renderEvidenceSource(fact: ArgumentPreviewFact): string {
   return fact.sourceReferenceStatus === "citation-only" ? citation : '<span class="invalid-source">Evidence link or descriptive citation is missing</span>';
 }
 
-function renderPreviewTools(board: ArgumentBoard, mode: PreviewMode): string {
+function renderPreviewTools(preview: ReturnType<typeof projectArgumentPreview>, mode: PreviewMode): string {
   return `<div class="preview-tools" aria-label="Preview tools">
     <button type="button" data-action="preview-mode" data-mode="diagram" aria-pressed="${mode === "diagram"}">Diagram</button>
     <button type="button" data-action="preview-mode" data-mode="outline" aria-pressed="${mode === "outline"}">Readable outline</button>
     </div>
-    <div class="outline-preview" ${mode === "outline" ? "" : "hidden"}>${renderWritingDocument(projectWritingDocument(board))}</div>
+    <div class="outline-preview" ${mode === "outline" ? "" : "hidden"}>${renderWritingDocument(preview.writing)}</div>
     <div class="zoom-tools" ${mode === "diagram" ? "" : "hidden"}><button type="button" data-action="zoom" data-zoom="out" aria-label="Zoom out">−</button><output class="zoom-status" aria-live="polite">Fit</output><button type="button" data-action="zoom" data-zoom="in" aria-label="Zoom in">+</button><button type="button" data-action="zoom" data-zoom="fit">Fit to view</button></div>`;
 }
 

@@ -1,16 +1,13 @@
-import { test } from "node:test";
+import type { Browser } from "playwright";
 import assert from "node:assert/strict";
-const attachmentFlowModule = './attachment-picker-flow.ts';
-const { attachGatheredFact }: typeof import('./attachment-picker-flow') = await import(attachmentFlowModule);
+import { attachGatheredFact } from "./attachment-picker-flow.ts";
 import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
 
 
-const harnessModule = "./browser-harness.ts";
-const { withBrowserWorkflow }: typeof import("./browser-harness") = await import(harnessModule);
 
-test("new facts invite writing before validation and preserve keyboard editing", { timeout: 90_000 }, async () => {
-  await withBrowserWorkflow(Number(process.env.ARGUMENT_BROWSER_PORT ?? 3002), async (browser, url) => {
+export async function verifyFactGuidance(browser: Browser, url: string) {
+  await (async () => {
     const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
     page.on("pageerror", (error) => console.error("fact-guidance page error:", error));
     page.setDefaultTimeout(10_000);
@@ -83,5 +80,5 @@ test("new facts invite writing before validation and preserve keyboard editing",
     await page.setViewportSize({ width: 390, height: 844 });
     await fresh.screenshot({ path: join(output, "fresh-fact-mobile.png") });
     assert.equal(await fresh.locator(".fact-status").innerText(), "Draft");
-  });
-});
+  })();
+}

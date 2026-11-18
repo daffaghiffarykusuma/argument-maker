@@ -89,8 +89,9 @@ src/
   board/                # Board model, session, file contract, preview and review
     *.test.ts           # Unit tests beside the modules they exercise
   ui/                   # Browser rendering, event handling and styles
+    *.test.ts           # Unit tests for DOM-free UI state
 tests/
-  browser/              # End-to-end Chromium workflow test
+  browser/              # Chromium scenarios sharing one app server and browser
 public/                 # Static assets copied by Vite
 docs/
   prd/                  # Product requirements
@@ -107,11 +108,30 @@ and saved-board tracking. It coordinates the session's existing import and undo
 behavior. Browser controls forward events and display its snapshot; recovery
 tests use memory storage and a controlled clock through the same interface.
 
+`src/board/fact-library.ts` owns the rules for Gather Facts and Fact
+Attachments: search and filters, which facts a destination can attach and why,
+fact usage, and what deleting a fact affects. `src/board/construction-guidance.ts`
+suggests the next construction step. Both are unit-tested without a browser.
+
 `src/ui/gathered-fact-editing.ts` owns fact-field rendering and editing, shared
 editor updates, search/filter state, and filtered-card reconciliation. It keeps
 the active editor intact and refreshes completeness across Fact Attachments.
-Board commands and history remain in `src/board/`; browser workflow tests cover
-focus, native undo, filtering, and shared edits.
+One function decides how a fact's completeness shows, for the full render and
+for partial refreshes alike. Browser scenarios cover focus, native undo,
+filtering, and shared edits.
+
+`src/ui/writing-review-gate.ts` owns the optional Reasoning review in front of
+Writing exports: which panel replaces the stage, which export is waiting, and
+whether exports carry the Draft label. It has no DOM and is unit-tested.
+`src/ui/editing-position.ts` remembers where the author is writing, holds that
+place across the Reasoning review or outline dialog, and restores focus,
+selection and scroll after re-rendering. `src/ui/region.ts` replaces one region
+of markup while keeping its open disclosures and focused control.
+
+`src/board/argument-preview-projection.ts` is the one projection of a board for
+reading: the Mermaid diagram, evidence groups, and the writing document with
+numbered sources used by the readable outline, print, Reasoning review, and
+Writing exports. `src/board/writing-export.ts` only formats that document.
 
 `src/ui/argument-preview.ts` owns preview markup, mode, diagram caching, pending
 renders, failure recovery, zoom, and resize handling. After replacing the app
@@ -123,18 +143,22 @@ checks actual Mermaid rendering in the complete workflow.
 ## Checks
 
 ```bash
-bun run test:unit       # Board logic, no browser required
-bun run test:browser    # Full workflow; requires Playwright Chromium
+bun run test:unit       # Board logic and DOM-free UI state, no browser required
+bun run test:browser    # Every browser scenario; requires Playwright Chromium
+bun run test:scenario fact-picker writing-review   # Named scenarios only
 bun run typecheck      # Application and test TypeScript
 bun run build          # Production bundle in dist/
 ```
 
 Install the browser once with `bunx playwright install chromium`. Use Node.js 24.x
-for the Playwright workflow. The Bun browser test runs that
-workflow in Node because Chromium's pipe hangs under Bun on Windows. `bun test`
-runs both test suites. Browser workflows start their own Vite servers on ports
-3000, 3002, 3005, 3008, and 3011; keep those ports free. The shared runner closes
-Chromium and its test server after success, failure, or timeout.
+for the Playwright scenarios. The Bun browser test runs them in one Node process
+because Chromium's pipe hangs under Bun on Windows, then reports each scenario as
+its own test. `bun test` runs both suites. The runner starts one Vite server on
+a free port and one Chromium, runs every scenario in `tests/browser/scenarios.ts`
+against them, and closes both after success, failure, or timeout. A scenario that
+exceeds `ARGUMENT_SCENARIO_TIMEOUT` (default 180000 ms) fails and the rest still
+run. Add a scenario by exporting `(browser, appUrl) => Promise<void>` and
+registering it in `tests/browser/scenarios.ts`.
 Temporary smoke-test files use `output/browser-smoke/`
 and are removed after the run. Local browser-review artifacts live in
 `output/playwright/`; generated output is ignored by Git.

@@ -3,7 +3,7 @@ import { mkdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { Browser } from "playwright";
 
-export async function verifyReviewNavigation06(browser: Browser, appUrl: string) {
+export async function verifyReviewNavigation(browser: Browser, appUrl: string) {
   const context = await browser.newContext({ viewport: { width: 1440, height: 800 } });
   const page = await context.newPage();
   try {

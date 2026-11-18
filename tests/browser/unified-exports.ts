@@ -1,10 +1,8 @@
+import type { Browser } from "playwright";
 import assert from "node:assert/strict";
 import { mkdir, readFile } from "node:fs/promises";
-const harness = "./browser-harness.ts";
-const { withBrowserWorkflow }: typeof import("./browser-harness") = await import(harness);
-console.log("Ticket 07 starting owned browser workflow on 3027");
 
-await withBrowserWorkflow(3027, async (browser, url) => {
+export async function verifyUnifiedExports(browser: Browser, url: string) {
   const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
   page.setDefaultTimeout(5000);
   try {
@@ -53,5 +51,4 @@ await withBrowserWorkflow(3027, async (browser, url) => {
       assert.equal(await header.locator("#board-menu-toggle").evaluate(el => el === document.activeElement), true);
     }
   } finally { await page.close(); }
-});
-console.log("Ticket 07 unified writing exports passed");
+}

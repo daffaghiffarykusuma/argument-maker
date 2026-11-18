@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import { createArgumentBoardSession } from "./argument-board-session";
 import { readFactAttachments } from "./argument-board";
 import { createExportFile, parseExportFile } from "./export-file-contract";
-import { createWritingExport, projectWritingDocument } from "./writing-export";
+import { createWritingExport } from "./writing-export";
 import { projectArgumentPreview } from "./argument-preview-projection";
 import { createLocalDraft } from "./local-draft";
 
@@ -55,7 +55,7 @@ test("citation-only research retains source numbering, classification and escapi
   } });
   session.dispatch({ type: "attach-fact", destinationId: "complication", factId: "fact-1" });
   const board = session.snapshot().board;
-  const doc = projectWritingDocument(board);
+  const doc = projectArgumentPreview(board).writing;
   expect(doc.sources).toHaveLength(1);
   expect(doc.sections[0]!.facts[0]!.citation).toBe(1);
   expect(doc.sections[1]!.facts[0]!.citation).toBe(1);
@@ -65,9 +65,8 @@ test("citation-only research retains source numbering, classification and escapi
   expect(text).not.toContain("Missing or invalid evidence link");
   expect(createWritingExport(board, "markdown").contents).toContain("Interview \\<notes\\> \\[p. 3\\]");
   const preview = projectArgumentPreview(board);
-  expect(preview.outline).toContain("Descriptive citation: Interview <notes> [p. 3]");
-  expect(preview.outline).not.toContain("Needs evidence link");
   expect(preview.chain[0]!.facts[0]!.markers).toEqual([]);
+  expect(session.copyOutline()).not.toContain("Needs evidence link");
   expect(session.copyOutline()).toContain("Descriptive citation: Interview <notes> [p. 3]");
   expect(session.copyOutline()).toContain("Observed a delay [1]");
 });

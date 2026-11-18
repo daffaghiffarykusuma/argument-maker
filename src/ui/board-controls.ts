@@ -3,8 +3,9 @@ import { createLocalDraft } from "../board/local-draft";
 import { type ArgumentBoardSession, type WorkflowStage } from "../board/argument-board-session";
 import { views, type ViewState } from "./board-view-state";
 import { escapeHtml } from "./html";
+import { createEditingPosition, type EditingPositionTracker } from "./editing-position";
 import { createGatheredFactEditing } from "./gathered-fact-editing";
-import { openOutline, closeOutline } from "./responsive-outline";
+import { createWritingReviewGate } from "./writing-review-gate";
 
 type Editor = HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
 interface Controls {
@@ -30,40 +31,28 @@ export function mountBoardControls(root: HTMLDivElement, initial: ArgumentBoardS
   const facts = createGatheredFactEditing(root, session, disclosures);
   views.get(root)?.preview.dispose();
   const preview = createArgumentPreview(root);
-  const view: ViewState = { draft, facts, preview, disclosures };
+  const positions = createEditingPosition(root, () => session.snapshot().stage);
+  const view: ViewState = { draft, facts, preview, positions, writing: createWritingReviewGate(), disclosures };
   views.set(root, view);
   const wideOutline = window.matchMedia("(min-width: 1201px)");
   wideOutline.addEventListener("change", () => {
-    if (wideOutline.matches) closeOutline(root, view);
+    if (wideOutline.matches) closeOutline(root, positions);
   });
   root.addEventListener("cancel", event => {
     if (event.target instanceof HTMLDialogElement && event.target.id === "outline-panel") {
-      event.preventDefault(); closeOutline(root, view);
+      event.preventDefault(); closeOutline(root, positions);
     }
   }, true);
   // Record the writing location before moving to utility controls can scroll it away.
-  const rememberEditingPosition = (target: EventTarget | null) => {
-    if (!(target instanceof HTMLElement)) return;
-    if (target.closest("#outline-panel, #view-outline")) return;
-    const panel = target.closest('[role="tabpanel"]');
-    if (!panel || !target.matches('button, input, textarea, select, summary, [tabindex]')) return;
-    view.editingPosition = {
-      stage: session.snapshot().stage, id: target.id,
-      index: [...panel.querySelectorAll('button, input, textarea, select, summary, [tabindex]')].indexOf(target),
-      x: window.scrollX, y: window.scrollY, scrollTop: target.scrollTop, scrollLeft: target.scrollLeft,
-      selection: target instanceof HTMLTextAreaElement || (target instanceof HTMLInputElement && ["text", "search", "url"].includes(target.type))
-        ? [target.selectionStart, target.selectionEnd, target.selectionDirection ?? "none"] : undefined,
-    };
-  };
-  for (const event of ["focusin", "input", "keyup", "pointerup"]) root.addEventListener(event, event => rememberEditingPosition(event.target));
+  for (const event of ["focusin", "input", "keyup", "pointerup"]) root.addEventListener(event, event => positions.track(event.target));
   for (const event of ["wheel", "touchmove"]) root.addEventListener(event, () => {
     const active = document.activeElement;
     requestAnimationFrame(() => {
-      if (active === document.activeElement) rememberEditingPosition(active);
+      if (active === document.activeElement) positions.track(active);
     });
   }, { passive: true });
   let renderTimer: ReturnType<typeof setTimeout> | undefined;
-  const render = () => renderPreservingFocus(root, session, controls.render);
+  const render = () => positions.rerender(() => controls.render(root, session));
   const cancelRender = () => { if (renderTimer) clearTimeout(renderTimer); renderTimer = undefined; };
   window.addEventListener("beforeunload", (event) => {
     draft.flush();
@@ -138,8 +127,8 @@ export function mountBoardControls(root: HTMLDivElement, initial: ArgumentBoardS
     const target = (event.target as HTMLElement).closest<HTMLElement>("[data-action]");
     if (target?.dataset.action === "open-outline" || target?.dataset.action === "close-outline") {
       cancelRender(); session.finishEdit();
-      if (target.dataset.action === "open-outline") openOutline(root, view);
-      else closeOutline(root, view);
+      if (target.dataset.action === "open-outline") openOutline(root, positions);
+      else closeOutline(root, positions);
       return;
     }
     if (target?.matches("button")) {
@@ -190,8 +179,7 @@ export function mountBoardControls(root: HTMLDivElement, initial: ArgumentBoardS
       const index = tabs.indexOf(target as HTMLButtonElement);
       const next = event.key === "Home" ? 0 : event.key === "End" ? tabs.length - 1 : (index + (event.key === "ArrowRight" ? 1 : -1) + tabs.length) % tabs.length;
       session.setStage(tabs[next]!.dataset.stage as WorkflowStage);
-      view.reviewOpen = false;
-      view.writingInvitationOpen = false;
+      view.writing.send({ type: "leave" });
       controls.render(root, session);
       root.querySelector<HTMLButtonElement>(`[data-stage="${session.snapshot().stage}"]`)?.focus();
     } else if (target.matches('.file-button') && ["Enter", " "].includes(event.key)) {
@@ -224,18 +212,21 @@ function updateDraftControls(root: HTMLDivElement) {
   }
 }
 
-export function renderPreservingFocus(root: HTMLDivElement, session: ArgumentBoardSession, render: Controls["render"]) {
-  const active = document.activeElement as HTMLElement | null;
-  const selector = 'button, input, textarea, select, summary, [tabindex]';
-  const index = active ? [...root.querySelectorAll(selector)].indexOf(active) : -1;
-  const id = active?.id;
-  const selection = active instanceof HTMLTextAreaElement || (active instanceof HTMLInputElement && ["text", "search", "url"].includes(active.type)) ? [active.selectionStart, active.selectionEnd] : undefined;
-  const x = window.scrollX, y = window.scrollY;
-  render(root, session);
-  const replacement = id ? document.getElementById(id) : [...root.querySelectorAll<HTMLElement>(selector)][index];
-  replacement?.focus({ preventScroll: true });
-  if (selection && (replacement instanceof HTMLInputElement || replacement instanceof HTMLTextAreaElement)) replacement.setSelectionRange(selection[0] ?? null, selection[1] ?? null);
-  window.scrollTo(x, y);
+// Keep the editor mounted while inspecting structure, including its native undo stack.
+function openOutline(root: HTMLDivElement, positions: EditingPositionTracker) {
+  const panel = root.querySelector<HTMLDialogElement>("#outline-panel");
+  if (!panel || panel.open) return;
+  positions.hold("outline");
+  panel.showModal();
+  panel.querySelector<HTMLButtonElement>("button")?.focus({ preventScroll: true });
+}
+
+function closeOutline(root: HTMLDivElement, positions: EditingPositionTracker) {
+  const panel = root.querySelector<HTMLDialogElement>("#outline-panel");
+  if (!panel?.open) return;
+  panel.close();
+  const fallback = root.querySelector<HTMLElement>(window.matchMedia("(min-width: 1201px)").matches ? "#stage-heading-construct" : "#view-outline");
+  positions.restore(positions.release("outline"), fallback);
 }
 
 export function renderDraftControls(view: ViewState): string {
