@@ -66,8 +66,10 @@ function render(appRoot: HTMLDivElement, session: ArgumentBoardSession) {
       <main class="desk-main">
         ${renderTopbar(snapshot.board)}
         <div class="draft-controls">${renderDraftControls(view)}</div>
+        <div class="stage-bar">
         ${renderStageNavigation(snapshot.stage)}
         <div class="review-entry"><button id="open-reasoning-review" type="button" data-action="open-review" aria-expanded="${!!view.reviewOpen}">Reasoning review</button>${view.writingMode ? `<button type="button" data-action="toggle-draft-label" aria-pressed="${view.writingMode === "draft"}">Label writing exports as Draft</button>` : ""}</div>
+        </div>
         ${view.writingInvitationOpen ? renderWritingInvitation() : view.reviewOpen ? renderReasoningReview(snapshot.board, snapshot.issues, !!view.pendingWriting) : renderStage(snapshot.board, snapshot.stage, snapshot.issues, view)}
         ${renderPrintDocument(snapshot.board, view.writingMode !== "reviewed")}
       </main>
@@ -84,7 +86,7 @@ function render(appRoot: HTMLDivElement, session: ArgumentBoardSession) {
 function renderWorkspaceHeader(canUndo: boolean, canRedo: boolean): string {
   return `
     <header class="workspace-header" aria-label="Workspace commands">
-      <div class="workspace-brand">Argument Maker</div>
+      <div class="workspace-brand"><svg class="brand-mark" aria-hidden="true" viewBox="0 0 24 24"><path d="M7 7v11.5M7 12.5h11M7 18.5h11" fill="none" stroke="#3c4f46" stroke-width="1.5" stroke-linecap="round"/><circle cx="7" cy="5.5" r="3" fill="#d8b15e"/><circle cx="7" cy="12.5" r="2.1" fill="#0e1613" stroke="#d8b15e" stroke-width="1.3"/><circle cx="7" cy="18.5" r="2.1" fill="#0e1613" stroke="#d8b15e" stroke-width="1.3"/></svg><span>Argument Maker</span></div>
       <div class="workspace-actions">
         <details class="writing-menu" data-disclosure="writing-menu">
           <summary id="writing-menu-toggle">Export writing</summary>
@@ -124,7 +126,7 @@ function renderTopbar(board: ArgumentBoard): string {
         <input id="board-title" class="title-input" aria-label="Board title" value="${escapeAttr(board.title)}" placeholder="A good argument starts here." data-action="title" />
       </div>
       <div class="desk-status">
-        <div><strong>${String(board.gatheredFacts.length).padStart(2, "0")}</strong><span>facts gathered</span></div><div><strong>${String(usedCount).padStart(2, "0")}</strong><span>in your argument</span></div>
+        <div><strong>${board.gatheredFacts.length}</strong><span>${board.gatheredFacts.length === 1 ? "fact" : "facts"} gathered</span></div><div><strong>${usedCount}</strong><span>in your argument</span></div>
       </div>
     </header>
   `;
@@ -332,8 +334,8 @@ function renderModeControl(argumentId: string, mode: SupportMode): string {
   return `
     <fieldset class="segmented">
       <legend>Support Mode</legend>
-      <label><input id="mode-${safeId}-reasoning" type="radio" name="mode-${safeId}" data-action="mode-change" data-argument-id="${escapeAttr(argumentId)}" value="reasoning" ${mode === "reasoning" ? "checked" : ""} /> Reasoning</label>
-      <label><input id="mode-${safeId}-evidence" type="radio" name="mode-${safeId}" data-action="mode-change" data-argument-id="${escapeAttr(argumentId)}" value="evidence-backed" ${mode === "evidence-backed" ? "checked" : ""} /> Evidence-backed</label>
+      <span class="segmented-options"><label><input id="mode-${safeId}-reasoning" type="radio" name="mode-${safeId}" data-action="mode-change" data-argument-id="${escapeAttr(argumentId)}" value="reasoning" ${mode === "reasoning" ? "checked" : ""} /> Reasoning</label>
+      <label><input id="mode-${safeId}-evidence" type="radio" name="mode-${safeId}" data-action="mode-change" data-argument-id="${escapeAttr(argumentId)}" value="evidence-backed" ${mode === "evidence-backed" ? "checked" : ""} /> Evidence-backed</label></span>
     </fieldset>
   `;
 }
