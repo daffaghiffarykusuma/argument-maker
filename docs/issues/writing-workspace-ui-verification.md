@@ -4,7 +4,7 @@ All seven approved slices are integrated on `integration/writing-workspace-ui`.
 The original base is `93e44e623d5596a937720410be8c851bf49ce9f2`.
 The complete implementation was reviewed at `77db93e68912e2fd48bfa97b5b2f2a82a987238d`, followed by the focused review changes described below.
 
-The [specification](writing-workspace-ui-spec.md) and [design brief](../prd/writing-workspace-ui.md) remain the product contract. Each local ticket under `.scratch/writing-workspace-ui/issues/` contains its implementation and red/green evidence. External tracker publication was not configured and no external issue, PR, push, or deployment was created.
+The [specification](writing-workspace-ui-spec.md) and [design brief](../prd/writing-workspace-ui.md) remain the product contract. Each local ticket under `.scratch/writing-workspace-ui/issues/` (removed after closing; see Git history at commit d6e05a6) contains its implementation and red/green evidence. External tracker publication was not configured and no external issue, PR, push, or deployment was created.
 
 ## Validation
 

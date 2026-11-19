@@ -1,6 +1,6 @@
 # Argument UX implementation verification
 
-Implemented on `feat/anderson-ux` on 2026-10-07, against [the approved specification](anderson-ux-improvements-spec.md). All eight local tickets are under `.scratch/anderson-ux-improvements/issues/`. No external tracker is configured; no tracker issues or pull request were created.
+Implemented on `feat/anderson-ux` on 2026-10-07, against [the approved specification](anderson-ux-improvements-spec.md). All eight local tickets were under `.scratch/anderson-ux-improvements/issues/`; that folder was removed after closing and remains in Git history at commit d6e05a6. No external tracker is configured; no tracker issues or pull request were created.
 
 The implementation starts with a Question or tentative Answer, preserves optional private Audience and Intended outcome, supports descriptive citations and source reuse, improves fact and clipboard guidance, and adds optional Reasoning review with visibly labeled draft writing exports. Editable board downloads remain direct.
 

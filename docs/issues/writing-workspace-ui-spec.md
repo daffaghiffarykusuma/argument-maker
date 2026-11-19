@@ -1,6 +1,6 @@
 # Create a calmer writing workspace with clearer research, review, and exports
 
-Delivery status: implemented on `integration/writing-workspace-ui`; all seven approved local tickets under `.scratch/writing-workspace-ui/issues/` are done. The user approved the ticket graph and browser testing boundary before implementation. See [combined verification and review](writing-workspace-ui-verification.md). Project external issue-tracker configuration was not found; no external issue or label was created. Run `/setup-matt-pocock-skills` for external tracking.
+Delivery status: implemented on `integration/writing-workspace-ui`; all seven approved local tickets under `.scratch/writing-workspace-ui/issues/` are done (the folder was removed after closing and remains in Git history at commit d6e05a6). The user approved the ticket graph and browser testing boundary before implementation. See [combined verification and review](writing-workspace-ui-verification.md). Project external issue-tracker configuration was not found; no external issue or label was created. Run `/setup-matt-pocock-skills` for external tracking.
 
 ## Problem Statement
 
