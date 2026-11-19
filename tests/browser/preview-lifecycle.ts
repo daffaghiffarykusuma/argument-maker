@@ -145,6 +145,37 @@ export async function verifyPreviewLifecycle() {
     absent.close();
   }
 
+  const prepared = fixture();
+  try {
+    prepared.preview.prepare(prepared.board);
+    await Promise.resolve();
+    check(prepared.requests.length === 1, "preparing must start the diagram before Review is shown");
+    prepared.preview.prepare(prepared.board);
+    const visit = prepared.show();
+    await Promise.resolve();
+    check(prepared.requests.length === 1, "a visit must reuse the prepared diagram");
+    prepared.requests[0]!.resolve();
+    await visit;
+    check(prepared.svgId() === prepared.requests[0]!.id, "prepared result must reach the visit");
+    prepared.board.scqa.answer.text = "Changed after preparing.";
+    prepared.preview.prepare(prepared.board);
+    await Promise.resolve();
+    prepared.requests[1]!.reject();
+    // The rejection settles through the render chain over several microtasks.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    const retried = prepared.show();
+    await Promise.resolve();
+    check(Number(prepared.requests.length) === 3, "a failed preparation must not block a fresh render on the visit");
+    prepared.requests[2]!.resolve();
+    await retried;
+    prepared.preview.setMode("outline");
+    prepared.preview.prepare(prepared.board);
+    await Promise.resolve();
+    check(Number(prepared.requests.length) === 3, "outline mode must not prepare a diagram");
+  } finally {
+    prepared.close();
+  }
+
   const left = fixture();
   const right = fixture();
   try {
@@ -169,5 +200,5 @@ export async function verifyPreviewLifecycle() {
     right.close();
   }
 
-  return "pending reuse, stale success/failure, retry, navigation, zoom/resize, independent instances and disposal";
+  return "pending reuse, preparation ahead of a visit, stale success/failure, retry, navigation, zoom/resize, independent instances and disposal";
 }

@@ -11,6 +11,7 @@ export async function verifyFactSummaries(browser: Browser, url: string) {
   await page.getByRole("tab", { name: /Gather Facts/ }).click();
   const card = page.locator(".fact-card").first();
   assert.equal(await card.getByRole("textbox", { name: "Fact text", exact: true }).isVisible(), false, "Existing facts start as summaries");
+  assert.equal(await card.locator("textarea, input, select").count(), 0, "A closed editor renders no fields until it opens");
   assert.match(await card.innerText(), /Source reference/);
   assert.match(await card.innerText(), /Used in/);
   await mkdir("output/playwright/fact-summaries-04", { recursive: true });
@@ -57,6 +58,13 @@ export async function verifyFactSummaries(browser: Browser, url: string) {
   await page.getByRole("tab", { name: /Gather Facts/ }).click();
   assert.match(await card.innerText(), /Shared revision/);
   assert.match(await card.innerText(), /Field notebook, page 9/);
+  // Close the library editor: leaving and returning renders it without fields.
+  await card.getByText("Edit fact", { exact: true }).click();
+  await page.getByRole("tab", { name: /Construct Argument/ }).click();
+  await page.locator(".attached-fact").first().getByRole("button", { name: "Open in Gathered Facts", exact: true }).click();
+  const revealed = card.getByRole("textbox", { name: "Fact text", exact: true });
+  assert.equal(await revealed.evaluate((el) => el === document.activeElement), true, "Navigation reaches a field of a closed editor");
+  assert.equal(await revealed.inputValue(), "Shared revision");
   console.log("fact-summaries-04: attached summaries, live shared fields and native undo passed");
   await page.getByRole("button", { name: "Add fact" }).click();
   const fresh = page.locator(".fact-card").last();

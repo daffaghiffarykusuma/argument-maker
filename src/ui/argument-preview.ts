@@ -41,6 +41,20 @@ export function createArgumentPreview(root: HTMLDivElement, renderDiagram: Diagr
     if (output) output.textContent = `${Math.round(zoom * 100)}%`;
   }
 
+  /** The one retained diagram for `requested`, started if it is not already pending or done. */
+  function request(requested: string) {
+    if (diagram?.source !== requested) {
+      const id = `argument-preview-${++nextDiagramId}`;
+      const entry = { source: requested, svg: Promise.resolve().then(() => renderDiagram(id, requested)) };
+      // A failed render is evicted so a later visit retries, but an older failure must not evict newer work.
+      entry.svg.catch(() => {
+        if (diagram === entry) diagram = undefined;
+      });
+      diagram = entry;
+    }
+    return diagram;
+  }
+
   return {
     render(board: ArgumentBoard, copyButton: string): string {
       const projection = projectArgumentPreview(board);
@@ -54,12 +68,7 @@ export function createArgumentPreview(root: HTMLDivElement, renderDiagram: Diagr
       const container = root.querySelector<HTMLDivElement>(".mermaid-diagram");
       if (disposed || !container || container.hidden || mode !== "diagram") return;
       // Retain just the latest source, including pending work across stage changes.
-      if (diagram?.source !== source) {
-        const requestedSource = source;
-        const id = `argument-preview-${++nextDiagramId}`;
-        diagram = { source, svg: Promise.resolve().then(() => renderDiagram(id, requestedSource)) };
-      }
-      const requestedDiagram = diagram;
+      const requestedDiagram = request(source);
       try {
         const svg = await requestedDiagram.svg;
         if (currentGeneration === generation && !disposed) {
@@ -69,13 +78,16 @@ export function createArgumentPreview(root: HTMLDivElement, renderDiagram: Diagr
           container.scrollLeft = (container.scrollWidth - container.clientWidth) / 2;
         }
       } catch {
-        // An older failure must not evict a newer pending or completed diagram.
-        if (diagram === requestedDiagram) diagram = undefined;
         if (currentGeneration === generation && !disposed) {
           container.innerHTML =
             '<div class="mermaid-status error">The workflow could not be rendered. Check the Mermaid source below.</div>';
         }
       }
+    },
+    /** Start rendering this board's diagram ahead of a likely visit to Review; the visit then reuses it. */
+    prepare(board: ArgumentBoard) {
+      if (disposed || mode !== "diagram") return;
+      request(projectArgumentPreview(board).mermaid);
     },
     setMode(nextMode: PreviewMode) {
       mode = nextMode;
@@ -98,6 +110,41 @@ export type ArgumentPreview = ReturnType<typeof createArgumentPreview>;
 async function renderMermaid(id: string, source: string): Promise<string> {
   const mermaid = await loadMermaid();
   return (await mermaid.render(id, source)).svg;
+}
+
+let warmup: Promise<unknown> | undefined;
+let idleWarmupScheduled = false;
+
+/**
+ * Fetch Mermaid and its flowchart code before the author opens Review, so the first diagram does not wait on a
+ * chain of downloads. `idle` waits for a quiet moment and is scheduled at most once; otherwise it starts now.
+ */
+export function preloadDiagramRenderer({ idle = false } = {}) {
+  if (warmup || (idle && idleWarmupScheduled)) return;
+  if (idle) {
+    idleWarmupScheduled = true;
+    const start = () => preloadDiagramRenderer();
+    if ("requestIdleCallback" in window) requestIdleCallback(start, { timeout: 5000 });
+    else setTimeout(start, 2000);
+    return;
+  }
+  warmup = loadMermaid()
+    .then(async (mermaid) => {
+      // Lay out one node out of sight: that also fetches the layout engine and readies the render path.
+      const scratch = document.createElement("div");
+      scratch.setAttribute("aria-hidden", "true");
+      scratch.style.cssText = "position:fixed;left:-10000px;top:0;width:640px;visibility:hidden;pointer-events:none";
+      document.body.append(scratch);
+      try {
+        await mermaid.render("argument-preview-warmup", 'flowchart TD\n  warmup["Warmup"]', scratch);
+      } finally {
+        scratch.remove();
+      }
+    })
+    .catch(() => {
+      // A failed warmup is retried by the next signal of intent; Review reports real render failures itself.
+      warmup = undefined;
+    });
 }
 
 function renderPreviewStage(
@@ -186,9 +233,11 @@ function loadMermaid() {
       mermaid.initialize({
         startOnLoad: false,
         securityLevel: "strict",
+        // Mermaid 12 lays flowcharts out with ELK by default, a further 1.5 MB download. Dagre places this one-way tree just as well.
+        layout: "dagre",
         theme: "base",
         // Wider labels keep each claim to a few lines, so the chart stays legible at Fit.
-        flowchart: { wrappingWidth: 300, nodeSpacing: 36, rankSpacing: 44, padding: 14 },
+        flowchart: { wrappingWidth: 300, nodeSpacing: 36, rankSpacing: 40, padding: 14, curve: "rounded" },
         themeVariables: {
           background: "#0b120f",
           primaryColor: "#1a2621",

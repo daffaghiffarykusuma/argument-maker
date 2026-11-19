@@ -1,4 +1,4 @@
-import { createArgumentPreview } from "./argument-preview";
+import { createArgumentPreview, preloadDiagramRenderer } from "./argument-preview";
 import { createLocalDraft } from "../board/local-draft";
 import type { ArgumentBoardSession, WorkflowStage } from "../board/argument-board-session";
 import { views, type ViewState } from "./board-view-state";
@@ -33,7 +33,11 @@ export function mountBoardControls(root: HTMLDivElement, initial: ArgumentBoardS
   const facts = createGatheredFactEditing(root, session, disclosures);
   views.get(root)?.preview.dispose();
   const preview = createArgumentPreview(root);
-  const positions = createEditingPosition(root, () => session.snapshot().stage);
+  const positions = createEditingPosition(
+    root,
+    () => session.snapshot().stage,
+    (id) => facts.reveal(id),
+  );
   const view: ViewState = {
     draft,
     facts,
@@ -57,6 +61,13 @@ export function mountBoardControls(root: HTMLDivElement, initial: ArgumentBoardS
     },
     true,
   );
+  // Pointing at or tabbing to Review signals the diagram is next; start fetching and drawing it before the click.
+  for (const event of ["pointerover", "focusin"])
+    root.addEventListener(event, (event) => {
+      if (!(event.target instanceof Element) || !event.target.closest('[data-stage="preview"], [data-action="review-writing"]')) return;
+      preloadDiagramRenderer();
+      if (session.snapshot().stage !== "preview") preview.prepare(session.snapshot().board);
+    });
   // Record the writing location before moving to utility controls can scroll it away.
   for (const event of ["focusin", "input", "keyup", "pointerup"]) root.addEventListener(event, (event) => positions.track(event.target));
   for (const event of ["wheel", "touchmove"])
@@ -88,8 +99,13 @@ export function mountBoardControls(root: HTMLDivElement, initial: ArgumentBoardS
   root.addEventListener(
     "toggle",
     (event) => {
+      // A fact editor opened by script rather than by its summary still needs its fields.
+      if (event.target instanceof HTMLDetailsElement && event.target.matches(".fact-editor") && event.target.open) {
+        facts.openEditor(event.target);
+      }
       if (event.target instanceof HTMLDetailsElement && event.target.matches(".attachment-picker") && event.target.open) {
         cancelRender();
+        facts.openPicker(event.target);
         event.target.querySelector<HTMLInputElement>("input")?.focus();
       }
       if (event.target instanceof HTMLDetailsElement && event.target.dataset.disclosure)
@@ -165,6 +181,9 @@ export function mountBoardControls(root: HTMLDivElement, initial: ArgumentBoardS
     }, 0);
   });
   root.addEventListener("click", (event) => {
+    // Add a closed fact editor's fields before the browser opens it, so it never paints empty.
+    const editor = (event.target as Element).closest("summary")?.parentElement;
+    if (editor instanceof HTMLDetailsElement && editor.matches(".fact-editor") && !editor.open) facts.openEditor(editor);
     for (const menu of root.querySelectorAll<HTMLDetailsElement>(".board-menu, .writing-menu")) {
       if (menu.open && !menu.contains(event.target as Node)) {
         menu.open = false;
@@ -229,8 +248,12 @@ export function mountBoardControls(root: HTMLDivElement, initial: ArgumentBoardS
       picker.querySelector<HTMLElement>("summary")?.focus();
       return;
     }
-    const menu = root.querySelector<HTMLDetailsElement>(".board-menu[open], .writing-menu[open]");
-    if (event.key === "Escape" && menu?.open) {
+    // Only Escape needs the open menu; looking it up on every keystroke would search the whole page each time.
+    const menu =
+      event.key === "Escape"
+        ? [...root.querySelectorAll<HTMLDetailsElement>(".board-menu, .writing-menu")].find((menu) => menu.open)
+        : undefined;
+    if (menu) {
       event.preventDefault();
       menu.open = false;
       view.disclosures.set(menu.dataset.disclosure!, false);

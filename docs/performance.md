@@ -136,8 +136,86 @@ one-source eviction, zoom persistence and limits, resize fitting, independent
 app instances, and disposal during pending work. The cache timings above predate
 this ownership refactor; no additional speed improvement is claimed.
 
+## Large boards and the first Review (2026-11-20)
+
+Measured on the production build (`vite build` + `vite preview`) in headless
+Chromium at 1280 x 800. Boards were opened through Upload with every fact
+complete and attached, split evenly across Situation, Complication and the
+Supporting Arguments. Before and after builds ran alternately on the same
+machine, two rounds each; ranges are the two round medians. Typing times are
+the synchronous input handler plus a forced layout; stage switches are the
+click handler plus a forced layout. Painting is excluded.
+
+| Board, interaction | Before | After |
+| --- | ---: | ---: |
+| 30 facts, typing in Answer | 4–5 ms | 2 ms |
+| 30 facts, switch to Construct Argument | 34–52 ms | 15 ms |
+| 100 facts, typing in Answer | 15–21 ms | 3 ms |
+| 100 facts, switch to Construct Argument | 130–231 ms | 29–31 ms |
+| 100 facts, switch to Gather Facts | 85 ms | 45–47 ms |
+| 300 facts, typing in Answer | 59–64 ms | 10–12 ms |
+| 300 facts, typing in a fact | 36–40 ms | 9–14 ms |
+| 300 facts, switch to Construct Argument | 522–620 ms | 87–99 ms |
+| 300 facts, switch to Gather Facts | 206–326 ms | 132–153 ms |
+
+First visit to Review with the worked example, in-page timing from the click
+to the diagram SVG, five runs each, after three seconds in Construct Argument:
+
+| Conditions | Before | After |
+| --- | ---: | ---: |
+| Unthrottled | 769–1186 ms | 35–72 ms |
+| 4x CPU, 150 ms latency, 1.6 Mbps | 6.9–7.6 s | 0.27–1.04 s |
+| Requests / gzip on first Review, 200 ms after opening the example | 27 / 646 KB | 9 / 51 KB |
+
+The pointer in that run rested over a Review control, so the diagram was
+prepared before the click. Reaching Review with no hover or focus first, such
+as by Alt+4, still waits for one Mermaid render: about 250–300 ms unthrottled.
+Initial load did not change: 158 KB gzip and the same first contentful paint.
+
+### Changes
+
+- Mermaid 12 lays out flowcharts with ELK by default, which alone is 466 KB
+  gzip. The preview sets `layout: "dagre"` with rounded edges and 40 px rank
+  spacing, which renders this tree at the same size and shape.
+- Once the author has started, an idle callback imports Mermaid and renders
+  one hidden node, which also fetches the layout engine. Pointing at or
+  focusing a Review control starts rendering the current diagram into the
+  preview's one-entry cache, which the visit then reuses.
+- Each board gets one lazily built index of facts by id, complete facts,
+  argument positions and fact usage labels. `factUsageLabels`,
+  `readFactAttachments` and `destinationLabel` no longer scan the board on
+  every call. Evidence Link validity is cached per string.
+- Closed attachment pickers stay empty and fill when opened. Closed fact
+  editors render only their summary and receive their fields when first
+  opened, by summary click before the browser opens them or by the `toggle`
+  event. The fields then stay, so native undo survives collapse and reopen.
+  Navigation to a field inside a closed editor reveals it first.
+- Per-keystroke DOM work avoids attribute-value searches across the page,
+  skips Construct-only regions on other stages, leaves unchanged regions
+  untouched, and checks open menus only on Escape. The editing-position
+  tracker measures scroll on the next animation frame, and settles at once
+  when focus moves or a held place is needed.
+
+### Not changed
+
+- `content-visibility: auto` on fact and argument cards gave a mixed,
+  noise-level result and empties `innerText` of off-screen cards, so it was
+  removed.
+- Dropping `text-rendering: optimizeLegibility` saved 5–15% of a stage switch,
+  but only by skipping kerning on Caslon text.
+- Mermaid deep-copies its configuration for every shape it draws, which sets
+  the floor for a fresh render.
+
+### Reproduce
+
+Generate a board of the shape above, upload it into a fresh tab on
+`bunx vite preview` after `bun run build`, and time
+`element.click()` or an `input` event dispatch followed by
+`document.body.offsetHeight`. Open the first fact editor before timing typing
+in a fact. For the first Review, observe `.mermaid-diagram svg` with a
+`MutationObserver`.
+
 ## Next candidate
 
-Mermaid is already dynamically imported. The production build emits large
-optional diagram chunks, but total build output is not initial network payload.
-Measure the actual first-preview requests before changing the Mermaid bundle.
+Very large libraries still lay out every fact card. If 300-fact boards become
+common, measure windowing the Gather Facts library before anything else.

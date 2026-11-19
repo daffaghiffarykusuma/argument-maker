@@ -18,6 +18,21 @@ import {
 import { escapeAttr, escapeHtml, safeDomId } from "./html";
 
 type Editor = HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
+type Disclosures = ReadonlyMap<string, boolean>;
+type EditorKind = "library" | "attached";
+type FactState = ReturnType<typeof factState>;
+// The ids a fact editor gives its controls, after the editor's prefix.
+const editorIdSuffixes = new Set([
+  "type",
+  "text",
+  "link",
+  "citation",
+  "citation-label",
+  "source-help",
+  "sourceTitle",
+  "sourceDate",
+  "quotation",
+]);
 interface FactSearch {
   query: string;
   filter: FactFilter;
@@ -51,7 +66,7 @@ export function createGatheredFactEditing(root: HTMLDivElement, session: Argumen
         let card = cards.get(fact.id);
         if (!card) {
           const template = document.createElement("template");
-          template.innerHTML = renderFactCard(board, fact, untouchedFacts.has(fact.id));
+          template.innerHTML = renderFactCard(board, fact, disclosures, untouchedFacts.has(fact.id));
           card = template.content.firstElementChild as HTMLElement;
           for (const details of card.querySelectorAll<HTMLDetailsElement>("details[data-disclosure]")) {
             details.open = disclosures.get(details.dataset.disclosure!) ?? details.open;
@@ -69,35 +84,51 @@ export function createGatheredFactEditing(root: HTMLDivElement, session: Argumen
   }
 
   function refreshFact(fact: GatheredFact) {
-    const id = CSS.escape(fact.id);
     const state = factState(fact, untouchedFacts.has(fact.id));
-    for (const container of root.querySelectorAll<HTMLElement>(`.fact-card[data-fact-id="${id}"], .attached-fact[data-fact-id="${id}"]`)) {
+    const feedbackHtml = renderFactFeedback(state);
+    // Browsers index classes but not attribute values: select by class, then match the fact here.
+    for (const container of root.querySelectorAll<HTMLElement>(".fact-card, .attached-fact")) {
+      if (container.dataset.factId !== fact.id) continue;
       container.classList.toggle("incomplete", state.incomplete);
       const status = container.querySelector(".fact-status");
-      if (status) status.textContent = state.status;
+      if (status && status.textContent !== state.status) status.textContent = state.status;
       const summary = container.querySelector(".fact-summary");
       if (summary) summary.innerHTML = renderFactSummary(fact);
       const feedback = container.querySelector(".fact-feedback");
-      if (feedback) feedback.innerHTML = renderFactFeedback(state);
-    }
-    const editors = root.querySelectorAll<Editor>(
-      `input[data-fact-id="${id}"], textarea[data-fact-id="${id}"], select[data-fact-id="${id}"]`,
-    );
-    for (const editor of editors) {
-      if (editor === document.activeElement) continue;
-      const field = factField(editor);
-      if (field && editor.value !== (fact[field] ?? "")) editor.value = fact[field] ?? "";
+      if (feedback && feedback.innerHTML !== feedbackHtml) feedback.innerHTML = feedbackHtml;
+      // Every editor of a fact sits in one of its cards or attached copies.
+      for (const editor of container.querySelectorAll<Editor>("input[data-fact-id], textarea[data-fact-id], select[data-fact-id]")) {
+        if (editor === document.activeElement) continue;
+        const field = factField(editor);
+        if (field && editor.value !== (fact[field] ?? "")) editor.value = fact[field] ?? "";
+      }
     }
     const board = session.snapshot().board;
     for (const count of root.querySelectorAll<HTMLElement>(".destination-facts > summary > .attached-count")) {
       const html = renderAttachedCount(board, count.closest<HTMLElement>(".destination-facts")!.dataset.destinationId!);
       if (count.outerHTML !== html) count.outerHTML = html;
     }
-    for (const picker of root.querySelectorAll<HTMLElement>(".attachment-picker")) {
-      refreshPicker(board, picker);
+    for (const picker of root.querySelectorAll<HTMLDetailsElement>(".attachment-picker")) {
+      if (picker.open) refreshPicker(board, picker);
       const guidance = picker.closest(".destination-facts")?.querySelector(".attachment-guidance");
       const html = renderAttachmentGuidance(attachmentAvailability(board, picker.dataset.destinationId!));
       if (guidance && guidance.innerHTML !== html) guidance.innerHTML = html;
+    }
+  }
+
+  /** Add a closed editor's fields from the current board, keeping its Source details where the author left them. */
+  function openEditor(editor: HTMLDetailsElement) {
+    const kind = editor.dataset.lazy as EditorKind | undefined;
+    const factId = editor.closest<HTMLElement>(".fact-card, .attached-fact")?.dataset.factId;
+    const fact = session.snapshot().board.gatheredFacts.find(({ id }) => id === factId);
+    if (!kind || !fact) return;
+    delete editor.dataset.lazy;
+    editor.insertAdjacentHTML(
+      "beforeend",
+      renderEditorFields(kind, fact, editor.dataset.prefix!, factState(fact, untouchedFacts.has(fact.id))),
+    );
+    for (const details of editor.querySelectorAll<HTMLDetailsElement>("details[data-disclosure]")) {
+      details.open = disclosures.get(details.dataset.disclosure!) ?? details.open;
     }
   }
 
@@ -108,10 +139,10 @@ export function createGatheredFactEditing(root: HTMLDivElement, session: Argumen
 
   return {
     renderLibrary(board: ArgumentBoard) {
-      return renderGatherStage(board, search, untouchedFacts);
+      return renderGatherStage(board, search, untouchedFacts, disclosures);
     },
     renderAttachments(board: ArgumentBoard, destinationId: FactDestinationId) {
-      return renderDestinationFacts(board, destinationId, untouchedFacts);
+      return renderDestinationFacts(board, destinationId, untouchedFacts, disclosures);
     },
     beginFact(factId: string) {
       untouchedFacts.add(factId);
@@ -149,6 +180,25 @@ export function createGatheredFactEditing(root: HTMLDivElement, session: Argumen
     },
     reconcile() {
       reconcile(session.snapshot().board);
+    },
+    /** Give a closed editor its fields as it opens. */
+    openEditor(editor: HTMLDetailsElement) {
+      if (editor.dataset.lazy) openEditor(editor);
+    },
+    /** Find a control by id, first adding the fields of the closed editor that would hold it. */
+    reveal(id: string): HTMLElement | null {
+      for (const editor of root.querySelectorAll<HTMLDetailsElement>(".fact-editor[data-lazy]")) {
+        const prefix = editor.dataset.prefix!;
+        if (id.startsWith(`${prefix}-`) && editorIdSuffixes.has(id.slice(prefix.length + 1))) {
+          openEditor(editor);
+          return document.getElementById(id);
+        }
+      }
+      return null;
+    },
+    /** Fill a picker as it opens; closed pickers stay empty so a board with many facts and destinations keeps a small DOM. */
+    openPicker(picker: HTMLDetailsElement) {
+      refreshPicker(session.snapshot().board, picker);
     },
     resetSearch() {
       search.query = "";
@@ -196,7 +246,7 @@ function renderFactFeedback(state: ReturnType<typeof factState>): string {
     : "";
 }
 
-function renderGatherStage(board: ArgumentBoard, view: FactSearch, untouchedFacts: ReadonlySet<string>): string {
+function renderGatherStage(board: ArgumentBoard, view: FactSearch, untouchedFacts: ReadonlySet<string>, disclosures: Disclosures): string {
   return `
     <section id="stage-panel-gather" class="workflow-stage" role="tabpanel" aria-labelledby="stage-tab-gather">
       <h2 id="stage-heading-gather" class="stage-title" tabindex="-1">Gather Facts</h2>
@@ -211,7 +261,7 @@ function renderGatherStage(board: ArgumentBoard, view: FactSearch, untouchedFact
             ? `<div class="empty-state"><div class="empty-slip" aria-hidden="true"><p>A finding you can point to.</p><small>Its source: a link, a book passage, an interview</small></div><h3>No facts yet</h3><p>Add a finding and its source, or open a worked example to see how a finished board fits together.</p><button type="button" data-action="load-example">Worked example</button></div>`
             : filterFacts(board, view.query, view.filter).length
               ? filterFacts(board, view.query, view.filter)
-                  .map((fact) => renderFactCard(board, fact, untouchedFacts.has(fact.id)))
+                  .map((fact) => renderFactCard(board, fact, disclosures, untouchedFacts.has(fact.id)))
                   .join("")
               : '<p class="fact-no-results">No matching facts. Change the search or filter.</p>'
         }
@@ -220,7 +270,7 @@ function renderGatherStage(board: ArgumentBoard, view: FactSearch, untouchedFact
   `;
 }
 
-function renderFactCard(board: ArgumentBoard, fact: GatheredFact, untouched = false): string {
+function renderFactCard(board: ArgumentBoard, fact: GatheredFact, disclosures: Disclosures, untouched = false): string {
   const { number, usage } = describeFact(board, fact);
   const state = factState(fact, untouched);
   const prefix = `fact-${safeDomId(fact.id)}`;
@@ -238,23 +288,7 @@ function renderFactCard(board: ArgumentBoard, fact: GatheredFact, untouched = fa
         </div>
       </div>
       <div class="fact-summary">${renderFactSummary(fact)}</div>
-      <details class="fact-editor" data-disclosure="editor-${prefix}" ${untouched ? "open" : ""}>
-      <summary>Edit fact</summary>
-      <div class="fact-fields">
-        ${renderDataTypeField(fact, `${prefix}-type`)}
-        <label for="${prefix}-text">
-          <span>Fact text</span>
-          <textarea id="${prefix}-text" data-action="fact-text" data-fact-id="${escapeAttr(fact.id)}" rows="3" placeholder="Write one fact, observation, example, or estimate...">${escapeHtml(fact.text)}</textarea>
-        </label>
-        <label for="${prefix}-link">
-          <span>Evidence Link</span>
-          <input id="${prefix}-link" data-action="fact-link" data-fact-id="${escapeAttr(fact.id)}" type="url" value="${escapeAttr(fact.evidenceLink)}" placeholder="https://example.com/source" />
-        </label>
-        ${renderCitationField(fact, prefix)}
-      </div>
-      ${renderSourceDetails(fact, prefix)}
-      <div class="fact-feedback" aria-live="polite">${renderFactFeedback(state)}</div>
-      </details>
+      ${renderFactEditor("library", fact, prefix, state, disclosures.get(`editor-${prefix}`) ?? untouched)}
       <div class="text-actions" aria-label="Gathered Fact ${number} controls">
         ${renderMoveButtons(`data-action="move-library-fact" data-fact-id="${escapeAttr(fact.id)}"`, number - 1, board.gatheredFacts.length)}
         <button type="button" data-action="another-fact-source" data-fact-id="${escapeAttr(fact.id)}">Another fact from this source</button>
@@ -271,7 +305,12 @@ function renderFactSummary(fact: GatheredFact): string {
   return `<p class="fact-finding${empty}">${escapeHtml(fact.text.trim() || "No finding yet")}</p><p class="fact-source"><strong>Source reference</strong> ${escapeHtml(source || "No source yet")}</p>`;
 }
 
-function renderDestinationFacts(board: ArgumentBoard, destinationId: FactDestinationId, untouchedFacts: ReadonlySet<string>): string {
+function renderDestinationFacts(
+  board: ArgumentBoard,
+  destinationId: FactDestinationId,
+  untouchedFacts: ReadonlySet<string>,
+  disclosures: Disclosures,
+): string {
   const { attachedFacts: facts, label } = readFactAttachments(board, destinationId);
   const availability = attachmentAvailability(board, destinationId);
   const guidanceId = `attachment-guidance-${safeDomId(destinationId)}`;
@@ -289,7 +328,7 @@ function renderDestinationFacts(board: ArgumentBoard, destinationId: FactDestina
             <summary id="attachment-picker-${safeDomId(destinationId)}">Choose Gathered Facts</summary>
             <p>Attach to ${escapeHtml(label)}</p>
             <label>Search facts to attach<input type="search" data-action="attachment-search" placeholder="Finding, source, date, or quotation"></label>
-            <div class="attachment-results">${renderAttachmentResults(board, destinationId, "")}</div>
+            <div class="attachment-results"></div>
             <button type="button" data-action="close-fact-picker">Close picker</button>
           </details>
           <button type="button" data-action="create-fact-here" data-destination-id="${escapeAttr(destinationId)}">Create new fact here</button>
@@ -303,7 +342,9 @@ function renderDestinationFacts(board: ArgumentBoard, destinationId: FactDestina
               ? `<p class="empty-attachment">No facts attached.</p>`
               : ""
             : facts
-                .map((fact, index) => renderAttachedFact(board, destinationId, fact, index, facts.length, untouchedFacts.has(fact.id)))
+                .map((fact, index) =>
+                  renderAttachedFact(board, destinationId, fact, index, facts.length, disclosures, untouchedFacts.has(fact.id)),
+                )
                 .join("")
         }
       </div>
@@ -349,6 +390,7 @@ function renderAttachedFact(
   fact: GatheredFact,
   index: number,
   count: number,
+  disclosures: Disclosures,
   untouched = false,
 ): string {
   const { usage } = describeFact(board, fact);
@@ -362,23 +404,7 @@ function renderAttachedFact(
         <span>Used in ${usage.length} place${usage.length === 1 ? "" : "s"}. Changes update all uses</span>
       </div>
       <div class="fact-summary">${renderFactSummary(fact)}</div>
-      <details class="fact-editor" data-disclosure="editor-${prefix}" ${untouched ? "open" : ""}>
-      <summary>Edit fact</summary>
-      <div class="attached-fields">
-        ${renderDataTypeField(fact, `${prefix}-type`)}
-        <label for="${prefix}-text">
-          <span>Fact text</span>
-          <textarea id="${prefix}-text" data-action="fact-text" data-fact-id="${escapeAttr(fact.id)}" rows="2">${escapeHtml(fact.text)}</textarea>
-        </label>
-        <label for="${prefix}-link">
-          <span>Evidence Link</span>
-          <input id="${prefix}-link" data-action="fact-link" data-fact-id="${escapeAttr(fact.id)}" type="url" value="${escapeAttr(fact.evidenceLink)}" />
-        </label>
-        ${renderCitationField(fact, prefix)}
-      </div>
-      ${renderSourceDetails(fact, prefix)}
-      <div class="fact-feedback" aria-live="polite">${renderFactFeedback(state)}</div>
-      </details>
+      ${renderFactEditor("attached", fact, prefix, state, disclosures.get(`editor-${prefix}`) ?? untouched)}
       <div class="text-actions">
         <button type="button" data-action="open-fact" data-fact-id="${escapeAttr(fact.id)}">Open in Gathered Facts</button>
         ${renderMoveButtons(`data-action="move-attached-fact" data-destination-id="${escapeAttr(destinationId)}" data-fact-id="${escapeAttr(fact.id)}"`, index, count)}
@@ -386,6 +412,35 @@ function renderAttachedFact(
       </div>
     </article>
   `;
+}
+
+/**
+ * A fact's editor. Closed, it is only its summary: a large library holds hundreds of closed editors, and their
+ * fields would dominate every render. Its fields are added when it first opens and then kept.
+ */
+function renderFactEditor(kind: EditorKind, fact: GatheredFact, prefix: string, state: FactState, open: boolean): string {
+  return `<details class="fact-editor" data-disclosure="editor-${prefix}" ${open ? "open" : `data-lazy="${kind}" data-prefix="${prefix}"`}>
+      <summary>Edit fact</summary>${open ? renderEditorFields(kind, fact, prefix, state) : ""}
+      </details>`;
+}
+
+function renderEditorFields(kind: EditorKind, fact: GatheredFact, prefix: string, state: FactState): string {
+  const library = kind === "library";
+  return `
+      <div class="${library ? "fact-fields" : "attached-fields"}">
+        ${renderDataTypeField(fact, `${prefix}-type`)}
+        <label for="${prefix}-text">
+          <span>Fact text</span>
+          <textarea id="${prefix}-text" data-action="fact-text" data-fact-id="${escapeAttr(fact.id)}" ${library ? 'rows="3" placeholder="Write one fact, observation, example, or estimate..."' : 'rows="2"'}>${escapeHtml(fact.text)}</textarea>
+        </label>
+        <label for="${prefix}-link">
+          <span>Evidence Link</span>
+          <input id="${prefix}-link" data-action="fact-link" data-fact-id="${escapeAttr(fact.id)}" type="url" value="${escapeAttr(fact.evidenceLink)}" ${library ? 'placeholder="https://example.com/source" ' : ""}/>
+        </label>
+        ${renderCitationField(fact, prefix)}
+      </div>
+      ${renderSourceDetails(fact, prefix)}
+      <div class="fact-feedback" aria-live="polite">${renderFactFeedback(state)}</div>`;
 }
 
 /** Reorder controls that only appear when there is something to reorder, and never offer a move past either end. */

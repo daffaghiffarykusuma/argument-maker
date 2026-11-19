@@ -60,6 +60,7 @@ import { escapeHtml, escapeAttr, isTyping, safeDomId } from "./html";
 import type { GatheredFactEditing } from "./gathered-fact-editing";
 import { renderExportWaiting, renderReviewChecks, renderReviewReasoning, renderWritingInvitation } from "./reasoning-review";
 import { replaceRegion } from "./region";
+import { preloadDiagramRenderer } from "./argument-preview";
 import type { WritingAction, WritingGateEvent, WritingLabel } from "./writing-review-gate";
 
 export function mountArgumentBoardApp(appRoot: HTMLDivElement, initialSession?: ArgumentBoardSession) {
@@ -103,6 +104,7 @@ function render(appRoot: HTMLDivElement, session: ArgumentBoardSession) {
     if (view.disclosures.has(details.dataset.disclosure!)) details.open = view.disclosures.get(details.dataset.disclosure!)!;
   }
   void view.preview.sync();
+  if (hasStarted(snapshot.board)) preloadDiagramRenderer({ idle: true });
 }
 
 function renderWorkspaceHeader(canUndo: boolean, canRedo: boolean, label: WritingLabel | undefined): string {
@@ -919,13 +921,16 @@ function refreshEditingState(appRoot: HTMLDivElement, session: ArgumentBoardSess
   const { board, issues } = session.snapshot();
   syncDocumentTitle(board);
   syncNotice(appRoot, board);
+  // The live regions below belong to Construct Argument; elsewhere, searching a large page for them costs every keystroke.
+  const construct = appRoot.querySelector("#stage-panel-construct");
+  if (!construct) return;
   for (const section of ["context", "planning"] as const) {
-    replaceRegion(appRoot.querySelector(`[data-framing-summary="${section}"]`), renderFramingSummary(board, section));
+    replaceRegion(construct.querySelector(`[data-framing-summary="${section}"]`), renderFramingSummary(board, section));
   }
-  for (const outline of appRoot.querySelectorAll(".construction-outline-content")) replaceRegion(outline, renderStartingOutline(board));
+  for (const outline of construct.querySelectorAll(".construction-outline-content")) replaceRegion(outline, renderStartingOutline(board));
   // The next-step strip sits above the editor; changing it mid-typing would push the field being typed in.
-  if (!isTyping()) replaceRegion(appRoot.querySelector(".starting-guidance"), renderStartingGuidance(board));
-  replaceRegion(appRoot.querySelector(".checklist"), renderChecklistContent(board, issues));
+  if (!isTyping()) replaceRegion(construct.querySelector(".starting-guidance"), renderStartingGuidance(board));
+  replaceRegion(construct.querySelector(".checklist"), renderChecklistContent(board, issues));
   for (const field of ["question", "answer", "situation", "complication"] as const) {
     const message = appRoot.querySelector<HTMLElement>(`#scqa-${field}-guidance`);
     if (message) {

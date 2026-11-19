@@ -162,28 +162,74 @@ export function isGatheredFactComplete(fact: Pick<GatheredFact, "text" | "eviden
   return factCompleteness(fact).length === 0;
 }
 
+// Parsing a URL is the costliest part of a completeness check, and every render checks each fact several times.
+const evidenceLinkValidity = new Map<string, boolean>();
+
 export function isValidEvidenceLink(value: string): boolean {
-  try {
-    const url = new URL(value);
-    return url.protocol === "http:" || url.protocol === "https:";
-  } catch {
-    return false;
+  let valid = evidenceLinkValidity.get(value);
+  if (valid === undefined) {
+    try {
+      const { protocol } = new URL(value);
+      valid = protocol === "http:" || protocol === "https:";
+    } catch {
+      valid = false;
+    }
+    // Typing a link visits every prefix of it; start over rather than grow without bound.
+    if (evidenceLinkValidity.size >= 2000) evidenceLinkValidity.clear();
+    evidenceLinkValidity.set(value, valid);
   }
+  return valid;
+}
+
+/** Lookups every renderer repeats per fact and per destination, built once per board. Boards are never changed in place once read. */
+interface BoardIndex {
+  factsById: Map<string, GatheredFact>;
+  completeFacts: GatheredFact[];
+  argumentIndex: Map<string, number>;
+  usage: Map<string, string[]>;
+}
+
+const boardIndexes = new WeakMap<ArgumentBoard, BoardIndex>();
+
+function indexBoard(board: ArgumentBoard): BoardIndex {
+  let index = boardIndexes.get(board);
+  if (index) return index;
+  const factsById = new Map<string, GatheredFact>();
+  for (const fact of board.gatheredFacts) if (!factsById.has(fact.id)) factsById.set(fact.id, fact);
+  const argumentIndex = new Map<string, number>();
+  board.supportingArguments.forEach(({ id }, position) => {
+    if (!argumentIndex.has(id)) argumentIndex.set(id, position);
+  });
+  const usage = new Map<string, string[]>();
+  const destinations: Array<[string, string[]]> = [
+    ["Situation", board.scqa.situation.factIds],
+    ["Complication", board.scqa.complication.factIds],
+    ...board.supportingArguments.map(({ factIds }, position): [string, string[]] => [`Supporting Argument ${position + 1}`, factIds]),
+  ];
+  for (const [label, factIds] of destinations) {
+    for (const factId of new Set(factIds)) {
+      const labels = usage.get(factId);
+      if (labels) labels.push(label);
+      else usage.set(factId, [label]);
+    }
+  }
+  index = { factsById, completeFacts: board.gatheredFacts.filter(isGatheredFactComplete), argumentIndex, usage };
+  boardIndexes.set(board, index);
+  return index;
 }
 
 export function readFactAttachments(board: ArgumentBoard, destinationId: FactDestinationId) {
   const factIds = getDestinationFactIds(board, destinationId) ?? [];
   const attachedIds = new Set(factIds);
-  const factsById = new Map(board.gatheredFacts.map((fact) => [fact.id, fact]));
+  const { factsById, completeFacts } = indexBoard(board);
 
-  // ponytail: board-scoped linear reads; add a persistent index only if large Gathered Fact libraries make this measurable.
   return {
     label: destinationLabel(board, destinationId),
     attachedFacts: factIds.flatMap((factId) => {
       const fact = factsById.get(factId);
       return fact ? [fact] : [];
     }),
-    attachableFacts: board.gatheredFacts.filter((fact) => isGatheredFactComplete(fact) && !attachedIds.has(fact.id)),
+    attachableFacts: completeFacts.filter((fact) => !attachedIds.has(fact.id)),
   };
 }
 
@@ -192,7 +238,8 @@ function getDestinationFactIds(board: ArgumentBoard, destinationId: FactDestinat
     return board.scqa[destinationId].factIds;
   }
 
-  return board.supportingArguments.find((argument) => argument.id === destinationId)?.factIds;
+  const position = indexBoard(board).argumentIndex.get(destinationId);
+  return position === undefined ? undefined : board.supportingArguments[position]!.factIds;
 }
 
 export function destinationLabel(board: ArgumentBoard, destinationId: FactDestinationId): string {
@@ -204,16 +251,12 @@ export function destinationLabel(board: ArgumentBoard, destinationId: FactDestin
     return "Complication";
   }
 
-  const index = board.supportingArguments.findIndex((argument) => argument.id === destinationId);
-  return index < 0 ? destinationId : `Supporting Argument ${index + 1}`;
+  const position = indexBoard(board).argumentIndex.get(destinationId);
+  return position === undefined ? destinationId : `Supporting Argument ${position + 1}`;
 }
 
 export function factUsageLabels(board: ArgumentBoard, factId: string): string[] {
-  const destinationIds: FactDestinationId[] = ["situation", "complication", ...board.supportingArguments.map(({ id }) => id)];
-
-  return destinationIds
-    .filter((destinationId) => getDestinationFactIds(board, destinationId)?.includes(factId))
-    .map((destinationId) => destinationLabel(board, destinationId));
+  return [...(indexBoard(board).usage.get(factId) ?? [])];
 }
 
 function createTextSlot(id: string): TextSlot {

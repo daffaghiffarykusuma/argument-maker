@@ -98,7 +98,10 @@ export async function verifyWorkflow(browser: Browser, appUrl: string) {
       ).toBe("Capacity stayed flat.");
 
       const sharedEditors = page.locator('[data-action="fact-text"][data-fact-id="fact-1"]');
-      await page.locator('.attached-fact[data-fact-id="fact-1"]').first().getByText("Edit fact", { exact: true }).click();
+      // Open both uses: an open editor follows edits made in another use as they happen.
+      for (const use of await page.locator('.attached-fact[data-fact-id="fact-1"]').all()) {
+        await use.getByText("Edit fact", { exact: true }).click();
+      }
       await sharedEditors.first().fill("Demand rose 25%.");
       expect(
         await page

@@ -49,7 +49,8 @@ export function showShortcuts(shortcuts: Array<[keys: string, description: strin
 
 /** True while any modal dialog is open, including the outline panel; page shortcuts and file drops wait. */
 export function isModalOpen(): boolean {
-  return document.querySelector("dialog[open]") !== null;
+  // A live collection of the few dialogs, instead of an attribute search through the whole page on every keystroke.
+  return [...document.getElementsByTagName("dialog")].some((dialog) => dialog.open);
 }
 
 function openDialog(title: string, body: string, actions: string, onClose: (value: string) => void): HTMLDialogElement {

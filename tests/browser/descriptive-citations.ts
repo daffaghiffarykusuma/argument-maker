@@ -37,6 +37,8 @@ export async function verifyDescriptiveCitations(browser: Browser, url: string) 
     await page.locator(".attached-fact").first().getByText("Edit fact", { exact: true }).click();
     await page.getByLabel("Descriptive citation", { exact: true }).first().fill("Interview <notes>, page 4");
     await page.getByLabel("Descriptive citation", { exact: true }).first().press("Tab");
+    // The other use was closed during the edit; opening it shows the shared citation.
+    await page.locator(".attached-fact").nth(1).getByText("Edit fact", { exact: true }).click();
     assert.equal(await page.getByLabel("Descriptive citation", { exact: true }).nth(1).inputValue(), "Interview <notes>, page 4");
     await page.getByRole("tab", { name: /Review/ }).click();
     await page.getByRole("button", { name: "Readable outline", exact: true }).click();
