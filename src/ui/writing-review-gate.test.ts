@@ -16,7 +16,11 @@ describe("writing review gate", () => {
   test("choosing Draft performs the waiting export with the Draft label", () => {
     const gate = createWritingReviewGate();
     gate.send({ type: "request-export", action: "print" });
-    expect(gate.send({ type: "choose-label", label: "draft" })).toEqual({ leftStage: false, perform: { action: "print", draft: true }, settled: "print" });
+    expect(gate.send({ type: "choose-label", label: "draft" })).toEqual({
+      leftStage: false,
+      perform: { action: "print", draft: true },
+      settled: "print",
+    });
     expect(gate.view()).toMatchObject({ panel: "stage", label: "draft", draft: true });
   });
 
@@ -33,7 +37,10 @@ describe("writing review gate", () => {
     const gate = createWritingReviewGate();
     gate.send({ type: "request-export", action: "copy-outline" });
     gate.send({ type: "choose-label", label: "draft" });
-    expect(gate.send({ type: "request-export", action: "markdown" })).toEqual({ leftStage: false, perform: { action: "markdown", draft: true } });
+    expect(gate.send({ type: "request-export", action: "markdown" })).toEqual({
+      leftStage: false,
+      perform: { action: "markdown", draft: true },
+    });
     gate.send({ type: "toggle-draft-label" });
     expect(gate.send({ type: "request-export", action: "markdown" }).perform).toEqual({ action: "markdown", draft: false });
   });

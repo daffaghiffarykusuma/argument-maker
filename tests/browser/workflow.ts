@@ -3,7 +3,14 @@ import assert from "node:assert/strict";
 import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 const testDir = dirname(fileURLToPath(import.meta.url));
-function expect(actual: unknown) { return { toBe: (value: unknown) => assert.equal(actual, value), toEqual: (value: unknown) => assert.deepEqual(actual, value), toContain: (value: string) => assert.ok(String(actual).includes(value)), toBeTruthy: () => assert.ok(actual) }; }
+function expect(actual: unknown) {
+  return {
+    toBe: (value: unknown) => assert.equal(actual, value),
+    toEqual: (value: unknown) => assert.deepEqual(actual, value),
+    toContain: (value: string) => assert.ok(String(actual).includes(value)),
+    toBeTruthy: () => assert.ok(actual),
+  };
+}
 import { existsSync, mkdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import type { Browser, Page } from "playwright";
@@ -43,9 +50,7 @@ export async function verifyWorkflow(browser: Browser, appUrl: string) {
       expect(await page.locator('[data-fact-id="fact-1"] .fact-status').innerText()).toBe("Complete");
 
       await page.locator('[data-action="another-fact-source"][data-fact-id="fact-1"]').click();
-      expect(await page.locator('[data-action="fact-link"][data-fact-id="fact-2"]').inputValue()).toBe(
-        "https://example.com/report",
-      );
+      expect(await page.locator('[data-action="fact-link"][data-fact-id="fact-2"]').inputValue()).toBe("https://example.com/report");
       await fillAndCommit(page, '[data-action="fact-text"][data-fact-id="fact-2"]', "Capacity stayed flat.");
       expect(await page.locator(".fact-card").count()).toBe(2);
 
@@ -89,10 +94,7 @@ export async function verifyWorkflow(browser: Browser, appUrl: string) {
         .locator('[data-action="move-attached-fact"][data-destination-id="situation"][data-fact-id="fact-2"][data-direction="up"]')
         .click();
       expect(
-        await page
-          .locator('[aria-label="Facts supporting Situation"] .attached-fact [data-action="fact-text"]')
-          .first()
-          .inputValue(),
+        await page.locator('[aria-label="Facts supporting Situation"] .attached-fact [data-action="fact-text"]').first().inputValue(),
       ).toBe("Capacity stayed flat.");
 
       const sharedEditors = page.locator('[data-action="fact-text"][data-fact-id="fact-1"]');
@@ -112,30 +114,43 @@ export async function verifyWorkflow(browser: Browser, appUrl: string) {
       await sharedEditors.first().press("End");
       const activeFactEditor = await sharedEditors.first().elementHandle();
       await sharedEditors.first().pressSequentially("!");
-      expect(await sharedEditors.evaluateAll((elements) => elements.map((element) => (element as HTMLTextAreaElement).value)))
-        .toEqual(["Demand rose 25%.!", "Demand rose 25%.!"]);
+      expect(await sharedEditors.evaluateAll((elements) => elements.map((element) => (element as HTMLTextAreaElement).value))).toEqual([
+        "Demand rose 25%.!",
+        "Demand rose 25%.!",
+      ]);
       expect(await activeFactEditor!.evaluate((element) => element === document.activeElement)).toBe(true);
       await sharedEditors.first().press(process.platform === "darwin" ? "Meta+z" : "Control+z");
-      expect(await sharedEditors.evaluateAll((elements) => elements.map((element) => (element as HTMLTextAreaElement).value)))
-        .toEqual(["Demand rose 25%.", "Demand rose 25%."]);
+      expect(await sharedEditors.evaluateAll((elements) => elements.map((element) => (element as HTMLTextAreaElement).value))).toEqual([
+        "Demand rose 25%.",
+        "Demand rose 25%.",
+      ]);
       expect(await activeFactEditor!.evaluate((element) => element === document.activeElement)).toBe(true);
       await activeFactEditor!.dispose();
 
       const sharedLinks = page.locator('[data-action="fact-link"][data-fact-id="fact-1"]');
       const picker = page.locator('[data-disclosure="destination-complication"] .attachment-picker');
       await sharedLinks.first().fill("invalid-link");
-      expect(await sharedLinks.evaluateAll((elements) => elements.map((element) => (element as HTMLInputElement).value)))
-        .toEqual(["invalid-link", "invalid-link"]);
+      expect(await sharedLinks.evaluateAll((elements) => elements.map((element) => (element as HTMLInputElement).value))).toEqual([
+        "invalid-link",
+        "invalid-link",
+      ]);
       expect(await page.locator('.attached-fact.incomplete[data-fact-id="fact-1"]').count()).toBe(2);
-      expect(await picker.getByRole('article', { name: 'Gathered Fact 1', exact: true, includeHidden: true }).getByRole('button', { name: 'Attach fact', exact: true, includeHidden: true }).count()).toBe(0);
+      expect(
+        await picker
+          .getByRole("article", { name: "Gathered Fact 1", exact: true, includeHidden: true })
+          .getByRole("button", { name: "Attach fact", exact: true, includeHidden: true })
+          .count(),
+      ).toBe(0);
       expect(await page.evaluate(() => document.activeElement?.getAttribute("data-action"))).toBe("fact-link");
       await sharedLinks.first().fill("https://example.com/report");
       expect(await page.locator('.attached-fact.incomplete[data-fact-id="fact-1"]').count()).toBe(0);
       await sharedLinks.first().blur();
       const sharedTypes = page.locator('[data-action="fact-data-type"][data-fact-id="fact-1"]');
       await sharedTypes.first().selectOption("observation");
-      expect(await sharedTypes.evaluateAll((elements) => elements.map((element) => (element as HTMLSelectElement).value)))
-        .toEqual(["observation", "observation"]);
+      expect(await sharedTypes.evaluateAll((elements) => elements.map((element) => (element as HTMLSelectElement).value))).toEqual([
+        "observation",
+        "observation",
+      ]);
       await sharedTypes.first().selectOption("fact");
       console.log("browser-smoke: preserved native undo and synchronized shared fields and completeness");
 
@@ -157,7 +172,9 @@ export async function verifyWorkflow(browser: Browser, appUrl: string) {
       await page.locator(".mermaid-diagram svg").waitFor();
       expect(await page.locator(".evidence-group").count()).toBe(3);
       expect(await page.getByRole("link", { name: /Open evidence source for Demand rose 25%/ }).count()).toBe(2);
-      expect(await page.locator(".preview-view > .verification-note").innerText()).toContain("source quality and factual accuracy are not verified");
+      expect(await page.locator(".preview-view > .verification-note").innerText()).toContain(
+        "source quality and factual accuracy are not verified",
+      );
       console.log("browser-smoke: rendered Preview and evidence links");
       await verifyClipboardFeedback(page);
       console.log("browser-smoke: verified clipboard feedback");
@@ -182,7 +199,7 @@ export async function verifyWorkflow(browser: Browser, appUrl: string) {
         document.querySelector<HTMLButtonElement>("#stage-tab-preview")!.click();
       });
       await diagram.waitFor();
-      expect(await diagram.getAttribute("id") === originalDiagramId).toBe(false);
+      expect((await diagram.getAttribute("id")) === originalDiagramId).toBe(false);
       expect(await diagram.textContent()).toContain("Expand capacity safely.");
       // Undo must invalidate the changed diagram even when the original source returns.
       await page.getByRole("button", { name: "Undo", exact: true }).click();
@@ -224,7 +241,9 @@ export async function verifyWorkflow(browser: Browser, appUrl: string) {
         mimeType: "application/json",
         buffer: Buffer.from(JSON.stringify({ schemaVersion: 1, appName: "Argument Maker" })),
       });
-      await notice(page).getByText(/^Could not open version-1\.argument\.json\./).waitFor();
+      await notice(page)
+        .getByText(/^Could not open version-1\.argument\.json\./)
+        .waitFor();
       expect(await page.locator(".fact-card").count()).toBe(3);
       console.log("browser-smoke: rejected version-1 board");
 

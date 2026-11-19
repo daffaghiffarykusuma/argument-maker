@@ -26,11 +26,15 @@ export async function verifyFactSummaries(browser: Browser, url: string) {
   console.log("fact-summaries-04: existing library summary, explicit editing and preserved text passed");
   await page.getByRole("tab", { name: /Construct Argument/ }).click();
   await page.locator('details[data-disclosure="context"] > summary').click();
-  const destinations = page.locator('.destination-facts').filter({ has: page.locator('.attached-fact') });
-  for (const destination of await destinations.all()) await destination.locator(':scope > summary').click();
-  const attachments = page.locator('.attached-fact');
+  const destinations = page.locator(".destination-facts").filter({ has: page.locator(".attached-fact") });
+  for (const destination of await destinations.all()) await destination.locator(":scope > summary").click();
+  const attachments = page.locator(".attached-fact");
   assert.equal(await attachments.count(), 2);
-  assert.equal(await attachments.first().getByRole("textbox", { name: "Fact text", exact: true }).isVisible(), false, "Attached facts start as summaries");
+  assert.equal(
+    await attachments.first().getByRole("textbox", { name: "Fact text", exact: true }).isVisible(),
+    false,
+    "Attached facts start as summaries",
+  );
   for (const attachment of await attachments.all()) {
     assert.match(await attachment.innerText(), /A revised finding/);
     assert.match(await attachment.innerText(), /Source reference.*W3C/);
@@ -55,7 +59,7 @@ export async function verifyFactSummaries(browser: Browser, url: string) {
   assert.match(await card.innerText(), /Field notebook, page 9/);
   console.log("fact-summaries-04: attached summaries, live shared fields and native undo passed");
   await page.getByRole("button", { name: "Add fact" }).click();
-  const fresh = page.locator('.fact-card').last();
+  const fresh = page.locator(".fact-card").last();
   assert.equal(await fresh.getByLabel("Fact text", { exact: true }).evaluate((el) => el === document.activeElement), true);
   await fresh.getByLabel("Fact text", { exact: true }).fill("A new citation-only finding");
   await fresh.getByLabel("Descriptive citation", { exact: true }).fill("Notebook, p. 10");
@@ -63,31 +67,42 @@ export async function verifyFactSummaries(browser: Browser, url: string) {
   assert.match(await fresh.innerText(), /A new citation-only finding/);
   assert.match(await fresh.innerText(), /Notebook, p. 10/);
   await page.getByRole("searchbox", { name: "Search facts" }).fill("notebook");
-  assert.equal(await page.locator('.fact-card').count(), 2);
-  await page.locator('#fact-filter').selectOption('unused');
-  assert.equal(await page.locator('.fact-card').count(), 1);
+  assert.equal(await page.locator(".fact-card").count(), 2);
+  await page.locator("#fact-filter").selectOption("unused");
+  assert.equal(await page.locator(".fact-card").count(), 1);
   await page.getByRole("button", { name: "Another fact from this source" }).click();
-  assert.equal(await page.locator('.fact-card').last().getByLabel("Descriptive citation", { exact: true }).inputValue(), "Notebook, p. 10");
-  assert.equal(await page.locator('.fact-card').last().getByLabel("Fact text", { exact: true }).evaluate((el) => el === document.activeElement), true);
+  assert.equal(await page.locator(".fact-card").last().getByLabel("Descriptive citation", { exact: true }).inputValue(), "Notebook, p. 10");
+  assert.equal(
+    await page
+      .locator(".fact-card")
+      .last()
+      .getByLabel("Fact text", { exact: true })
+      .evaluate((el) => el === document.activeElement),
+    true,
+  );
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.locator('.fact-card').last().getByLabel("Fact text", { exact: true }).fill("Mobile finding " + "long-source-text".repeat(30));
+  await page
+    .locator(".fact-card")
+    .last()
+    .getByLabel("Fact text", { exact: true })
+    .fill(`Mobile finding ${"long-source-text".repeat(30)}`);
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
   await page.screenshot({ path: "output/playwright/fact-summaries-04/mobile-editor.png", fullPage: true });
   console.log("fact-summaries-04: new editors, citation-only summaries, search, reuse and mobile fit passed");
   await page.getByRole("tab", { name: /Construct Argument/ }).click();
   const situation = page.locator('[data-disclosure="destination-situation"]');
-  await situation.locator(':scope > summary').click();
+  await situation.locator(":scope > summary").click();
   await situation.getByRole("button", { name: "Create new fact here" }).click();
-  const newAttachment = situation.locator('.attached-fact').first();
+  const newAttachment = situation.locator(".attached-fact").first();
   assert.equal(await newAttachment.getByLabel("Fact text", { exact: true }).evaluate((el) => el === document.activeElement), true);
   await newAttachment.getByLabel("Fact text", { exact: true }).fill("Created at destination");
   await newAttachment.getByLabel("Descriptive citation", { exact: true }).fill("Field notes, p. 11");
   await attachGatheredFact(situation, 1);
-  assert.match(await situation.locator('.attached-fact').first().innerText(), /Created at destination/);
-  await situation.locator('.attached-fact').last().getByRole("button", { name: "Move up", exact: true }).click();
-  assert.match(await situation.locator('.attached-fact').first().innerText(), /Shared revision/);
-  await situation.locator('.attached-fact').last().getByRole("button", { name: "Remove from here", exact: true }).click();
-  assert.equal(await situation.locator('.attached-fact').count(), 1);
+  assert.match(await situation.locator(".attached-fact").first().innerText(), /Created at destination/);
+  await situation.locator(".attached-fact").last().getByRole("button", { name: "Move up", exact: true }).click();
+  assert.match(await situation.locator(".attached-fact").first().innerText(), /Shared revision/);
+  await situation.locator(".attached-fact").last().getByRole("button", { name: "Remove from here", exact: true }).click();
+  assert.equal(await situation.locator(".attached-fact").count(), 1);
   assert.match(await situation.innerText(), /Shared revision/);
   console.log("fact-summaries-04: keyboard disclosure, new attached editor, attachment ordering and removal passed");
 }

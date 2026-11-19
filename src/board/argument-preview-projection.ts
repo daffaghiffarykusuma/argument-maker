@@ -93,9 +93,7 @@ export function projectArgumentPreview(board: ArgumentBoard): ArgumentPreviewPro
   }));
   const evidenceGroups = [
     ...chain.filter((item) => item.facts.length > 0).map(({ id, label, facts }) => ({ id, label, facts })),
-    ...argumentsView
-      .filter((argument) => argument.facts.length > 0)
-      .map(({ id, label, facts }) => ({ id, label, facts })),
+    ...argumentsView.filter((argument) => argument.facts.length > 0).map(({ id, label, facts }) => ({ id, label, facts })),
   ];
 
   return {
@@ -103,7 +101,12 @@ export function projectArgumentPreview(board: ArgumentBoard): ArgumentPreviewPro
     arguments: argumentsView,
     evidenceGroups,
     mermaid: generateMermaid(chain, argumentsView),
-    writing: projectWriting(board, chain, argumentsView, active.map(({ argument }) => argument)),
+    writing: projectWriting(
+      board,
+      chain,
+      argumentsView,
+      active.map(({ argument }) => argument),
+    ),
   };
 }
 
@@ -118,7 +121,12 @@ function projectWriting(
   const cite = (fact: ArgumentPreviewFact) => {
     let source = sources.find(({ id }) => id === fact.id);
     if (!source) {
-      source = { ...factsById.get(fact.id)!, citation: sources.length + 1, sourceReferenceStatus: fact.sourceReferenceStatus, formattedDataType: fact.formattedDataType };
+      source = {
+        ...factsById.get(fact.id)!,
+        citation: sources.length + 1,
+        sourceReferenceStatus: fact.sourceReferenceStatus,
+        formattedDataType: fact.formattedDataType,
+      };
       sources.push(source);
     }
     return { text: fact.text, citation: source.citation, markers: fact.markers };
@@ -160,9 +168,13 @@ function projectFact(fact: GatheredFact): ArgumentPreviewFact {
   const text = fact.text.trim();
   const labelParts = [text, ...markers].filter(Boolean);
   const content = labelParts.join(" ");
-  const sourceReferenceStatus = isValidEvidenceLink(fact.evidenceLink) ? "valid-link"
-    : fact.evidenceLink.trim() ? "invalid-link"
-    : fact.descriptiveCitation?.trim() ? "citation-only" : "missing";
+  const sourceReferenceStatus = isValidEvidenceLink(fact.evidenceLink)
+    ? "valid-link"
+    : fact.evidenceLink.trim()
+      ? "invalid-link"
+      : fact.descriptiveCitation?.trim()
+        ? "citation-only"
+        : "missing";
 
   return {
     id: fact.id,

@@ -1,9 +1,4 @@
-import {
-  applyArgumentBoardCommand,
-  createDefaultBoard,
-  type ArgumentBoard,
-  type ArgumentBoardCommand,
-} from "./argument-board";
+import { applyArgumentBoardCommand, createDefaultBoard, type ArgumentBoard, type ArgumentBoardCommand } from "./argument-board";
 import { projectArgumentPreview } from "./argument-preview-projection";
 import { createExportFile, parseExportFile } from "./export-file-contract";
 import { reviewBoard } from "./review";
@@ -121,11 +116,7 @@ export function hasTouchedContent(board: ArgumentBoard): boolean {
     board.scqa.situation.factIds.length > 0 ||
     board.scqa.complication.factIds.length > 0 ||
     board.supportingArguments.some(
-      (argument) =>
-        argument.touched ||
-        argument.text.trim().length > 0 ||
-        argument.mode !== "reasoning" ||
-        argument.factIds.length > 0,
+      (argument) => argument.touched || argument.text.trim().length > 0 || argument.mode !== "reasoning" || argument.factIds.length > 0,
     )
   );
 }

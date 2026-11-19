@@ -7,14 +7,30 @@ import { createLocalDraft } from "./local-draft";
 test("another fact reuses source provenance in one undoable creation without copying the finding", () => {
   const session = createArgumentBoardSession();
   session.dispatch({ type: "create-gathered-fact", destinationId: "situation" });
-  session.dispatch({ type: "update-gathered-fact", factId: "fact-1", changes: {
-    text: "The original finding", quotation: "The original quotation", dataType: "observation",
-    evidenceLink: "https://example.com/source", sourceTitle: "Research notebook", sourceDate: "2026-09", descriptiveCitation: "Notebook, p. 4",
-  } });
+  session.dispatch({
+    type: "update-gathered-fact",
+    factId: "fact-1",
+    changes: {
+      text: "The original finding",
+      quotation: "The original quotation",
+      dataType: "observation",
+      evidenceLink: "https://example.com/source",
+      sourceTitle: "Research notebook",
+      sourceDate: "2026-09",
+      descriptiveCitation: "Notebook, p. 4",
+    },
+  });
   const original = session.snapshot().board.gatheredFacts[0]!;
   session.dispatch({ type: "reuse-fact-source", factId: "fact-1" });
   const copy = session.snapshot().board.gatheredFacts[1]!;
-  expect(copy).toMatchObject({ id: "fact-2", text: "", evidenceLink: "https://example.com/source", sourceTitle: "Research notebook", sourceDate: "2026-09", descriptiveCitation: "Notebook, p. 4" });
+  expect(copy).toMatchObject({
+    id: "fact-2",
+    text: "",
+    evidenceLink: "https://example.com/source",
+    sourceTitle: "Research notebook",
+    sourceDate: "2026-09",
+    descriptiveCitation: "Notebook, p. 4",
+  });
   expect(copy.quotation ?? "").toBe("");
   expect(copy.dataType).toBe("");
   expect(session.snapshot().board.gatheredFacts[0]).toEqual(original);
@@ -52,9 +68,21 @@ for (const [name, provenance] of [
     expect(loaded.board.gatheredFacts[1]).toMatchObject({ id: "fact-2", text: "", ...provenance });
     expect(loaded.board.gatheredFacts[1]!.quotation ?? "").toBe("");
     const values = new Map<string, string>();
-    const storage = { getItem: (key: string) => values.get(key) ?? null, setItem: (key: string, value: string) => { values.set(key, value); }, removeItem: (key: string) => { values.delete(key); } };
+    const storage = {
+      getItem: (key: string) => values.get(key) ?? null,
+      setItem: (key: string, value: string) => {
+        values.set(key, value);
+      },
+      removeItem: (key: string) => {
+        values.delete(key);
+      },
+    };
     const draft = createLocalDraft({ storage, initialSession: session });
     draft.setEnabled(true);
-    expect(createLocalDraft({ storage }).session.snapshot().board.gatheredFacts[1]).toMatchObject({ id: "fact-2", text: "", ...provenance });
+    expect(createLocalDraft({ storage }).session.snapshot().board.gatheredFacts[1]).toMatchObject({
+      id: "fact-2",
+      text: "",
+      ...provenance,
+    });
   });
 }

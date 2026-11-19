@@ -27,9 +27,7 @@ describe("Argument Board file persistence", () => {
     const withUnknowns = {
       ...board,
       futureLayout: { zoom: 0.9 },
-      gatheredFacts: board.gatheredFacts.map((fact) =>
-        fact.id === completeId ? { ...fact, sourceTitle: "Annual report" } : fact,
-      ),
+      gatheredFacts: board.gatheredFacts.map((fact) => (fact.id === completeId ? { ...fact, sourceTitle: "Annual report" } : fact)),
       scqa: {
         ...board.scqa,
         situation: { ...board.scqa.situation, futureTone: "direct" },

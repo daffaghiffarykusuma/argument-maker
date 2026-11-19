@@ -28,9 +28,22 @@ export function confirmAction(options: ConfirmOptions): Promise<boolean> {
 
 /** `keys` joins keys in one combination with "+" and alternatives with "|", e.g. "Ctrl+Shift+Z|Ctrl+Y". */
 export function showShortcuts(shortcuts: Array<[keys: string, description: string]>) {
-  const combination = (keys: string) => keys.split("+").map((key) => `<kbd>${escapeHtml(key)}</kbd>`).join("+");
-  const rows = shortcuts.map(([keys, description]) => `<dt>${keys.split("|").map(combination).join(" <span>or</span> ")}</dt><dd>${escapeHtml(description)}</dd>`).join("");
-  const dialog = openDialog("Keyboard shortcuts", `<dl class="shortcut-list">${rows}</dl>`, `<button type="button" value="close" class="primary">Close</button>`, () => {});
+  const combination = (keys: string) =>
+    keys
+      .split("+")
+      .map((key) => `<kbd>${escapeHtml(key)}</kbd>`)
+      .join("+");
+  const rows = shortcuts
+    .map(
+      ([keys, description]) => `<dt>${keys.split("|").map(combination).join(" <span>or</span> ")}</dt><dd>${escapeHtml(description)}</dd>`,
+    )
+    .join("");
+  const dialog = openDialog(
+    "Keyboard shortcuts",
+    `<dl class="shortcut-list">${rows}</dl>`,
+    `<button type="button" value="close" class="primary">Close</button>`,
+    () => {},
+  );
   dialog.querySelector<HTMLButtonElement>('button[value="close"]')?.focus();
 }
 

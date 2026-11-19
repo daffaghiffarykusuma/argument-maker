@@ -6,7 +6,10 @@
 export function replaceRegion(region: Element | null, html: string) {
   if (!region) return;
   const disclosures = new Map(
-    [...region.querySelectorAll<HTMLDetailsElement>("details[data-disclosure]")].map((details) => [details.dataset.disclosure!, details.open]),
+    [...region.querySelectorAll<HTMLDetailsElement>("details[data-disclosure]")].map((details) => [
+      details.dataset.disclosure!,
+      details.open,
+    ]),
   );
   const active = document.activeElement;
   const focusedId = active instanceof HTMLElement && region.contains(active) ? active.id : undefined;

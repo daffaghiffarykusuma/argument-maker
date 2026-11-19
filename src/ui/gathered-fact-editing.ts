@@ -7,11 +7,21 @@ import {
   type GatheredFact,
 } from "../board/argument-board";
 import type { ArgumentBoardSession } from "../board/argument-board-session";
-import { attachmentAvailability, attachmentCandidates, describeFact, filterFacts, incompleteGuidance, type FactFilter } from "../board/fact-library";
+import {
+  attachmentAvailability,
+  attachmentCandidates,
+  describeFact,
+  filterFacts,
+  incompleteGuidance,
+  type FactFilter,
+} from "../board/fact-library";
 import { escapeAttr, escapeHtml, safeDomId } from "./html";
 
 type Editor = HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
-interface FactSearch { query: string; filter: FactFilter }
+interface FactSearch {
+  query: string;
+  filter: FactFilter;
+}
 
 /** Keeps fact fields, their shared editors and filtered cards in sync without replacing the active editor. */
 export function createGatheredFactEditing(root: HTMLDivElement, session: ArgumentBoardSession, disclosures: Map<string, boolean>) {
@@ -51,7 +61,8 @@ export function createGatheredFactEditing(root: HTMLDivElement, session: Argumen
         previous = card;
       }
       library.querySelector(".fact-no-results")?.remove();
-      if (!library.querySelector(".fact-card")) library.innerHTML = '<p class="fact-no-results">No matching facts. Change the search or filter.</p>';
+      if (!library.querySelector(".fact-card"))
+        library.innerHTML = '<p class="fact-no-results">No matching facts. Change the search or filter.</p>';
     }
     const status = root.querySelector("#fact-results");
     if (status) status.textContent = `${facts.length} of ${board.gatheredFacts.length} facts`;
@@ -69,7 +80,9 @@ export function createGatheredFactEditing(root: HTMLDivElement, session: Argumen
       const feedback = container.querySelector(".fact-feedback");
       if (feedback) feedback.innerHTML = renderFactFeedback(state);
     }
-    const editors = root.querySelectorAll<Editor>(`input[data-fact-id="${id}"], textarea[data-fact-id="${id}"], select[data-fact-id="${id}"]`);
+    const editors = root.querySelectorAll<Editor>(
+      `input[data-fact-id="${id}"], textarea[data-fact-id="${id}"], select[data-fact-id="${id}"]`,
+    );
     for (const editor of editors) {
       if (editor === document.activeElement) continue;
       const field = factField(editor);
@@ -90,9 +103,15 @@ export function createGatheredFactEditing(root: HTMLDivElement, session: Argumen
   }
 
   return {
-    renderLibrary(board: ArgumentBoard) { return renderGatherStage(board, search, untouchedFacts); },
-    renderAttachments(board: ArgumentBoard, destinationId: FactDestinationId) { return renderDestinationFacts(board, destinationId, untouchedFacts); },
-    beginFact(factId: string) { untouchedFacts.add(factId); },
+    renderLibrary(board: ArgumentBoard) {
+      return renderGatherStage(board, search, untouchedFacts);
+    },
+    renderAttachments(board: ArgumentBoard, destinationId: FactDestinationId) {
+      return renderDestinationFacts(board, destinationId, untouchedFacts);
+    },
+    beginFact(factId: string) {
+      untouchedFacts.add(factId);
+    },
     finishInteraction(target: Editor) {
       const factId = target.dataset.factId;
       if (!factField(target) || !factId || !untouchedFacts.delete(factId)) return;
@@ -124,19 +143,30 @@ export function createGatheredFactEditing(root: HTMLDivElement, session: Argumen
       reconcile(session.snapshot().board, false);
       return true;
     },
-    reconcile() { reconcile(session.snapshot().board); },
-    resetSearch() { search.query = ""; search.filter = "all"; },
+    reconcile() {
+      reconcile(session.snapshot().board);
+    },
+    resetSearch() {
+      search.query = "";
+      search.filter = "all";
+    },
   };
 }
 
 export type GatheredFactEditing = ReturnType<typeof createGatheredFactEditing>;
 
-function factField(editor: Editor): "text" | "evidenceLink" | "dataType" | "descriptiveCitation" | "sourceTitle" | "sourceDate" | "quotation" | undefined {
+function factField(
+  editor: Editor,
+): "text" | "evidenceLink" | "dataType" | "descriptiveCitation" | "sourceTitle" | "sourceDate" | "quotation" | undefined {
   switch (editor.dataset.action) {
-    case "fact-text": return "text";
-    case "fact-link": return "evidenceLink";
-    case "fact-citation": return "descriptiveCitation";
-    case "fact-data-type": return "dataType";
+    case "fact-text":
+      return "text";
+    case "fact-link":
+      return "evidenceLink";
+    case "fact-citation":
+      return "descriptiveCitation";
+    case "fact-data-type":
+      return "dataType";
     case "source-detail": {
       const field = editor.dataset.field;
       if (field === "sourceTitle" || field === "sourceDate" || field === "quotation") return field;
@@ -157,7 +187,9 @@ function factState(fact: GatheredFact, untouched: boolean) {
 
 function renderFactFeedback(state: ReturnType<typeof factState>): string {
   if (state.untouched) return '<p class="fact-writing-prompt">Write a finding and identify its source when you are ready.</p>';
-  return state.guidance.length ? `<ul class="field-guidance">${state.guidance.map((text) => `<li>${escapeHtml(text)}</li>`).join("")}</ul>` : "";
+  return state.guidance.length
+    ? `<ul class="field-guidance">${state.guidance.map((text) => `<li>${escapeHtml(text)}</li>`).join("")}</ul>`
+    : "";
 }
 
 function renderGatherStage(board: ArgumentBoard, view: FactSearch, untouchedFacts: ReadonlySet<string>): string {
@@ -175,7 +207,11 @@ function renderGatherStage(board: ArgumentBoard, view: FactSearch, untouchedFact
         ${
           board.gatheredFacts.length === 0
             ? `<div class="empty-state"><div class="empty-slip" aria-hidden="true"><p>A finding you can point to.</p><small>Its source: a link, a book passage, an interview</small></div><h3>No facts yet</h3><p>Add a finding and its source to get started.</p><button type="button" data-action="add-fact">Create your first fact</button></div>`
-            : filterFacts(board, view.query, view.filter).length ? filterFacts(board, view.query, view.filter).map((fact) => renderFactCard(board, fact, untouchedFacts.has(fact.id))).join("") : '<p class="fact-no-results">No matching facts. Change the search or filter.</p>'
+            : filterFacts(board, view.query, view.filter).length
+              ? filterFacts(board, view.query, view.filter)
+                  .map((fact) => renderFactCard(board, fact, untouchedFacts.has(fact.id)))
+                  .join("")
+              : '<p class="fact-no-results">No matching facts. Change the search or filter.</p>'
         }
       </div>
     </section>
@@ -250,7 +286,7 @@ function renderDestinationFacts(board: ArgumentBoard, destinationId: FactDestina
             <summary id="attachment-picker-${safeDomId(destinationId)}">Choose Gathered Facts</summary>
             <p>Attach to ${escapeHtml(label)}</p>
             <label>Search facts to attach<input type="search" data-action="attachment-search" placeholder="Finding, source, date, or quotation"></label>
-            <div class="attachment-results">${renderAttachmentResults(board, destinationId, '')}</div>
+            <div class="attachment-results">${renderAttachmentResults(board, destinationId, "")}</div>
             <button type="button" data-action="close-fact-picker">Close picker</button>
           </details>
           <button type="button" data-action="create-fact-here" data-destination-id="${escapeAttr(destinationId)}">Create new fact here</button>
@@ -271,14 +307,19 @@ function renderDestinationFacts(board: ArgumentBoard, destinationId: FactDestina
 function renderAttachmentResults(board: ArgumentBoard, destinationId: FactDestinationId, query: string) {
   if (!board.gatheredFacts.length) return '<p role="status">No facts gathered yet. Create a fact here to start gathering evidence.</p>';
   const candidates = attachmentCandidates(board, destinationId, query);
-  if (!candidates.length) return '<p role="status">No matching facts. Try another finding or source.</p><button type="button" data-action="clear-attachment-search">Clear search</button>';
-  return `<p role="status">${candidates.length} matching fact${candidates.length === 1 ? "" : "s"}</p>${candidates.map(({ fact, number, usage, status, guidance }) => `<article class="attachment-result" aria-label="Gathered Fact ${number}">
+  if (!candidates.length)
+    return '<p role="status">No matching facts. Try another finding or source.</p><button type="button" data-action="clear-attachment-search">Clear search</button>';
+  return `<p role="status">${candidates.length} matching fact${candidates.length === 1 ? "" : "s"}</p>${candidates
+    .map(
+      ({ fact, number, usage, status, guidance }) => `<article class="attachment-result" aria-label="Gathered Fact ${number}">
       ${renderFactSummary(fact)}
       <p>${escapeHtml(usage.length ? `Used in ${usage.join(", ")}` : "Unused")}</p>
       <p>${{ attached: "Already attached here", incomplete: "Incomplete", available: "Available to attach" }[status]}</p>
       ${guidance.length ? `<p>${guidance.map(escapeHtml).join(" ")}</p>` : ""}
       ${status === "attached" ? `<button type="button" data-action="show-attached-fact" data-fact-id="${escapeAttr(fact.id)}">View attached fact</button>` : status === "incomplete" ? `<button type="button" data-action="open-fact" data-fact-id="${escapeAttr(fact.id)}">Complete this fact</button>` : `<button type="button" data-action="attach-fact" data-fact-id="${escapeAttr(fact.id)}" data-destination-id="${escapeAttr(destinationId)}">Attach fact</button>`}
-    </article>`).join("")}`;
+    </article>`,
+    )
+    .join("")}`;
 }
 
 function renderAttachmentGuidance(state: ReturnType<typeof attachmentAvailability>) {
@@ -349,7 +390,6 @@ function renderDataTypeOption(value: DataType, label: string, selected: DataType
   return `<option value="${value}" ${selected === value ? "selected" : ""}>${label}</option>`;
 }
 
-
 function renderLibraryTools(board: ArgumentBoard, view: FactSearch): string {
   return `<div class="library-tools"><label>Search facts<input id="fact-search" type="search" data-action="fact-search" value="${escapeAttr(view.query)}" placeholder="Text, source, date, or quotation"></label>
     <label>Show<select id="fact-filter" data-action="fact-filter">${(["all", "unused", "incomplete"] as const).map((filter) => `<option value="${filter}" ${view.filter === filter ? "selected" : ""}>${filter === "all" ? "All facts" : filter === "unused" ? "Unused facts" : "Incomplete facts"}</option>`).join("")}</select></label>
@@ -359,7 +399,18 @@ function renderLibraryTools(board: ArgumentBoard, view: FactSearch): string {
 
 function renderSourceDetails(fact: GatheredFact, prefix: string): string {
   return `<details class="source-details" data-disclosure="source-${escapeAttr(fact.id)}"><summary>Source details</summary><div class="source-fields">
-    ${([['sourceTitle', 'Source title'], ['sourceDate', 'Source date'], ['quotation', 'Quotation']] as const).map(([field, label]) => `<label for="${prefix}-${field}">${label}${field === "quotation" ? `<textarea id="${prefix}-${field}" data-action="source-detail" data-field="${field}" data-fact-id="${escapeAttr(fact.id)}" rows="2">${escapeHtml(fact[field] ?? "")}</textarea>` : `<input id="${prefix}-${field}" type="text" data-action="source-detail" data-field="${field}" data-fact-id="${escapeAttr(fact.id)}" value="${escapeAttr(fact[field] ?? "")}" ${field === "sourceDate" ? 'placeholder="Publication date, if known"' : ""}>`}</label>`).join("")}
+    ${(
+      [
+        ["sourceTitle", "Source title"],
+        ["sourceDate", "Source date"],
+        ["quotation", "Quotation"],
+      ] as const
+    )
+      .map(
+        ([field, label]) =>
+          `<label for="${prefix}-${field}">${label}${field === "quotation" ? `<textarea id="${prefix}-${field}" data-action="source-detail" data-field="${field}" data-fact-id="${escapeAttr(fact.id)}" rows="2">${escapeHtml(fact[field] ?? "")}</textarea>` : `<input id="${prefix}-${field}" type="text" data-action="source-detail" data-field="${field}" data-fact-id="${escapeAttr(fact.id)}" value="${escapeAttr(fact[field] ?? "")}" ${field === "sourceDate" ? 'placeholder="Publication date, if known"' : ""}>`}</label>`,
+      )
+      .join("")}
   </div></details>`;
 }
 

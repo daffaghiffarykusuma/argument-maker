@@ -14,14 +14,30 @@ export async function verifyReviewNavigation(browser: Browser, appUrl: string) {
     await answer.fill("Run a small pilot first.\n".repeat(40));
     await answer.press("Home");
     await answer.press("Shift+ArrowRight");
-    const before = await answer.evaluate((el: HTMLTextAreaElement) => ({ start: el.selectionStart, end: el.selectionEnd, scroll: el.scrollTop, y: window.scrollY }));
+    const before = await answer.evaluate((el: HTMLTextAreaElement) => ({
+      start: el.selectionStart,
+      end: el.selectionEnd,
+      scroll: el.scrollTop,
+      y: window.scrollY,
+    }));
     await page.getByRole("button", { name: "Reasoning review", exact: true }).click();
     const review = page.getByRole("region", { name: "Reasoning review", exact: true });
-    assert.equal(await review.getByRole("heading", { name: "Reasoning review", exact: true }).evaluate(el => el === document.activeElement), true);
+    assert.equal(
+      await review.getByRole("heading", { name: "Reasoning review", exact: true }).evaluate((el) => el === document.activeElement),
+      true,
+    );
     await page.screenshot({ path: join(screenshots, "review-desktop.png"), fullPage: true });
     await review.getByRole("button", { name: "Back to editing", exact: true }).press("Enter");
-    assert.equal(await answer.evaluate(el => el === document.activeElement), true, "Back restores the editor that was in use");
-    assert.deepEqual(await answer.evaluate((el: HTMLTextAreaElement) => ({ start: el.selectionStart, end: el.selectionEnd, scroll: el.scrollTop, y: window.scrollY })), before);
+    assert.equal(await answer.evaluate((el) => el === document.activeElement), true, "Back restores the editor that was in use");
+    assert.deepEqual(
+      await answer.evaluate((el: HTMLTextAreaElement) => ({
+        start: el.selectionStart,
+        end: el.selectionEnd,
+        scroll: el.scrollTop,
+        y: window.scrollY,
+      })),
+      before,
+    );
     assert.equal(await answer.inputValue(), "Run a small pilot first.\n".repeat(40));
     await page.locator('details[data-disclosure="planning"] > summary').click();
     await page.getByRole("textbox", { name: "Audience (optional)", exact: true }).fill("Private planning audience");
@@ -49,12 +65,12 @@ export async function verifyReviewNavigation(browser: Browser, appUrl: string) {
     const initialY = await page.evaluate(() => window.scrollY);
     await page.mouse.move(380, 700);
     await page.mouse.wheel(0, 180);
-    await page.waitForFunction(y => window.scrollY > y, initialY);
+    await page.waitForFunction((y) => window.scrollY > y, initialY);
     const gatherY = await page.evaluate(() => window.scrollY);
     await page.getByRole("button", { name: "Reasoning review", exact: true }).press("Enter");
     await review.getByRole("button", { name: "Back to editing", exact: true }).press("Enter");
     assert.equal(await page.getByRole("tab", { name: /Gather Facts/ }).getAttribute("aria-selected"), "true");
-    assert.equal(await fact.evaluate(el => el === document.activeElement), true);
+    assert.equal(await fact.evaluate((el) => el === document.activeElement), true);
     assert.deepEqual(await fact.evaluate((el: HTMLTextAreaElement) => [el.selectionStart, el.selectionEnd]), [0, 1]);
     assert.equal(await page.evaluate(() => window.scrollY), gatherY, "Return preserves scrolling done while gathering facts");
     assert.equal(await fact.inputValue(), "Interview participants asked for a pilot.");
@@ -67,7 +83,7 @@ export async function verifyReviewNavigation(browser: Browser, appUrl: string) {
     await review.getByRole("heading", { name: "Structural completeness", exact: true }).waitFor();
     await page.screenshot({ path: join(screenshots, "review-mobile.png"), fullPage: true });
     await review.getByRole("button", { name: "Back to editing", exact: true }).press("Enter");
-    assert.equal(await outline.evaluate(el => el === document.activeElement), true);
+    assert.equal(await outline.evaluate((el) => el === document.activeElement), true);
     assert.equal(await outline.getAttribute("aria-pressed"), "true");
     assert.equal(await page.evaluate(() => window.scrollY), previewY);
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);

@@ -31,7 +31,8 @@ for (const name of scenarioNames) {
 function runAllScenarios(): Promise<void> {
   return new Promise((resolve, reject) => {
     const child = spawn("node", [join(import.meta.dir, "run-scenarios.ts")], {
-      stdio: ["ignore", "inherit", "inherit", "ipc"], windowsHide: true,
+      stdio: ["ignore", "inherit", "inherit", "ipc"],
+      windowsHide: true,
       detached: process.platform !== "win32",
     });
     child.on("message", (message: { type?: string; result?: ScenarioResult }) => {
@@ -42,12 +43,20 @@ function runAllScenarios(): Promise<void> {
     const timer = setTimeout(() => {
       timedOut = true;
       // Let the Node runner close Chromium and Vite before falling back to its process tree.
-      forceStop = setTimeout(() => { void stopOwnedProcess(child).catch(reject); }, 5_000);
+      forceStop = setTimeout(() => {
+        void stopOwnedProcess(child).catch(reject);
+      }, 5_000);
       if (child.connected) child.send({ type: "shutdown" }, () => {});
       else void stopOwnedProcess(child).catch(reject);
     }, runTimeoutMs);
-    const clearTimers = () => { clearTimeout(timer); clearTimeout(forceStop); };
-    child.once("error", (error) => { clearTimers(); reject(error); });
+    const clearTimers = () => {
+      clearTimeout(timer);
+      clearTimeout(forceStop);
+    };
+    child.once("error", (error) => {
+      clearTimers();
+      reject(error);
+    });
     child.once("exit", (code) => {
       clearTimers();
       if (timedOut) reject(new Error("Browser scenarios timed out; their browser and server were stopped."));

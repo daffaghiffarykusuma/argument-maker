@@ -21,24 +21,44 @@ export async function runScenarios(
 ): Promise<ScenarioResult[]> {
   const port = await freePort();
   const appUrl = `http://127.0.0.1:${port}`;
-  const server = spawn(process.execPath, [join(root, "node_modules/vite/bin/vite.js"), "--host", "127.0.0.1", "--strictPort", "--port", String(port)], {
-    cwd: root, stdio: ["ignore", "pipe", "pipe"], windowsHide: true, detached: process.platform !== "win32",
-    // Vite colours its banner when the terminal supports it; readiness is checked by request, not by banner text.
-    env: { ...process.env, NO_COLOR: "1", FORCE_COLOR: "0" },
-  });
+  const server = spawn(
+    process.execPath,
+    [join(root, "node_modules/vite/bin/vite.js"), "--host", "127.0.0.1", "--strictPort", "--port", String(port)],
+    {
+      cwd: root,
+      stdio: ["ignore", "pipe", "pipe"],
+      windowsHide: true,
+      detached: process.platform !== "win32",
+      // Vite colours its banner when the terminal supports it; readiness is checked by request, not by banner text.
+      env: { ...process.env, NO_COLOR: "1", FORCE_COLOR: "0" },
+    },
+  );
   let output = "";
   let serverError: Error | undefined;
-  server.stdout.on("data", (chunk) => { output += String(chunk); });
-  server.stderr.on("data", (chunk) => { output += String(chunk); });
-  server.once("error", (error) => { serverError = error; });
+  server.stdout.on("data", (chunk) => {
+    output += String(chunk);
+  });
+  server.stderr.on("data", (chunk) => {
+    output += String(chunk);
+  });
+  server.once("error", (error) => {
+    serverError = error;
+  });
 
   let browser: Browser | undefined;
   let cleanup: Promise<void> | undefined;
-  const close = () => cleanup ??= (async () => {
-    try { await browser?.close(); } catch {}
-    finally { await stopOwnedProcess(server); }
-  })();
-  const shutdown = () => { void close().finally(() => process.exit(1)); };
+  const close = () =>
+    (cleanup ??= (async () => {
+      try {
+        await browser?.close();
+      } catch {
+      } finally {
+        await stopOwnedProcess(server);
+      }
+    })());
+  const shutdown = () => {
+    void close().finally(() => process.exit(1));
+  };
   const onMessage = (message: unknown) => {
     if (message && typeof message === "object" && "type" in message && message.type === "shutdown") shutdown();
   };
@@ -47,10 +67,14 @@ export async function runScenarios(
   process.once("SIGINT", shutdown);
 
   try {
-    await waitForServer(appUrl, () => {
-      if (serverError) throw serverError;
-      if (server.exitCode !== null || server.signalCode !== null) throw new Error(`Vite exited before startup: ${output}`);
-    }, () => output);
+    await waitForServer(
+      appUrl,
+      () => {
+        if (serverError) throw serverError;
+        if (server.exitCode !== null || server.signalCode !== null) throw new Error(`Vite exited before startup: ${output}`);
+      },
+      () => output,
+    );
     browser = await chromium.launch({ headless: true });
     const results: ScenarioResult[] = [];
     for (const { name, load } of scenarios) {
@@ -60,11 +84,18 @@ export async function runScenarios(
         const scenario = await load();
         await Promise.race([
           scenario(browser, appUrl),
-          new Promise((_, reject) => { timer = setTimeout(() => reject(new Error(`timed out after ${options.scenarioTimeoutMs} ms`)), options.scenarioTimeoutMs); }),
+          new Promise((_, reject) => {
+            timer = setTimeout(() => reject(new Error(`timed out after ${options.scenarioTimeoutMs} ms`)), options.scenarioTimeoutMs);
+          }),
         ]);
         results.push({ name, ok: true, ms: Date.now() - started });
       } catch (error) {
-        results.push({ name, ok: false, ms: Date.now() - started, error: error instanceof Error ? error.stack ?? error.message : String(error) });
+        results.push({
+          name,
+          ok: false,
+          ms: Date.now() - started,
+          error: error instanceof Error ? (error.stack ?? error.message) : String(error),
+        });
         // A timed-out scenario may still hold pages; give the next one a clean browser.
         if (String(error).includes("timed out")) {
           await browser.close().catch(() => {});
@@ -101,7 +132,9 @@ async function waitForServer(appUrl: string, check: () => void, output: () => st
     check();
     // Wait for this Vite to report readiness, not an unrelated server that grabbed the port first.
     // ANSI codes are stripped because some terminals colour the banner despite NO_COLOR.
-    if (output().replace(/\x1b\[[0-9;]*m/g, "").includes(`127.0.0.1:${new URL(appUrl).port}`)) {
+    // biome-ignore lint/suspicious/noControlCharactersInRegex: the escape character starts every ANSI colour code.
+    const banner = output().replace(/\x1b\[[0-9;]*m/g, "");
+    if (banner.includes(`127.0.0.1:${new URL(appUrl).port}`)) {
       try {
         if ((await fetch(appUrl, { signal: AbortSignal.timeout(1_000) })).ok) return;
       } catch {}

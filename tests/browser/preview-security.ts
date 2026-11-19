@@ -12,11 +12,11 @@ const cases = [
   `#60;img src=${beacon}#62;`,
   `ﬂ°lt¶ßimg src=${beacon}ﬂ°gt¶ß`,
   `%%{init: {'htmlLabels': true, 'flowchart': {'htmlLabels': true}, 'securityLevel': 'loose'}}%% <img src=${beacon}>`,
-  `x\"]\ninjected[\"<img src=${beacon}>\"]\n%%`,
+  `x"]\ninjected["<img src=${beacon}>"]\n%%`,
   `$$x^2$$ <img src=${beacon}>`,
   "style:x%",
   "classDef:x%",
-  `\"Yes\" & <notes> > 50% #1; café 日本語 🙂`,
+  `"Yes" & <notes> > 50% #1; café 日本語 🙂`,
 ];
 
 export async function verifyPreviewSecurity(browser: Browser, url: string) {
@@ -42,7 +42,9 @@ export async function verifyPreviewSecurity(browser: Browser, url: string) {
           board.scqa.situation.factIds = ["fact-1"];
           board.supportingArguments[0]!.factIds = ["fact-1"];
           externalRequests.length = 0;
-          await page.locator('input[type="file"]').setInputFiles({ name: "untrusted.argument.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(board)) });
+          await page
+            .locator('input[type="file"]')
+            .setInputFiles({ name: "untrusted.argument.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(board)) });
           await page.getByRole("heading", { name: "Gather Facts", exact: true }).waitFor();
           await page.getByRole("tab", { name: /Preview/ }).click();
           const svg = page.locator(".mermaid-diagram svg");
@@ -55,16 +57,27 @@ export async function verifyPreviewSecurity(browser: Browser, url: string) {
             assert.equal(labelText, text, "ordinary punctuation and Unicode stay readable");
           }
           if (text === cases.at(-1)) {
-            for (const viewport of [{ width: 1440, height: 1000 }, { width: 390, height: 844 }]) {
+            for (const viewport of [
+              { width: 1440, height: 1000 },
+              { width: 390, height: 844 },
+            ]) {
               await page.setViewportSize(viewport);
               await page.getByRole("button", { name: "Fit to view" }).click();
-              assert.equal(await svg.evaluate((element) => element.getBoundingClientRect().width <= element.parentElement!.clientWidth), true, "diagram fits desktop and mobile");
+              assert.equal(
+                await svg.evaluate((element) => element.getBoundingClientRect().width <= element.parentElement!.clientWidth),
+                true,
+                "diagram fits desktop and mobile",
+              );
             }
           }
           await page.getByRole("button", { name: "Readable outline", exact: true }).click();
           assert.ok((await page.locator(".outline-preview").textContent())?.includes(text), "writing retains original board text");
-        } finally { await page.close(); }
+        } finally {
+          await page.close();
+        }
       }
-    } finally { await context.close(); }
+    } finally {
+      await context.close();
+    }
   })();
 }

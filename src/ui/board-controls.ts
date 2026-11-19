@@ -1,6 +1,6 @@
 import { createArgumentPreview } from "./argument-preview";
 import { createLocalDraft } from "../board/local-draft";
-import { type ArgumentBoardSession, type WorkflowStage } from "../board/argument-board-session";
+import type { ArgumentBoardSession, WorkflowStage } from "../board/argument-board-session";
 import { views, type ViewState } from "./board-view-state";
 import { escapeHtml } from "./html";
 import { createEditingPosition, type EditingPositionTracker } from "./editing-position";
@@ -34,43 +34,70 @@ export function mountBoardControls(root: HTMLDivElement, initial: ArgumentBoardS
   views.get(root)?.preview.dispose();
   const preview = createArgumentPreview(root);
   const positions = createEditingPosition(root, () => session.snapshot().stage);
-  const view: ViewState = { draft, facts, preview, positions, writing: createWritingReviewGate(), disclosures, draftSuggestionDismissed: readSuggestionDismissed() };
+  const view: ViewState = {
+    draft,
+    facts,
+    preview,
+    positions,
+    writing: createWritingReviewGate(),
+    disclosures,
+    draftSuggestionDismissed: readSuggestionDismissed(),
+  };
   views.set(root, view);
   const wideOutline = window.matchMedia("(min-width: 1201px)");
   wideOutline.addEventListener("change", () => {
     if (wideOutline.matches) closeOutline(root, positions);
   });
-  root.addEventListener("cancel", event => {
-    if (event.target instanceof HTMLDialogElement && event.target.id === "outline-panel") {
-      event.preventDefault(); closeOutline(root, positions);
-    }
-  }, true);
+  root.addEventListener(
+    "cancel",
+    (event) => {
+      if (event.target instanceof HTMLDialogElement && event.target.id === "outline-panel") {
+        event.preventDefault();
+        closeOutline(root, positions);
+      }
+    },
+    true,
+  );
   // Record the writing location before moving to utility controls can scroll it away.
-  for (const event of ["focusin", "input", "keyup", "pointerup"]) root.addEventListener(event, event => positions.track(event.target));
-  for (const event of ["wheel", "touchmove"]) root.addEventListener(event, () => {
-    const active = document.activeElement;
-    requestAnimationFrame(() => {
-      if (active === document.activeElement) positions.track(active);
-    });
-  }, { passive: true });
+  for (const event of ["focusin", "input", "keyup", "pointerup"]) root.addEventListener(event, (event) => positions.track(event.target));
+  for (const event of ["wheel", "touchmove"])
+    root.addEventListener(
+      event,
+      () => {
+        const active = document.activeElement;
+        requestAnimationFrame(() => {
+          if (active === document.activeElement) positions.track(active);
+        });
+      },
+      { passive: true },
+    );
   let renderTimer: ReturnType<typeof setTimeout> | undefined;
   const render = () => positions.rerender(() => controls.render(root, session));
-  const cancelRender = () => { if (renderTimer) clearTimeout(renderTimer); renderTimer = undefined; };
+  const cancelRender = () => {
+    if (renderTimer) clearTimeout(renderTimer);
+    renderTimer = undefined;
+  };
   window.addEventListener("beforeunload", (event) => {
     draft.flush();
     if (draft.snapshot().hasUnsavedChanges) {
-      event.preventDefault(); event.returnValue = "";
+      event.preventDefault();
+      event.returnValue = "";
     }
   });
   window.addEventListener("pagehide", () => draft.flush());
   window.addEventListener("storage", (event) => draft.storageChanged(event.key));
-  root.addEventListener("toggle", (event) => {
-    if (event.target instanceof HTMLDetailsElement && event.target.matches('.attachment-picker') && event.target.open) {
-      cancelRender();
-      event.target.querySelector<HTMLInputElement>('input')?.focus();
-    }
-    if (event.target instanceof HTMLDetailsElement && event.target.dataset.disclosure) view.disclosures.set(event.target.dataset.disclosure, event.target.open);
-  }, true);
+  root.addEventListener(
+    "toggle",
+    (event) => {
+      if (event.target instanceof HTMLDetailsElement && event.target.matches(".attachment-picker") && event.target.open) {
+        cancelRender();
+        event.target.querySelector<HTMLInputElement>("input")?.focus();
+      }
+      if (event.target instanceof HTMLDetailsElement && event.target.dataset.disclosure)
+        view.disclosures.set(event.target.dataset.disclosure, event.target.open);
+    },
+    true,
+  );
   root.addEventListener("input", (event) => {
     const target = event.target;
     if (!(target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement)) return;
@@ -101,23 +128,36 @@ export function mountBoardControls(root: HTMLDivElement, initial: ArgumentBoardS
     if (target instanceof HTMLInputElement && target.dataset.action === "autosave") {
       cancelRender();
       draft.setEnabled(target.checked);
-      render(); return;
+      render();
+      return;
     }
     if (target instanceof HTMLSelectElement && facts.filter(target)) return;
     if (target instanceof HTMLSelectElement || (target instanceof HTMLInputElement && target.type === "radio")) {
-      cancelRender(); session.finishEdit();
+      cancelRender();
+      session.finishEdit();
       if (facts.edit(target)) render();
       else controls.change(root, session, target);
     }
   });
   root.addEventListener("focusout", (event) => {
     const target = event.target;
-    if (!(target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) || !target.dataset.action || ["attachment-search", "fact-search", "autosave", "upload", "mode-change"].includes(target.dataset.action)) return;
+    if (
+      !(target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) ||
+      !target.dataset.action ||
+      ["attachment-search", "fact-search", "autosave", "upload", "mode-change"].includes(target.dataset.action)
+    )
+      return;
     facts.finishInteraction(target);
-    session.finishEdit(); cancelRender();
+    session.finishEdit();
+    cancelRender();
     // Let the browser finish Tab or the pointer click before replacing the DOM.
     renderTimer = setTimeout(() => {
-      if (target.dataset.factId || document.activeElement?.matches("input, textarea, select, #view-outline") || root.querySelector("#outline-panel[open]") || document.activeElement?.closest('.construction-disclosure > summary')) {
+      if (
+        target.dataset.factId ||
+        document.activeElement?.matches("input, textarea, select, #view-outline") ||
+        root.querySelector("#outline-panel[open]") ||
+        document.activeElement?.closest(".construction-disclosure > summary")
+      ) {
         facts.reconcile();
         controls.refresh(root, session);
         draft.flush();
@@ -133,24 +173,29 @@ export function mountBoardControls(root: HTMLDivElement, initial: ArgumentBoardS
     }
     const target = (event.target as HTMLElement).closest<HTMLElement>("[data-action]");
     if (target?.dataset.action === "open-outline" || target?.dataset.action === "close-outline") {
-      cancelRender(); session.finishEdit();
+      cancelRender();
+      session.finishEdit();
       if (target.dataset.action === "open-outline") openOutline(root, positions);
       else closeOutline(root, positions);
       return;
     }
     if (target?.matches("button")) {
-      if (['close-fact-picker', 'clear-attachment-search', 'show-attached-fact'].includes(target.dataset.action ?? '')) {
+      if (["close-fact-picker", "clear-attachment-search", "show-attached-fact"].includes(target.dataset.action ?? "")) {
         cancelRender();
-        const picker = target.closest<HTMLDetailsElement>('.attachment-picker')!;
-        if (target.dataset.action === 'clear-attachment-search') {
-          const search = picker.querySelector<HTMLInputElement>('input')!;
-          search.value = ''; facts.filter(search); search.focus();
+        const picker = target.closest<HTMLDetailsElement>(".attachment-picker")!;
+        if (target.dataset.action === "clear-attachment-search") {
+          const search = picker.querySelector<HTMLInputElement>("input")!;
+          search.value = "";
+          facts.filter(search);
+          search.focus();
         } else {
           picker.open = false;
-          if (target.dataset.action === 'show-attached-fact') {
-            const attachment = picker.closest('.destination-facts')!.querySelector<HTMLElement>(`.attached-fact[data-fact-id="${CSS.escape(target.dataset.factId!)}"]`)!;
-            attachment.querySelector<HTMLElement>('summary')?.focus();
-          } else picker.querySelector<HTMLElement>('summary')?.focus();
+          if (target.dataset.action === "show-attached-fact") {
+            const attachment = picker
+              .closest(".destination-facts")!
+              .querySelector<HTMLElement>(`.attached-fact[data-fact-id="${CSS.escape(target.dataset.factId!)}"]`)!;
+            attachment.querySelector<HTMLElement>("summary")?.focus();
+          } else picker.querySelector<HTMLElement>("summary")?.focus();
         }
         return;
       }
@@ -160,7 +205,9 @@ export function mountBoardControls(root: HTMLDivElement, initial: ArgumentBoardS
         view.disclosures.set(menu.dataset.disclosure!, false);
         menu.querySelector<HTMLElement>("summary")?.focus();
       }
-      cancelRender(); session.finishEdit(); controls.action(root, session, target.dataset.action ?? "", { ...target.dataset });
+      cancelRender();
+      session.finishEdit();
+      controls.action(root, session, target.dataset.action ?? "", { ...target.dataset });
     }
   });
   root.addEventListener("keydown", (event) => {
@@ -170,9 +217,12 @@ export function mountBoardControls(root: HTMLDivElement, initial: ArgumentBoardS
       root.querySelector<HTMLButtonElement>('#outline-panel [data-action="close-outline"]')?.focus();
       return;
     }
-    const picker = target.closest<HTMLDetailsElement>('.attachment-picker');
-    if (event.key === 'Escape' && picker?.open) {
-      event.preventDefault(); picker.open = false; picker.querySelector<HTMLElement>('summary')?.focus(); return;
+    const picker = target.closest<HTMLDetailsElement>(".attachment-picker");
+    if (event.key === "Escape" && picker?.open) {
+      event.preventDefault();
+      picker.open = false;
+      picker.querySelector<HTMLElement>("summary")?.focus();
+      return;
     }
     const menu = root.querySelector<HTMLDetailsElement>(".board-menu[open], .writing-menu[open]");
     if (event.key === "Escape" && menu?.open) {
@@ -181,19 +231,33 @@ export function mountBoardControls(root: HTMLDivElement, initial: ArgumentBoardS
       view.disclosures.set(menu.dataset.disclosure!, false);
       menu.querySelector<HTMLElement>("summary")?.focus();
     } else if (target.matches('[role="tab"]') && ["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) {
-      event.preventDefault(); cancelRender();
+      event.preventDefault();
+      cancelRender();
       const tabs = [...root.querySelectorAll<HTMLButtonElement>('[role="tab"]')];
       const index = tabs.indexOf(target as HTMLButtonElement);
-      const next = event.key === "Home" ? 0 : event.key === "End" ? tabs.length - 1 : (index + (event.key === "ArrowRight" ? 1 : -1) + tabs.length) % tabs.length;
+      const next =
+        event.key === "Home"
+          ? 0
+          : event.key === "End"
+            ? tabs.length - 1
+            : (index + (event.key === "ArrowRight" ? 1 : -1) + tabs.length) % tabs.length;
       session.setStage(tabs[next]!.dataset.stage as WorkflowStage);
       view.writing.send({ type: "leave" });
       controls.render(root, session);
       root.querySelector<HTMLButtonElement>(`[data-stage="${session.snapshot().stage}"]`)?.focus();
-    } else if (target.matches('.file-button') && ["Enter", " "].includes(event.key)) {
-      event.preventDefault(); target.querySelector<HTMLInputElement>('input[type="file"]')?.click();
-    } else if ((event.ctrlKey || event.metaKey) && !event.altKey && ["z", "y"].includes(event.key.toLowerCase()) && !target.matches('input, textarea, [contenteditable="true"]')) {
-      event.preventDefault(); cancelRender();
-      if (event.shiftKey || event.key.toLowerCase() === "y") session.redo(); else session.undo();
+    } else if (target.matches(".file-button") && ["Enter", " "].includes(event.key)) {
+      event.preventDefault();
+      target.querySelector<HTMLInputElement>('input[type="file"]')?.click();
+    } else if (
+      (event.ctrlKey || event.metaKey) &&
+      !event.altKey &&
+      ["z", "y"].includes(event.key.toLowerCase()) &&
+      !target.matches('input, textarea, [contenteditable="true"]')
+    ) {
+      event.preventDefault();
+      cancelRender();
+      if (event.shiftKey || event.key.toLowerCase() === "y") session.redo();
+      else session.undo();
       render();
     }
   });
@@ -225,7 +289,8 @@ export function mountBoardControls(root: HTMLDivElement, initial: ArgumentBoardS
     endDrag();
     const file = event.dataTransfer?.files[0];
     if (!file || isModalOpen()) return;
-    cancelRender(); session.finishEdit();
+    cancelRender();
+    session.finishEdit();
     void controls.upload(root, session, file);
   });
   // Page-wide shortcuts work wherever focus is, including text fields.
@@ -242,7 +307,8 @@ export function mountBoardControls(root: HTMLDivElement, initial: ArgumentBoardS
     } else if (event.key === "?" && !modifier && !event.altKey && !typing) command = ["show-shortcuts"];
     if (!command) return;
     event.preventDefault();
-    cancelRender(); session.finishEdit();
+    cancelRender();
+    session.finishEdit();
     for (const menu of root.querySelectorAll<HTMLDetailsElement>(".board-menu[open], .writing-menu[open]")) {
       menu.open = false;
       view.disclosures.set(menu.dataset.disclosure!, false);
@@ -280,7 +346,8 @@ function shouldSuggestSaving(view: ViewState): boolean {
   return !view.draftSuggestionDismissed && view.draft.snapshot().suggestSaving;
 }
 
-const conflictActions = '<div class="conflict-actions"><button type="button" data-action="load-other-draft">Load other draft</button><button type="button" data-action="keep-this-draft">Keep saving this board</button></div>';
+const conflictActions =
+  '<div class="conflict-actions"><button type="button" data-action="load-other-draft">Load other draft</button><button type="button" data-action="keep-this-draft">Keep saving this board</button></div>';
 
 function updateDraftControls(root: HTMLDivElement) {
   const region = root.querySelector(".draft-controls");
@@ -320,7 +387,9 @@ function closeOutline(root: HTMLDivElement, positions: EditingPositionTracker) {
   const panel = root.querySelector<HTMLDialogElement>("#outline-panel");
   if (!panel?.open) return;
   panel.close();
-  const fallback = root.querySelector<HTMLElement>(window.matchMedia("(min-width: 1201px)").matches ? "#stage-heading-construct" : "#view-outline");
+  const fallback = root.querySelector<HTMLElement>(
+    window.matchMedia("(min-width: 1201px)").matches ? "#stage-heading-construct" : "#view-outline",
+  );
   positions.restore(positions.release("outline"), fallback);
 }
 

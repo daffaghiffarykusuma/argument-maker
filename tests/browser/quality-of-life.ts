@@ -6,15 +6,19 @@ import { answerAppDialog, notice } from "./app-dialog.ts";
 const isFocused = (page: Page, selector: string) => page.locator(selector).evaluate((element) => element === document.activeElement);
 
 async function dropFile(page: Page, name: string, contents: string) {
-  await page.evaluate(([name, contents]) => {
-    const transfer = new DataTransfer();
-    transfer.items.add(new File([contents!], name!, { type: "application/json" }));
-    const fire = (type: string) => document.body.dispatchEvent(new DragEvent(type, { bubbles: true, cancelable: true, dataTransfer: transfer }));
-    fire("dragenter");
-    fire("dragover");
-    (window as any).dropOverlayShown = document.querySelector("#app")!.classList.contains("file-drop-active");
-    fire("drop");
-  }, [name, contents]);
+  await page.evaluate(
+    ([name, contents]) => {
+      const transfer = new DataTransfer();
+      transfer.items.add(new File([contents!], name!, { type: "application/json" }));
+      const fire = (type: string) =>
+        document.body.dispatchEvent(new DragEvent(type, { bubbles: true, cancelable: true, dataTransfer: transfer }));
+      fire("dragenter");
+      fire("dragover");
+      (window as any).dropOverlayShown = document.querySelector("#app")!.classList.contains("file-drop-active");
+      fire("drop");
+    },
+    [name, contents],
+  );
 }
 
 export async function verifyQualityOfLife(browser: Browser, url: string) {
@@ -65,7 +69,13 @@ export async function verifyQualityOfLife(browser: Browser, url: string) {
     assert.equal(await notice(page).locator("span").first().innerText(), "Supporting Argument 1 deleted.");
     await notice(page).getByRole("button", { name: "Undo deletion", exact: true }).click();
     assert.equal(await page.locator('[data-action="argument-text"]').first().inputValue(), "Pilots expose demand early.");
-    assert.equal(await page.locator('[data-action="argument-text"]').first().evaluate((element) => element === document.activeElement), true);
+    assert.equal(
+      await page
+        .locator('[data-action="argument-text"]')
+        .first()
+        .evaluate((element) => element === document.activeElement),
+      true,
+    );
     assert.equal(await notice(page).innerText(), "Restored.");
 
     // An undo offer expires once the board changes again.
@@ -138,9 +148,15 @@ export async function verifyQualityOfLife(browser: Browser, url: string) {
     assert.equal(await page.getByRole("textbox", { name: "Board title" }).inputValue(), "Dropped plan");
     assert.equal(await page.locator("#app").evaluate((element) => element.classList.contains("file-drop-active")), false);
     await dropFile(page, "broken.argument.json", "not JSON");
-    await notice(page).getByText(/^Could not open broken\.argument\.json\./).waitFor();
+    await notice(page)
+      .getByText(/^Could not open broken\.argument\.json\./)
+      .waitFor();
     assert.equal(await notice(page).evaluate((element) => element.classList.contains("notice-error")), true);
-    assert.equal(await page.getByRole("textbox", { name: "Board title" }).inputValue(), "Dropped plan", "Invalid files leave the board unchanged");
+    assert.equal(
+      await page.getByRole("textbox", { name: "Board title" }).inputValue(),
+      "Dropped plan",
+      "Invalid files leave the board unchanged",
+    );
     console.log("quality-of-life: dropped board files open after confirmation and invalid files report an error");
 
     assert.deepEqual(errors, []);

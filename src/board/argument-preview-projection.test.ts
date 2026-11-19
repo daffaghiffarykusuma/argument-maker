@@ -29,11 +29,11 @@ describe("Argument Preview projection", () => {
     expect(preview.chain[0]!.facts.map((fact) => fact.id)).toEqual([firstId, secondId]);
     expect(preview.arguments[0]!.facts.map((fact) => fact.id)).toEqual([secondId, firstId]);
     expect(preview.evidenceGroups.map((group) => group.label)).toEqual(["Situation", "Supporting Argument 1"]);
-    expect(preview.mermaid).toContain('Fact: First fact');
-    expect(preview.mermaid).toContain('Observation: Second fact');
+    expect(preview.mermaid).toContain("Fact: First fact");
+    expect(preview.mermaid).toContain("Observation: Second fact");
     expect(preview.mermaid).not.toContain("Unused fact");
     expect(preview.mermaid).not.toContain("https://");
-    expect((preview.mermaid.match(/First fact/g) ?? [])).toHaveLength(2);
+    expect(preview.mermaid.match(/First fact/g) ?? []).toHaveLength(2);
   });
 
   test("keeps attached incomplete facts visible with explicit markers", () => {
@@ -98,14 +98,18 @@ describe("Argument Preview projection", () => {
     expect(writing.title).toBe("Capacity case");
     expect(writing.sections[0]).toMatchObject({ label: "Situation", text: "Demand is rising." });
     expect(writing.sections.flatMap((section) => section.facts.map((fact) => [section.label, fact.citation]))).toEqual([
-      ["Situation", 1], ["Complication", 2], ["Supporting Argument 1", 1],
+      ["Situation", 1],
+      ["Complication", 2],
+      ["Supporting Argument 1", 1],
     ]);
     expect(writing.sections[1]!.facts[0]!.markers).toEqual(["[Invalid evidence link]"]);
     expect(writing.sections.at(-1)!.supportMode).toBe("Evidence-backed");
-    expect(writing.sources.map((source) => [source.citation, source.text, source.formattedDataType, source.sourceReferenceStatus])).toEqual([
-      [1, "Demand rose 20%.", "Fact", "valid-link"],
-      [2, "Capacity has not changed.", "Observation", "invalid-link"],
-    ]);
+    expect(writing.sources.map((source) => [source.citation, source.text, source.formattedDataType, source.sourceReferenceStatus])).toEqual(
+      [
+        [1, "Demand rose 20%.", "Fact", "valid-link"],
+        [2, "Capacity has not changed.", "Observation", "invalid-link"],
+      ],
+    );
     expect(JSON.stringify(writing)).not.toContain("Unused research");
   });
 });

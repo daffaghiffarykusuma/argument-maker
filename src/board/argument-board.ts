@@ -52,7 +52,11 @@ export type ArgumentBoardCommand =
   | { type: "update-title"; title: string }
   | { type: "update-planning-context"; field: "audience" | "intendedOutcome"; text: string }
   | { type: "update-scqa"; field: keyof ArgumentBoard["scqa"]; text: string }
-  | { type: "update-supporting-argument"; argumentId: string; changes: Partial<Pick<SupportingArgument, "text" | "mode" | "connection" | "assumptions" | "objection" | "weakensClaim">> }
+  | {
+      type: "update-supporting-argument";
+      argumentId: string;
+      changes: Partial<Pick<SupportingArgument, "text" | "mode" | "connection" | "assumptions" | "objection" | "weakensClaim">>;
+    }
   | { type: "add-supporting-argument" }
   | { type: "delete-supporting-argument"; argumentId: string }
   | { type: "move-supporting-argument"; argumentId: string; direction: "up" | "down" }
@@ -62,7 +66,9 @@ export type ArgumentBoardCommand =
   | {
       type: "update-gathered-fact";
       factId: string;
-      changes: Partial<Pick<GatheredFact, "text" | "evidenceLink" | "dataType" | "descriptiveCitation" | "sourceTitle" | "sourceDate" | "quotation">>;
+      changes: Partial<
+        Pick<GatheredFact, "text" | "evidenceLink" | "dataType" | "descriptiveCitation" | "sourceTitle" | "sourceDate" | "quotation">
+      >;
     }
   | { type: "move-gathered-fact"; factId: string; direction: "up" | "down" }
   | { type: "delete-gathered-fact"; factId: string }
@@ -94,11 +100,7 @@ export function createDefaultBoard(now = new Date()): ArgumentBoard {
   };
 }
 
-export function applyArgumentBoardCommand(
-  board: ArgumentBoard,
-  command: ArgumentBoardCommand,
-  now = new Date(),
-): ArgumentBoard {
+export function applyArgumentBoardCommand(board: ArgumentBoard, command: ArgumentBoardCommand, now = new Date()): ArgumentBoard {
   switch (command.type) {
     case "update-title":
       return touchBoard({ ...board, title: command.title }, now);
@@ -129,12 +131,7 @@ export function applyArgumentBoardCommand(
     case "attach-fact":
       return attachFact(board, command.destinationId, command.factId, now);
     case "detach-fact":
-      return updateDestinationFactIds(
-        board,
-        command.destinationId,
-        (factIds) => removeValue(factIds, command.factId),
-        now,
-      );
+      return updateDestinationFactIds(board, command.destinationId, (factIds) => removeValue(factIds, command.factId), now);
     case "move-attached-fact":
       return updateDestinationFactIds(
         board,
@@ -240,12 +237,7 @@ function createGatheredFactWithId(id: string, evidenceLink: string): GatheredFac
   };
 }
 
-function updateScqa(
-  board: ArgumentBoard,
-  field: keyof ArgumentBoard["scqa"],
-  text: string,
-  now: Date,
-): ArgumentBoard {
+function updateScqa(board: ArgumentBoard, field: keyof ArgumentBoard["scqa"], text: string, now: Date): ArgumentBoard {
   return touchBoard(
     {
       ...board,
@@ -291,22 +283,22 @@ function deleteSupportingArgument(board: ArgumentBoard, argumentId: string, now:
   return supportingArguments === board.supportingArguments ? board : touchBoard({ ...board, supportingArguments }, now);
 }
 
-function moveSupportingArgument(
-  board: ArgumentBoard,
-  argumentId: string,
-  direction: "up" | "down",
-  now: Date,
-): ArgumentBoard {
+function moveSupportingArgument(board: ArgumentBoard, argumentId: string, direction: "up" | "down", now: Date): ArgumentBoard {
   const supportingArguments = moveById(board.supportingArguments, argumentId, direction);
   return supportingArguments === board.supportingArguments ? board : touchBoard({ ...board, supportingArguments }, now);
 }
 
 function duplicateSupportingArgument(board: ArgumentBoard, argumentId: string, now: Date): ArgumentBoard {
-  const supportingArguments = duplicateById(board.supportingArguments, argumentId, (argument, id) => ({
-    ...argument,
-    id,
-    factIds: [...argument.factIds],
-  }), allBoardIds(board));
+  const supportingArguments = duplicateById(
+    board.supportingArguments,
+    argumentId,
+    (argument, id) => ({
+      ...argument,
+      id,
+      factIds: [...argument.factIds],
+    }),
+    allBoardIds(board),
+  );
 
   return supportingArguments === board.supportingArguments ? board : touchBoard({ ...board, supportingArguments }, now);
 }
@@ -401,12 +393,7 @@ function attachFact(board: ArgumentBoard, destinationId: FactDestinationId, fact
     return board;
   }
 
-  return updateDestinationFactIds(
-    board,
-    destinationId,
-    (factIds) => (factIds.includes(factId) ? factIds : [...factIds, factId]),
-    now,
-  );
+  return updateDestinationFactIds(board, destinationId, (factIds) => (factIds.includes(factId) ? factIds : [...factIds, factId]), now);
 }
 
 function updateDestinationFactIds(

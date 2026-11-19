@@ -10,24 +10,38 @@ function fixture() {
   root.style.width = "800px";
   document.body.append(root);
   const requests: { id: string; source: string; resolve(): void; reject(): void }[] = [];
-  const preview = createArgumentPreview(root, (id, source) => new Promise<string>((resolve, reject) => {
-    requests.push({
-      id, source,
-      resolve: () => resolve(`<svg xmlns="http://www.w3.org/2000/svg" id="${id}" viewBox="0 0 1000 500"><text>${id}</text></svg>`),
-      reject: () => reject(new Error("Controlled render failure")),
-    });
-  }));
+  const preview = createArgumentPreview(
+    root,
+    (id, source) =>
+      new Promise<string>((resolve, reject) => {
+        requests.push({
+          id,
+          source,
+          resolve: () => resolve(`<svg xmlns="http://www.w3.org/2000/svg" id="${id}" viewBox="0 0 1000 500"><text>${id}</text></svg>`),
+          reject: () => reject(new Error("Controlled render failure")),
+        });
+      }),
+  );
   const board = createExampleBoard();
   return {
-    root, requests, preview, board,
+    root,
+    requests,
+    preview,
+    board,
     show() {
       root.innerHTML = preview.render(board, "");
       root.querySelector<HTMLElement>(".mermaid-diagram")!.style.cssText = "width:100%;height:300px;min-height:0;padding:0;border:0";
       return preview.sync();
     },
-    hide() { root.innerHTML = "<p>Another stage</p>"; return preview.sync(); },
+    hide() {
+      root.innerHTML = "<p>Another stage</p>";
+      return preview.sync();
+    },
     svgId: () => root.querySelector("svg")?.id,
-    close() { preview.dispose(); root.remove(); },
+    close() {
+      preview.dispose();
+      root.remove();
+    },
   };
 }
 
@@ -65,7 +79,9 @@ export async function verifyPreviewLifecycle() {
     check(pending.root.querySelector(".zoom-status")!.textContent === "50% of fit", "zoom must stop at its lower limit");
     pending.preview.zoom("fit");
     check(pending.root.querySelector(".zoom-status")!.textContent === "Fit", "fit must reset zoom");
-  } finally { pending.close(); }
+  } finally {
+    pending.close();
+  }
 
   for (const olderFails of [false, true]) {
     const race = fixture();
@@ -78,7 +94,8 @@ export async function verifyPreviewLifecycle() {
       check(race.requests.length === 2 && race.requests[0]!.source !== race.requests[1]!.source, "changed source must start a new render");
       race.requests[1]!.resolve();
       await newer;
-      if (olderFails) race.requests[0]!.reject(); else race.requests[0]!.resolve();
+      if (olderFails) race.requests[0]!.reject();
+      else race.requests[0]!.resolve();
       await older;
       check(race.svgId() === race.requests[1]!.id, "older completion must not replace the newer diagram");
       await race.show();
@@ -89,7 +106,9 @@ export async function verifyPreviewLifecycle() {
       check(Number(race.requests.length) === 3, "cache must retain only the latest source");
       race.requests[2]!.resolve();
       await originalSource;
-    } finally { race.close(); }
+    } finally {
+      race.close();
+    }
   }
 
   const retry = fixture();
@@ -108,7 +127,9 @@ export async function verifyPreviewLifecycle() {
     await retried;
     await retry.show();
     check(retry.svgId() === retry.requests[1]!.id && Number(retry.requests.length) === 2, "successful retry must be cached");
-  } finally { retry.close(); }
+  } finally {
+    retry.close();
+  }
 
   const absent = fixture();
   try {
@@ -120,7 +141,9 @@ export async function verifyPreviewLifecycle() {
     check(!detachedTarget.querySelector("svg") && !absent.svgId(), "leaving preview must invalidate its insertion target");
     await absent.show();
     check(absent.svgId() === absent.requests[0]!.id && absent.requests.length === 1, "result completed while away must remain reusable");
-  } finally { absent.close(); }
+  } finally {
+    absent.close();
+  }
 
   const left = fixture();
   const right = fixture();
@@ -141,7 +164,10 @@ export async function verifyPreviewLifecycle() {
     left.requests[1]!.resolve();
     await disposed;
     check(!left.svgId(), "disposed preview must not insert a pending result");
-  } finally { left.close(); right.close(); }
+  } finally {
+    left.close();
+    right.close();
+  }
 
   return "pending reuse, stale success/failure, retry, navigation, zoom/resize, independent instances and disposal";
 }

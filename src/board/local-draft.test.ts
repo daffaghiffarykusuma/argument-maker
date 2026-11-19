@@ -32,12 +32,17 @@ function manualClock() {
   return {
     schedule(callback: () => void, delay: number) {
       tasks.set(callback, now + delay);
-      return () => { tasks.delete(callback); };
+      return () => {
+        tasks.delete(callback);
+      };
     },
     advance(ms: number) {
       now += ms;
       for (const [callback, due] of tasks) {
-        if (due <= now) { tasks.delete(callback); callback(); }
+        if (due <= now) {
+          tasks.delete(callback);
+          callback();
+        }
       }
     },
   };
@@ -165,7 +170,12 @@ test("loading another draft can be cancelled, then accepted without a write, and
   const before = draft.session.snapshot().board;
   const writes = storage.writes;
   let confirmations = 0;
-  expect(draft.loadOther(() => { confirmations += 1; return false; })).toBe(false);
+  expect(
+    draft.loadOther(() => {
+      confirmations += 1;
+      return false;
+    }),
+  ).toBe(false);
   expect(confirmations).toBe(1);
   expect(draft.session.snapshot().board).toBe(before);
   expect(draft.snapshot()).toMatchObject({ conflict: true, hasUnsavedChanges: true });
@@ -173,7 +183,12 @@ test("loading another draft can be cancelled, then accepted without a write, and
   expect(draft.flush()).toBe(false);
   expect(storage.writes).toBe(writes);
 
-  expect(draft.loadOther(() => { confirmations += 1; return true; })).toBe(true);
+  expect(
+    draft.loadOther(() => {
+      confirmations += 1;
+      return true;
+    }),
+  ).toBe(true);
   expect(confirmations).toBe(2);
   expect(draft.session.snapshot().stage).toBe("construct");
   expect(draft.session.snapshot().board).toEqual(other.session.snapshot().board);
@@ -193,10 +208,12 @@ test("another write during replacement confirmation is detected before trusting 
   draft.setEnabled(true);
   storage.setItem(localDraftKey, JSON.stringify({ ...createExampleBoard(), title: "Chosen snapshot" }));
   draft.storageChanged(localDraftKey);
-  expect(draft.loadOther(() => {
-    storage.setItem(localDraftKey, JSON.stringify({ ...createExampleBoard(), title: "Later revision" }));
-    return true;
-  })).toBe(true);
+  expect(
+    draft.loadOther(() => {
+      storage.setItem(localDraftKey, JSON.stringify({ ...createExampleBoard(), title: "Later revision" }));
+      return true;
+    }),
+  ).toBe(true);
   expect(draft.session.snapshot().board.title).toBe("Chosen snapshot");
   expect(draft.flush()).toBe(false);
   expect(storedBoard().title).toBe("Later revision");
@@ -213,7 +230,11 @@ test.each(["missing", "corrupt", "unavailable"])("a recovery with %s storage kee
   if (failure === "missing") storage.removeItem(localDraftKey);
   else if (failure === "corrupt") storage.setItem(localDraftKey, "{bad");
   else storage.failRead = true;
-  expect(draft.loadOther(() => { throw new Error("Invalid drafts must not ask for replacement"); })).toBe(false);
+  expect(
+    draft.loadOther(() => {
+      throw new Error("Invalid drafts must not ask for replacement");
+    }),
+  ).toBe(false);
   expect(draft.session.snapshot().board).toBe(before);
   expect(draft.snapshot()).toMatchObject({ enabled: true, conflict: true, hasUnsavedChanges: true });
   expect(draft.snapshot().status).toContain("No readable draft found");

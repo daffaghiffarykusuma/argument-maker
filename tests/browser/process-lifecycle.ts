@@ -12,7 +12,9 @@ export async function stopOwnedProcess(child: ChildProcess): Promise<void> {
     });
   } else {
     // Test processes are spawned in their own group on POSIX.
-    try { process.kill(-child.pid, "SIGTERM"); } catch (error) {
+    try {
+      process.kill(-child.pid, "SIGTERM");
+    } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== "ESRCH") throw error;
     }
   }

@@ -12,8 +12,17 @@ export async function verifyWritingReview(browser: Browser, appUrl: string) {
   try {
     await page.goto(appUrl, { timeout: 60000 });
     await page.evaluate(() => {
-      Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: async (text: string) => { (window as any).copiedWriting = text; } } });
-      window.print = () => { (window as any).printedWriting = document.querySelector(".print-document")?.textContent; };
+      Object.defineProperty(navigator, "clipboard", {
+        configurable: true,
+        value: {
+          writeText: async (text: string) => {
+            (window as any).copiedWriting = text;
+          },
+        },
+      });
+      window.print = () => {
+        (window as any).printedWriting = document.querySelector(".print-document")?.textContent;
+      };
     });
     await page.locator('details[data-disclosure="planning"] > summary').click();
     await page.getByRole("textbox", { name: "Audience (optional)", exact: true }).fill("Private audience notes");
@@ -41,7 +50,9 @@ export async function verifyWritingReview(browser: Browser, appUrl: string) {
 
     for (const draft of [true, false]) {
       for (const format of ["copy", "markdown", "text", "print"] as const) {
-        await page.locator('input[type="file"]').setInputFiles({ name: "planning.argument.json", mimeType: "application/json", buffer: Buffer.from(boardFile) });
+        await page
+          .locator('input[type="file"]')
+          .setInputFiles({ name: "planning.argument.json", mimeType: "application/json", buffer: Buffer.from(boardFile) });
         await answerAppDialog(page, "confirm");
         await page.getByRole("tab", { name: /Preview/ }).click();
         await page.getByRole("button", { name: "Readable outline", exact: true }).click();
@@ -60,12 +71,18 @@ export async function verifyWritingReview(browser: Browser, appUrl: string) {
           await page.getByRole("heading", { name: "Reasoning review", exact: true }).waitFor();
           await page.getByRole("button", { name: "Continue to export", exact: true }).click();
         }
-        const contents = download ? await readFile((await (await download).path())!, "utf8") : await page.evaluate((format) => format === "copy" ? (window as any).copiedWriting : (window as any).printedWriting, format);
+        const contents = download
+          ? await readFile((await (await download).path())!, "utf8")
+          : await page.evaluate((format) => (format === "copy" ? (window as any).copiedWriting : (window as any).printedWriting), format);
         assert.equal(/\bDraft\b/.test(contents), draft, `${format} should reflect selected Draft label`);
         assert.doesNotMatch(contents, /Private audience notes|Private outcome notes/);
         assert.match(contents, /Sources/);
         assert.equal(contents.split("Workshop notes, page 7").length - 1, 1, "Reused citation has one source entry");
-        assert.equal(contents.split("Participants requested a pilot.").length - 1, 3, "Two attachments and their single source description appear in writing");
+        assert.equal(
+          contents.split("Participants requested a pilot.").length - 1,
+          3,
+          "Two attachments and their single source description appear in writing",
+        );
         if (draft && format === "print") {
           const output = join(process.cwd(), "output/playwright/writing-review");
           await mkdir(output, { recursive: true });
@@ -74,7 +91,8 @@ export async function verifyWritingReview(browser: Browser, appUrl: string) {
           await page.emulateMedia({ media: "screen" });
         }
         assert.equal(await invitation.count(), 0);
-        if (format === "copy") assert.equal(await page.locator("#writing-menu-toggle").evaluate((el) => el === document.activeElement), true);
+        if (format === "copy")
+          assert.equal(await page.locator("#writing-menu-toggle").evaluate((el) => el === document.activeElement), true);
       }
     }
     const savedDownload = page.waitForEvent("download");
@@ -82,13 +100,19 @@ export async function verifyWritingReview(browser: Browser, appUrl: string) {
     await page.getByRole("button", { name: "Download editable board", exact: true }).click();
     const savedFile = JSON.parse(await readFile((await (await savedDownload).path())!, "utf8"));
     assert.deepEqual(savedFile, JSON.parse(boardFile), "Review choice must not change editable board content");
-    await page.locator('input[type="file"]').setInputFiles({ name: "cancel.argument.json", mimeType: "application/json", buffer: Buffer.from(boardFile) });
+    await page
+      .locator('input[type="file"]')
+      .setInputFiles({ name: "cancel.argument.json", mimeType: "application/json", buffer: Buffer.from(boardFile) });
     await answerAppDialog(page, "cancel");
     await page.locator("#writing-menu-toggle").click();
     await page.getByRole("button", { name: "Copy", exact: true }).click();
     assert.equal(await page.getByRole("heading", { name: "Before you share", exact: true }).count(), 0);
-    await page.locator('input[type="file"]').setInputFiles({ name: "invalid.argument.json", mimeType: "application/json", buffer: Buffer.from("not JSON") });
-    await notice(page).getByText(/^Could not open invalid\.argument\.json\./).waitFor();
+    await page
+      .locator('input[type="file"]')
+      .setInputFiles({ name: "invalid.argument.json", mimeType: "application/json", buffer: Buffer.from("not JSON") });
+    await notice(page)
+      .getByText(/^Could not open invalid\.argument\.json\./)
+      .waitFor();
     await page.locator("#writing-menu-toggle").click();
     await page.getByRole("button", { name: "Copy", exact: true }).click();
     assert.equal(await page.getByRole("heading", { name: "Before you share", exact: true }).count(), 0);
@@ -112,7 +136,10 @@ export async function verifyWritingReview(browser: Browser, appUrl: string) {
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
     await page.getByRole("button", { name: "Review now", exact: true }).focus();
     await page.keyboard.press("Tab");
-    assert.equal(await page.getByRole("button", { name: "Export draft", exact: true }).evaluate((el) => el === document.activeElement), true);
+    assert.equal(
+      await page.getByRole("button", { name: "Export draft", exact: true }).evaluate((el) => el === document.activeElement),
+      true,
+    );
     await page.getByRole("button", { name: "Cancel export", exact: true }).click();
     assert.equal(await page.locator("#writing-menu-toggle").evaluate((el) => el === document.activeElement), true);
   } finally {

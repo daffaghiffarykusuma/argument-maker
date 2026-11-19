@@ -39,9 +39,17 @@ export async function verifyFocusedConstruction(browser: Browser, url: string) {
   await page.goto(url);
   await page.getByRole("button", { name: "Reasoning review", exact: true }).click();
   await page.getByRole("button", { name: "Add what is happening.", exact: true }).click();
-  assert.equal(await page.locator("#scqa-situation").evaluate(el => el === document.activeElement), true, "Review opens Context before focusing an issue");
-  const answerSize = await page.locator('label[for="scqa-answer"]').evaluate(el => parseFloat(getComputedStyle(el.querySelector("span")!).fontSize));
-  const reasonSize = await page.getByRole("textbox", { name: /Why should someone believe this/ }).evaluate(el => parseFloat(getComputedStyle(el.closest("label")!.querySelector("span")!).fontSize));
+  assert.equal(
+    await page.locator("#scqa-situation").evaluate((el) => el === document.activeElement),
+    true,
+    "Review opens Context before focusing an issue",
+  );
+  const answerSize = await page
+    .locator('label[for="scqa-answer"]')
+    .evaluate((el) => parseFloat(getComputedStyle(el.querySelector("span")!).fontSize));
+  const reasonSize = await page
+    .getByRole("textbox", { name: /Why should someone believe this/ })
+    .evaluate((el) => parseFloat(getComputedStyle(el.closest("label")!.querySelector("span")!).fontSize));
   assert.ok(answerSize > reasonSize, "Answer has stronger type hierarchy than supporting reasons");
   const situation = page.locator("#scqa-situation");
   await situation.pressSequentially("!");
@@ -55,7 +63,7 @@ export async function verifyFocusedConstruction(browser: Browser, url: string) {
   await situation.press("Shift+ArrowRight");
   await page.getByRole("button", { name: "Reasoning review", exact: true }).click();
   await page.getByRole("button", { name: "Back to editing", exact: true }).click();
-  assert.equal(await situation.evaluate(el => el === document.activeElement), true);
+  assert.equal(await situation.evaluate((el) => el === document.activeElement), true);
   assert.deepEqual(await situation.evaluate((el: HTMLTextAreaElement) => [el.selectionStart, el.selectionEnd]), [0, 1]);
   await page.getByRole("checkbox", { name: "Save draft in this browser" }).check();
   await page.reload();
@@ -78,11 +86,14 @@ export async function verifyFocusedConstruction(browser: Browser, url: string) {
   assert.match(await destination.innerText(), /Shared contextual evidence/);
   await page.locator("#scqa-question").fill("How should we meet rising demand?");
   await page.locator("#scqa-answer").fill("Run a limited pilot before expanding capacity.");
-  await page.getByRole("textbox", { name: /Why should someone believe this/ }).first().fill("A pilot tests demand before a larger commitment.");
+  await page
+    .getByRole("textbox", { name: /Why should someone believe this/ })
+    .first()
+    .fill("A pilot tests demand before a larger commitment.");
   await page.evaluate(() => window.scrollTo(0, 0));
   await page.screenshot({ path: "output/playwright/focused-construction-02/desktop.png", fullPage: true });
   await page.setViewportSize({ width: 390, height: 844 });
-  await situation.fill("Long framing " + "unbrokencontent".repeat(35));
+  await situation.fill(`Long framing ${"unbrokencontent".repeat(35)}`);
   await context.locator(":scope > summary").click();
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
   await page.evaluate(() => window.scrollTo(0, 0));

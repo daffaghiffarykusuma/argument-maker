@@ -19,7 +19,7 @@ export async function verifyResponsiveOutline(browser: Browser, url: string) {
   assert.equal(await dialog.getByRole("textbox").count(), 0, "Outline is read-only");
   await page.keyboard.press("Escape");
   assert.equal(await dialog.isVisible(), false);
-  assert.equal(await answer.evaluate(el => el === document.activeElement), true);
+  assert.equal(await answer.evaluate((el) => el === document.activeElement), true);
   assert.deepEqual(await answer.evaluate((el: HTMLTextAreaElement) => [el.selectionStart, el.selectionEnd]), [0, 1]);
   assert.equal(await answer.inputValue(), "Run a pilot before expanding.");
   console.log("outline03: laptop panel and editing return passed");
@@ -27,12 +27,16 @@ export async function verifyResponsiveOutline(browser: Browser, url: string) {
   await page.setViewportSize({ width: 390, height: 844 });
   await open.focus();
   await page.keyboard.press("Enter");
-  assert.equal(await dialog.getByRole("button", { name: "Close outline" }).evaluate(el => el === document.activeElement), true);
+  assert.equal(await dialog.getByRole("button", { name: "Close outline" }).evaluate((el) => el === document.activeElement), true);
   await page.keyboard.press("Tab");
-  assert.equal(await dialog.evaluate(el => el.contains(document.activeElement)), true, "Keyboard stays inside the modal");
+  assert.equal(await dialog.evaluate((el) => el.contains(document.activeElement)), true, "Keyboard stays inside the modal");
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.waitForFunction(() => !document.querySelector("dialog[open]"));
-  assert.equal(await page.getByRole("heading", { name: "Construct Argument", exact: true }).evaluate(el => el === document.activeElement), true, "Widening without a prior editor returns focus to construction");
+  assert.equal(
+    await page.getByRole("heading", { name: "Construct Argument", exact: true }).evaluate((el) => el === document.activeElement),
+    true,
+    "Widening without a prior editor returns focus to construction",
+  );
   console.log("outline03: fresh mobile keyboard and wide transition passed");
   const output = "output/playwright/responsive-outline-03";
   await mkdir(output, { recursive: true });
@@ -50,24 +54,48 @@ export async function verifyResponsiveOutline(browser: Browser, url: string) {
       assert.equal(await open.isVisible(), false);
       const editorBox = await answer.boundingBox();
       const outlineBox = await outline.boundingBox();
-      assert.ok(editorBox && outlineBox && editorBox.width >= 500 && outlineBox.width >= 250 && editorBox.x + editorBox.width < outlineBox.x, "Wide layout has readable separate columns");
-      const titleBox = await outline.getByRole('heading', { name: 'Argument outline' }).boundingBox();
-      const checksBox = await page.getByRole('complementary', { name: 'Review checklist' }).boundingBox();
-      assert.ok(titleBox && checksBox && (titleBox.y >= checksBox.y + checksBox.height || titleBox.x >= checksBox.x + checksBox.width), 'Structural checks do not cover the outline heading while writing');
+      assert.ok(
+        editorBox && outlineBox && editorBox.width >= 500 && outlineBox.width >= 250 && editorBox.x + editorBox.width < outlineBox.x,
+        "Wide layout has readable separate columns",
+      );
+      const titleBox = await outline.getByRole("heading", { name: "Argument outline" }).boundingBox();
+      const checksBox = await page.getByRole("complementary", { name: "Review checklist" }).boundingBox();
+      assert.ok(
+        titleBox && checksBox && (titleBox.y >= checksBox.y + checksBox.height || titleBox.x >= checksBox.x + checksBox.width),
+        "Structural checks do not cover the outline heading while writing",
+      );
       await page.screenshot({ path: `${output}/${width}-editor.png`, fullPage: true });
     } else {
       assert.equal(await outline.isVisible(), false);
       await answer.focus();
       await answer.press("Control+End");
       await answer.press("Shift+ArrowLeft");
-      const before = await answer.evaluate((el: HTMLTextAreaElement) => ({ start: el.selectionStart, end: el.selectionEnd, direction: el.selectionDirection, top: el.scrollTop, left: el.scrollLeft, y: window.scrollY }));
+      const before = await answer.evaluate((el: HTMLTextAreaElement) => ({
+        start: el.selectionStart,
+        end: el.selectionEnd,
+        direction: el.selectionDirection,
+        top: el.scrollTop,
+        left: el.scrollLeft,
+        y: window.scrollY,
+      }));
       await open.click();
       assert.match(await dialog.innerText(), /A pilot tests demand/);
       assert.match(await dialog.innerText(), /Run a limited pilot/);
-      assert.ok(await dialog.evaluate(el => el.scrollWidth <= el.clientWidth), "Long outline wraps inside its panel");
+      assert.ok(await dialog.evaluate((el) => el.scrollWidth <= el.clientWidth), "Long outline wraps inside its panel");
       await page.screenshot({ path: `${output}/${width}-panel.png`, fullPage: true });
       await dialog.getByRole("button", { name: "Close outline" }).press("Enter");
-      assert.deepEqual(await answer.evaluate((el: HTMLTextAreaElement) => ({ start: el.selectionStart, end: el.selectionEnd, direction: el.selectionDirection, top: el.scrollTop, left: el.scrollLeft, y: window.scrollY })), before, `Closing at ${width}px restores selection and editor/page scroll`);
+      assert.deepEqual(
+        await answer.evaluate((el: HTMLTextAreaElement) => ({
+          start: el.selectionStart,
+          end: el.selectionEnd,
+          direction: el.selectionDirection,
+          top: el.scrollTop,
+          left: el.scrollLeft,
+          y: window.scrollY,
+        })),
+        before,
+        `Closing at ${width}px restores selection and editor/page scroll`,
+      );
       assert.equal(await answer.inputValue(), longAnswer);
       await page.screenshot({ path: `${output}/${width}-editor.png`, fullPage: true });
     }
@@ -79,9 +107,9 @@ export async function verifyResponsiveOutline(browser: Browser, url: string) {
   await open.focus();
   await page.keyboard.press("Space");
   await page.keyboard.press("Shift+Tab");
-  assert.equal(await dialog.getByRole("button", { name: "Close outline" }).evaluate(el => el === document.activeElement), true);
+  assert.equal(await dialog.getByRole("button", { name: "Close outline" }).evaluate((el) => el === document.activeElement), true);
   await page.keyboard.press("Escape");
-  assert.equal(await answer.evaluate(el => el === document.activeElement), true);
+  assert.equal(await answer.evaluate((el) => el === document.activeElement), true);
   await answer.press("Control+z");
   assert.equal(await answer.inputValue(), longAnswer, "Native undo survives outline inspection");
   await reason.fill("Updated reasoning remains live.");
@@ -89,63 +117,67 @@ export async function verifyResponsiveOutline(browser: Browser, url: string) {
   assert.match(await dialog.innerText(), /Updated reasoning remains live/);
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.waitForFunction(() => !document.querySelector("dialog[open]"));
-  assert.equal(await reason.evaluate(el => el === document.activeElement), true, "Wide transition restores the last editor");
+  assert.equal(await reason.evaluate((el) => el === document.activeElement), true, "Wide transition restores the last editor");
   assert.match(await outline.innerText(), /Updated reasoning remains live/);
   await page.setViewportSize({ width: 1024, height: 900 });
   assert.equal(await dialog.isVisible(), false, "Narrowing keeps the panel closed until requested");
   console.log("outline03: live long content, seven viewport widths, scroll/selection, native undo and transitions passed");
   await page.locator('[data-disclosure="context"] > summary').click();
-  await page.locator('#scqa-situation').fill('Context remains open.');
+  await page.locator("#scqa-situation").fill("Context remains open.");
   await page.locator('[data-disclosure="planning"] > summary').click();
-  await page.locator('#planning-audience').fill('Planning remains open.');
-  await page.getByRole('tab', { name: /Gather Facts/ }).click();
-  await page.getByRole('button', { name: 'Add fact' }).click();
-  await page.getByRole('textbox', { name: 'Fact text', exact: true }).fill('Shared pilot evidence');
-  await page.getByRole('textbox', { name: 'Descriptive citation', exact: true }).fill('Field notes, p. 3');
-  await page.getByRole('tab', { name: /Construct Argument/ }).click();
-  const destination = page.getByLabel('Facts supporting Situation', { exact: true });
-  await destination.locator(':scope > summary').click();
-  const picker = destination.getByText('Choose Gathered Facts', { exact: true });
+  await page.locator("#planning-audience").fill("Planning remains open.");
+  await page.getByRole("tab", { name: /Gather Facts/ }).click();
+  await page.getByRole("button", { name: "Add fact" }).click();
+  await page.getByRole("textbox", { name: "Fact text", exact: true }).fill("Shared pilot evidence");
+  await page.getByRole("textbox", { name: "Descriptive citation", exact: true }).fill("Field notes, p. 3");
+  await page.getByRole("tab", { name: /Construct Argument/ }).click();
+  const destination = page.getByLabel("Facts supporting Situation", { exact: true });
+  await destination.locator(":scope > summary").click();
+  const picker = destination.getByText("Choose Gathered Facts", { exact: true });
   await picker.click();
-  await destination.getByRole('searchbox', { name: 'Search facts to attach' }).fill('Field notes');
+  await destination.getByRole("searchbox", { name: "Search facts to attach" }).fill("Field notes");
   await open.click();
-  await page.keyboard.press('Escape');
-  assert.equal(await destination.getByRole('searchbox', { name: 'Search facts to attach' }).inputValue(), 'Field notes');
-  await destination.getByRole('button', { name: 'Attach fact', exact: true }).click();
+  await page.keyboard.press("Escape");
+  assert.equal(await destination.getByRole("searchbox", { name: "Search facts to attach" }).inputValue(), "Field notes");
+  await destination.getByRole("button", { name: "Attach fact", exact: true }).click();
   assert.match(await destination.innerText(), /Shared pilot evidence/);
-  const editFact = destination.getByText('Edit fact', { exact: true });
+  const editFact = destination.getByText("Edit fact", { exact: true });
   await editFact.click();
-  const shared = destination.getByRole('textbox', { name: 'Fact text', exact: true });
-  await shared.fill('Updated shared pilot evidence');
-  await shared.pressSequentially('!');
+  const shared = destination.getByRole("textbox", { name: "Fact text", exact: true });
+  await shared.fill("Updated shared pilot evidence");
+  await shared.pressSequentially("!");
   await open.click();
-  await page.keyboard.press('Escape');
-  await shared.press('Control+z');
-  assert.equal(await shared.inputValue(), 'Updated shared pilot evidence');
-  assert.equal(await page.locator('#scqa-situation').isVisible(), true);
-  assert.equal(await page.locator('#planning-audience').isVisible(), true);
-  assert.equal(await page.locator('#planning-audience').inputValue(), 'Planning remains open.');
-  await page.getByRole('button', { name: 'Reasoning review', exact: true }).click();
-  await page.getByRole('button', { name: 'Back to editing', exact: true }).click();
-  assert.equal(await shared.evaluate(el => el === document.activeElement), true);
-  assert.equal(await shared.inputValue(), 'Updated shared pilot evidence');
+  await page.keyboard.press("Escape");
+  await shared.press("Control+z");
+  assert.equal(await shared.inputValue(), "Updated shared pilot evidence");
+  assert.equal(await page.locator("#scqa-situation").isVisible(), true);
+  assert.equal(await page.locator("#planning-audience").isVisible(), true);
+  assert.equal(await page.locator("#planning-audience").inputValue(), "Planning remains open.");
+  await page.getByRole("button", { name: "Reasoning review", exact: true }).click();
+  await page.getByRole("button", { name: "Back to editing", exact: true }).click();
+  assert.equal(await shared.evaluate((el) => el === document.activeElement), true);
+  assert.equal(await shared.inputValue(), "Updated shared pilot evidence");
   await open.click();
-  await page.keyboard.press('Escape');
-  const exports = page.getByText('Export writing', { exact: true });
+  await page.keyboard.press("Escape");
+  const exports = page.getByText("Export writing", { exact: true });
   await exports.click();
-  assert.equal(await page.getByRole('button', { name: 'Copy', exact: true }).isVisible(), true);
-  await page.keyboard.press('Escape');
-  console.log('outline03: merged disclosures, searched picker, attached fact native undo, review return and export menu passed');
+  assert.equal(await page.getByRole("button", { name: "Copy", exact: true }).isVisible(), true);
+  await page.keyboard.press("Escape");
+  console.log("outline03: merged disclosures, searched picker, attached fact native undo, review return and export menu passed");
   const returning = await browser.newPage({ viewport: { width: 390, height: 844 } });
   await returning.goto(url);
-  await returning.getByRole('tab', { name: /Gather Facts/ }).click();
-  await returning.getByRole('button', { name: 'Add fact' }).click();
-  await returning.getByRole('textbox', { name: 'Fact text', exact: true }).fill('Research before writing');
-  await returning.getByRole('tab', { name: /Construct Argument/ }).click();
-  const returnOpen = returning.getByRole('button', { name: 'View outline', exact: true });
-  await returnOpen.press('Enter');
-  await returning.keyboard.press('Escape');
-  assert.equal(await returning.getByRole('heading', { name: 'Construct Argument', exact: true }).evaluate(el => el === document.activeElement), true, 'Stage navigation remains the sensible return location before a construction field is used');
+  await returning.getByRole("tab", { name: /Gather Facts/ }).click();
+  await returning.getByRole("button", { name: "Add fact" }).click();
+  await returning.getByRole("textbox", { name: "Fact text", exact: true }).fill("Research before writing");
+  await returning.getByRole("tab", { name: /Construct Argument/ }).click();
+  const returnOpen = returning.getByRole("button", { name: "View outline", exact: true });
+  await returnOpen.press("Enter");
+  await returning.keyboard.press("Escape");
+  assert.equal(
+    await returning.getByRole("heading", { name: "Construct Argument", exact: true }).evaluate((el) => el === document.activeElement),
+    true,
+    "Stage navigation remains the sensible return location before a construction field is used",
+  );
   await returning.close();
   await page.close();
 }

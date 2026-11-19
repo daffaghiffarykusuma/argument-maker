@@ -12,11 +12,14 @@ if (unknown.length) {
 }
 
 const names = requested.length ? requested : scenarioNames;
-const results = await runScenarios(names.map((name) => ({ name, load: registry[name]! })), {
-  scenarioTimeoutMs: Number(process.env.ARGUMENT_SCENARIO_TIMEOUT ?? 180_000),
-  onResult(result) {
-    console.log(result.ok ? `PASS ${result.name} (${result.ms} ms)` : `FAIL ${result.name} (${result.ms} ms)\n${result.error}`);
-    process.send?.({ type: "result", result });
+const results = await runScenarios(
+  names.map((name) => ({ name, load: registry[name]! })),
+  {
+    scenarioTimeoutMs: Number(process.env.ARGUMENT_SCENARIO_TIMEOUT ?? 180_000),
+    onResult(result) {
+      console.log(result.ok ? `PASS ${result.name} (${result.ms} ms)` : `FAIL ${result.name} (${result.ms} ms)\n${result.error}`);
+      process.send?.({ type: "result", result });
+    },
   },
-});
+);
 process.exitCode = results.every((result) => result.ok) ? 0 : 1;

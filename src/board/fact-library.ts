@@ -23,7 +23,9 @@ export function filterFacts(board: ArgumentBoard, query: string, filter: FactFil
     if (filter === "unused" && factUsageLabels(board, fact.id).length > 0) return false;
     if (filter === "incomplete" && isGatheredFactComplete(fact)) return false;
     const text = [fact.text, fact.evidenceLink, fact.descriptiveCitation, fact.sourceTitle, fact.sourceDate, fact.quotation, fact.dataType]
-      .filter(Boolean).join(" ").toLocaleLowerCase();
+      .filter(Boolean)
+      .join(" ")
+      .toLocaleLowerCase();
     return terms.every((term) => text.includes(term));
   });
 }
@@ -58,7 +60,11 @@ export function attachmentCandidates(board: ArgumentBoard, destinationId: FactDe
   const attached = new Set(readFactAttachments(board, destinationId).attachedFacts.map((fact) => fact.id));
   return filterFacts(board, query, "all").map((fact) => {
     const description = describeFact(board, fact);
-    const status: AttachmentCandidateStatus = attached.has(fact.id) ? "attached" : description.incomplete.length ? "incomplete" : "available";
+    const status: AttachmentCandidateStatus = attached.has(fact.id)
+      ? "attached"
+      : description.incomplete.length
+        ? "incomplete"
+        : "available";
     return { fact, status, ...description };
   });
 }
@@ -72,9 +78,12 @@ export function attachmentAvailability(board: ArgumentBoard, destinationId: Fact
   let message = "Choose a gathered fact to attach it here.";
   if (!board.gatheredFacts.length) message = "No facts gathered yet. Create a fact here to start gathering evidence.";
   else if (available.length === 0) {
-    message = allCompleteAttached ? "All complete facts are already attached here." : "The gathered facts are already attached here. Complete them below or create another fact.";
+    message = allCompleteAttached
+      ? "All complete facts are already attached here."
+      : "The gathered facts are already attached here. Complete them below or create another fact.";
   }
-  if (unfinished) message = `${allCompleteAttached ? "All complete facts are already attached here. " : ""}Finish an incomplete fact to attach it.`;
+  if (unfinished)
+    message = `${allCompleteAttached ? "All complete facts are already attached here. " : ""}Finish an incomplete fact to attach it.`;
   return { available, message, unfinished };
 }
 

@@ -12,9 +12,12 @@
     "test:unit": "bun test ./src",
     "test:browser": "bun test ./tests/browser",
     "test:scenario": "node tests/browser/run-scenarios.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "lint": "biome check .",
+    "format": "biome check --write ."
   },
   "devDependencies": {
+    "@biomejs/biome": "2.6.5",
     "@types/bun": "^1.4.4",
     "playwright": "^1.65.1",
     "typescript": "^7.0.2",

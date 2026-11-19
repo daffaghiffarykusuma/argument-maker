@@ -13,7 +13,11 @@ describe("Argument Board session", () => {
     session.setStage("construct");
     expect(incompleteFacts()).toHaveLength(1);
 
-    session.dispatch({ type: "update-gathered-fact", factId, changes: { text: "Demand grew.", evidenceLink: "https://example.com/source" } });
+    session.dispatch({
+      type: "update-gathered-fact",
+      factId,
+      changes: { text: "Demand grew.", evidenceLink: "https://example.com/source" },
+    });
     expect(incompleteFacts()).toHaveLength(0);
     session.undo();
     expect(incompleteFacts()).toHaveLength(1);

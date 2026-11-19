@@ -29,7 +29,10 @@ test.each(["audience", "intendedOutcome"] as const)("%s alone protects work from
   expect(session.hasTouchedContent()).toBe(true);
   expect(draft.snapshot().hasUnsavedChanges).toBe(true);
   let prompted = false;
-  const result = session.importFile(createArgumentBoardSession().exportFile().contents, () => { prompted = true; return false; });
+  const result = session.importFile(createArgumentBoardSession().exportFile().contents, () => {
+    prompted = true;
+    return false;
+  });
   expect(result).toBeUndefined();
   expect(prompted).toBe(true);
   expect(session.snapshot().board[field]).toBe("Keep this planning note");
@@ -42,7 +45,11 @@ test.each(["audience", "intendedOutcome"] as const)("malformed %s imports preser
   for (const value of [null, 42, {}, []]) {
     const file = JSON.parse(createArgumentBoardSession().exportFile().contents);
     file[field] = value;
-    expect(session.importFile(JSON.stringify(file), () => { throw new Error("Invalid files must not ask to replace work"); })?.ok).toBe(false);
+    expect(
+      session.importFile(JSON.stringify(file), () => {
+        throw new Error("Invalid files must not ask to replace work");
+      })?.ok,
+    ).toBe(false);
     expect(session.snapshot().board).toBe(active);
   }
   session.undo();
@@ -55,7 +62,15 @@ test("planning context survives board files and opt-in draft restore while stayi
   session.dispatch({ type: "update-planning-context", field: "audience", text: "Private audience" });
   session.dispatch({ type: "update-planning-context", field: "intendedOutcome", text: "Private intended outcome" });
   const values = new Map<string, string>();
-  const storage = { getItem: (key: string) => values.get(key) ?? null, setItem: (key: string, value: string) => { values.set(key, value); }, removeItem: (key: string) => { values.delete(key); } };
+  const storage = {
+    getItem: (key: string) => values.get(key) ?? null,
+    setItem: (key: string, value: string) => {
+      values.set(key, value);
+    },
+    removeItem: (key: string) => {
+      values.delete(key);
+    },
+  };
   const draft = createLocalDraft({ storage, initialSession: session });
   expect(draft.snapshot().enabled).toBe(false);
   expect(draft.setEnabled(true)).toBe(true);
@@ -65,7 +80,12 @@ test("planning context survives board files and opt-in draft restore while stayi
   expect(imported.importFile(session.exportFile().contents, () => true)?.ok).toBe(true);
   expect(imported.snapshot().board).toEqual(session.snapshot().board);
   expect(imported.snapshot().issues).toEqual(originalIssues);
-  for (const output of [session.copyOutline(), createWritingExport(session.snapshot().board, "markdown").contents, createWritingExport(session.snapshot().board, "text").contents, JSON.stringify(projectArgumentPreview(session.snapshot().board).writing)]) {
+  for (const output of [
+    session.copyOutline(),
+    createWritingExport(session.snapshot().board, "markdown").contents,
+    createWritingExport(session.snapshot().board, "text").contents,
+    JSON.stringify(projectArgumentPreview(session.snapshot().board).writing),
+  ]) {
     expect(output).not.toContain("Private audience");
     expect(output).not.toContain("Private intended outcome");
   }

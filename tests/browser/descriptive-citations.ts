@@ -7,7 +7,6 @@ import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "../..");
 
-
 export async function verifyDescriptiveCitations(browser: Browser, url: string) {
   await (async () => {
     const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
@@ -35,7 +34,7 @@ export async function verifyDescriptiveCitations(browser: Browser, url: string) 
       await page.locator(`[data-disclosure="destination-${destination}"] > summary`).click();
       await attachGatheredFact(page.locator(`[data-disclosure="destination-${destination}"]`), 1);
     }
-    await page.locator('.attached-fact').first().getByText("Edit fact", { exact: true }).click();
+    await page.locator(".attached-fact").first().getByText("Edit fact", { exact: true }).click();
     await page.getByLabel("Descriptive citation", { exact: true }).first().fill("Interview <notes>, page 4");
     await page.getByLabel("Descriptive citation", { exact: true }).first().press("Tab");
     assert.equal(await page.getByLabel("Descriptive citation", { exact: true }).nth(1).inputValue(), "Interview <notes>, page 4");
@@ -58,7 +57,9 @@ export async function verifyDescriptiveCitations(browser: Browser, url: string) 
     let contents = "";
     for await (const chunk of stream!) contents += chunk.toString();
     assert.match(contents, /Interview \\<notes\\>, page 4/);
-    await page.evaluate(() => { window.print = () => {}; });
+    await page.evaluate(() => {
+      window.print = () => {};
+    });
     await page.locator("#writing-menu-toggle").click();
     await page.getByRole("button", { name: "Print/PDF", exact: true }).click();
     await page.emulateMedia({ media: "print" });

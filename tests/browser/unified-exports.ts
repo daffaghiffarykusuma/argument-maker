@@ -23,15 +23,21 @@ export async function verifyUnifiedExports(browser: Browser, url: string) {
       if (stage === "Construct Argument") await page.screenshot({ path: "output/playwright/unified-exports-07/desktop-menu.png" });
       await header.getByRole("button", { name: "Text", exact: true }).focus();
       await page.keyboard.press("Escape");
-      assert.equal(await exports.evaluate(el => el === document.activeElement), true);
+      assert.equal(await exports.evaluate((el) => el === document.activeElement), true);
       assert.equal(await header.getByRole("button", { name: "Text", exact: true }).isVisible(), false);
     }
-    assert.equal(await page.locator('.preview-tools').getByRole("button", { name: /Markdown|Text|Print|Copy/ }).count(), 0);
+    assert.equal(
+      await page
+        .locator(".preview-tools")
+        .getByRole("button", { name: /Markdown|Text|Print|Copy/ })
+        .count(),
+      0,
+    );
     await exports.click();
     await header.getByRole("button", { name: "Markdown", exact: true }).click();
     await page.getByRole("heading", { name: "Before you share", exact: true }).waitFor();
     await page.getByRole("button", { name: "Cancel export", exact: true }).click();
-    assert.equal(await exports.evaluate(el => el === document.activeElement), true);
+    assert.equal(await exports.evaluate((el) => el === document.activeElement), true);
     for (const width of [1024, 390, 320]) {
       await page.setViewportSize({ width, height: 900 });
       await exports.click();
@@ -47,8 +53,14 @@ export async function verifyUnifiedExports(browser: Browser, url: string) {
       await header.getByRole("button", { name: "Download editable board", exact: true }).click();
       const board = JSON.parse(await readFile((await (await pending).path())!, "utf8"));
       assert.equal(typeof board.title, "string");
-      assert.equal(await page.getByRole("heading", { name: "Before you share", exact: true }).count(), 0, "Editable file download bypasses writing review");
-      assert.equal(await header.locator("#board-menu-toggle").evaluate(el => el === document.activeElement), true);
+      assert.equal(
+        await page.getByRole("heading", { name: "Before you share", exact: true }).count(),
+        0,
+        "Editable file download bypasses writing review",
+      );
+      assert.equal(await header.locator("#board-menu-toggle").evaluate((el) => el === document.activeElement), true);
     }
-  } finally { await page.close(); }
+  } finally {
+    await page.close();
+  }
 }

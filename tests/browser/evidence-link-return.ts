@@ -7,7 +7,7 @@ export async function verifyEvidenceLinkReturn(browser: Browser, url: string) {
     await (async () => {
       const page = await browser.newPage({ viewport: { width: 1024, height: 700 } });
       const errors: string[] = [];
-      page.on("pageerror", error => errors.push(error.message));
+      page.on("pageerror", (error) => errors.push(error.message));
       await page.goto(url);
       await page.locator('details[data-disclosure="context"] > summary').click();
       const facts = page.locator('[data-disclosure="destination-situation"]');
@@ -24,7 +24,7 @@ export async function verifyEvidenceLinkReturn(browser: Browser, url: string) {
         await page.getByRole("button", { name: "View outline", exact: true }).click();
         await page.getByRole("button", { name: "Close outline", exact: true }).click();
       }
-      assert.equal(await link.evaluate(el => el === document.activeElement), true);
+      assert.equal(await link.evaluate((el) => el === document.activeElement), true);
       assert.equal(await page.evaluate(() => window.scrollY), scroll);
       assert.equal(await link.inputValue(), "https://example.com/research");
       assert.deepEqual(errors, [], "Returning from an Evidence Link must not raise browser errors");

@@ -5,8 +5,6 @@ import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { answerAppDialog } from "./app-dialog.ts";
 
-
-
 export async function verifyFactGuidance(browser: Browser, url: string) {
   await (async () => {
     const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
@@ -56,9 +54,15 @@ export async function verifyFactGuidance(browser: Browser, url: string) {
     assert.equal(await situation.locator(".attached-fact").count(), 2);
     assert.equal(await situation.getByRole("button", { name: "Complete a gathered fact" }).count(), 0);
     await situation.getByRole("button", { name: "Remove from here" }).last().click();
-    await situation.getByText('Choose Gathered Facts', { exact: true }).click();
-    assert.equal(await situation.getByRole('article', { name: 'Gathered Fact 2', exact: true }).getByRole('button', { name: 'Attach fact', exact: true }).isEnabled(), true);
-    await situation.getByRole('button', { name: 'Close picker' }).click();
+    await situation.getByText("Choose Gathered Facts", { exact: true }).click();
+    assert.equal(
+      await situation
+        .getByRole("article", { name: "Gathered Fact 2", exact: true })
+        .getByRole("button", { name: "Attach fact", exact: true })
+        .isEnabled(),
+      true,
+    );
+    await situation.getByRole("button", { name: "Close picker" }).click();
     assert.doesNotMatch(await situation.locator(".attachment-guidance").innerText(), /already attached/);
     console.log("fact-guidance: empty, incomplete, all-attached, mixed and attachment recovery passed");
     await page.getByRole("tab", { name: /Gather Facts/ }).click();
@@ -74,7 +78,10 @@ export async function verifyFactGuidance(browser: Browser, url: string) {
     const fresh = page.locator('.fact-card[data-fact-id="fact-2"]');
     assert.equal(await fresh.locator(".fact-status").innerText(), "Draft");
     assert.equal(await fresh.locator(".field-guidance").count(), 0);
-    assert.equal(await fresh.getByRole("textbox", { name: "Fact text", exact: true }).evaluate((el) => el === document.activeElement), true);
+    assert.equal(
+      await fresh.getByRole("textbox", { name: "Fact text", exact: true }).evaluate((el) => el === document.activeElement),
+      true,
+    );
     const output = join(process.cwd(), "output/playwright/fact-guidance");
     await mkdir(output, { recursive: true });
     await page.screenshot({ path: join(output, "fresh-fact-desktop.png"), fullPage: true });

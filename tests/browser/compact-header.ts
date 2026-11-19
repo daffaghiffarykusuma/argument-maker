@@ -16,7 +16,7 @@ export async function verifyCompactHeader(browser: Browser, url: string) {
   await page.keyboard.press("Enter");
   await page.getByRole("button", { name: "Download editable board", exact: true }).waitFor();
   await page.keyboard.press("Escape");
-  assert.equal(await board.evaluate(el => el === document.activeElement), true);
+  assert.equal(await board.evaluate((el) => el === document.activeElement), true);
   assert.equal(await page.getByRole("button", { name: "Download editable board", exact: true }).isVisible(), false);
   const construct = page.getByRole("tab", { name: "Construct Argument", exact: true });
   await construct.focus();
@@ -32,7 +32,7 @@ export async function verifyCompactHeader(browser: Browser, url: string) {
   const file = await readFile((await (await pending).path())!, "utf8");
   assert.equal(JSON.parse(file).title, "A portable argument");
   assert.equal(await page.getByRole("button", { name: "Download editable board", exact: true }).isVisible(), false);
-  assert.equal(await board.evaluate(el => el === document.activeElement), true);
+  assert.equal(await board.evaluate((el) => el === document.activeElement), true);
   await board.click();
   await page.getByRole("button", { name: "Clear Board", exact: true }).click();
   await answerAppDialog(page, "cancel");

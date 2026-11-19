@@ -14,9 +14,7 @@ export interface ExportFile {
   contents: string;
 }
 
-export type ExportFileImportResult =
-  | { ok: true; board: ArgumentBoard }
-  | { ok: false; message: string };
+export type ExportFileImportResult = { ok: true; board: ArgumentBoard } | { ok: false; message: string };
 
 export function createExportFile(board: ArgumentBoard): ExportFile {
   return {
@@ -43,9 +41,7 @@ export function parseExportFile(contents: string): ExportFileImportResult {
     return reject("Unsupported Argument Board file version.");
   }
 
-  return hasBoardShape(parsed)
-    ? { ok: true, board: parsed }
-    : reject("This Argument Board file is missing required data.");
+  return hasBoardShape(parsed) ? { ok: true, board: parsed } : reject("This Argument Board file is missing required data.");
 }
 
 export function createExportFileName(title: string): string {
@@ -89,9 +85,7 @@ function hasBoardShape(value: Record<string, unknown>): value is Record<string, 
     ...value["supportingArguments"].map((argument) => argument.factIds),
   ];
 
-  return destinations.every(
-    (ids) => new Set(ids).size === ids.length && ids.every((id) => knownFactIds.has(id)),
-  );
+  return destinations.every((ids) => new Set(ids).size === ids.length && ids.every((id) => knownFactIds.has(id)));
 }
 
 function hasScqaShape(value: unknown): value is ArgumentBoard["scqa"] {

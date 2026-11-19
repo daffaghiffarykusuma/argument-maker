@@ -52,7 +52,10 @@ export function createWritingReviewGate() {
 
   function send(event: WritingGateEvent): WritingGateOutcome {
     const fromStage = panel === "stage";
-    const outcome = (extra: Partial<WritingGateOutcome> = {}): WritingGateOutcome => ({ leftStage: fromStage && panel !== "stage", ...extra });
+    const outcome = (extra: Partial<WritingGateOutcome> = {}): WritingGateOutcome => ({
+      leftStage: fromStage && panel !== "stage",
+      ...extra,
+    });
 
     switch (event.type) {
       case "open-review":

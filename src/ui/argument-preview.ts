@@ -60,11 +60,14 @@ export function createArgumentPreview(root: HTMLDivElement, renderDiagram: Diagr
         // An older failure must not evict a newer pending or completed diagram.
         if (diagram === requestedDiagram) diagram = undefined;
         if (currentGeneration === generation && !disposed) {
-          container.innerHTML = '<div class="mermaid-status error">The workflow could not be rendered. Check the Mermaid source below.</div>';
+          container.innerHTML =
+            '<div class="mermaid-status error">The workflow could not be rendered. Check the Mermaid source below.</div>';
         }
       }
     },
-    setMode(nextMode: PreviewMode) { mode = nextMode; },
+    setMode(nextMode: PreviewMode) {
+      mode = nextMode;
+    },
     zoom(direction: "in" | "out" | "fit") {
       zoom = direction === "fit" ? 1 : Math.max(0.5, Math.min(6, zoom * (direction === "in" ? 1.25 : 0.8)));
       sizeDiagram();
@@ -137,13 +140,14 @@ function renderEvidenceGroup(group: ReturnType<typeof projectArgumentPreview>["e
 }
 
 function renderEvidenceSource(fact: ArgumentPreviewFact): string {
-  const citation = fact.descriptiveCitation?.trim()
-    ? `<span>Descriptive citation: ${escapeHtml(fact.descriptiveCitation)}</span>` : "";
+  const citation = fact.descriptiveCitation?.trim() ? `<span>Descriptive citation: ${escapeHtml(fact.descriptiveCitation)}</span>` : "";
   if (fact.sourceReferenceStatus === "valid-link") {
     return `${citation}<a href="${escapeAttr(fact.evidenceLink)}" target="_blank" rel="noreferrer" aria-label="Open evidence source for ${escapeAttr(fact.text || "fact needing text")}">Open evidence source</a>`;
   }
   if (fact.sourceReferenceStatus === "invalid-link") return `${citation}<span class="invalid-source">Evidence link is invalid</span>`;
-  return fact.sourceReferenceStatus === "citation-only" ? citation : '<span class="invalid-source">Evidence link or descriptive citation is missing</span>';
+  return fact.sourceReferenceStatus === "citation-only"
+    ? citation
+    : '<span class="invalid-source">Evidence link or descriptive citation is missing</span>';
 }
 
 function renderPreviewTools(preview: ReturnType<typeof projectArgumentPreview>, mode: PreviewMode): string {
@@ -156,29 +160,31 @@ function renderPreviewTools(preview: ReturnType<typeof projectArgumentPreview>, 
 }
 
 function loadMermaid() {
-  return (mermaidPromise ??= import("mermaid").then(({ default: mermaid }) => {
-    mermaid.initialize({
-      startOnLoad: false,
-      securityLevel: "strict",
-      theme: "base",
-      themeVariables: {
-        background: "#0b120f",
-        primaryColor: "#1a2621",
-        primaryTextColor: "#ebe5d5",
-        darkMode: true,
-        textColor: "#ebe5d5",
-        primaryBorderColor: "#3c4f46",
-        lineColor: "#6f8279",
-        secondaryColor: "#141e1a",
-        tertiaryColor: "#141e1a",
-        fontFamily: '"Schibsted Grotesk Variable", "Segoe UI", system-ui, sans-serif',
-        fontSize: "15px",
-      },
-    });
-    return mermaid;
-  }).catch((error) => {
-    mermaidPromise = undefined;
-    throw error;
-  }));
+  // biome-ignore lint/suspicious/noAssignInExpressions: memoize the single lazy Mermaid import.
+  return (mermaidPromise ??= import("mermaid")
+    .then(({ default: mermaid }) => {
+      mermaid.initialize({
+        startOnLoad: false,
+        securityLevel: "strict",
+        theme: "base",
+        themeVariables: {
+          background: "#0b120f",
+          primaryColor: "#1a2621",
+          primaryTextColor: "#ebe5d5",
+          darkMode: true,
+          textColor: "#ebe5d5",
+          primaryBorderColor: "#3c4f46",
+          lineColor: "#6f8279",
+          secondaryColor: "#141e1a",
+          tertiaryColor: "#141e1a",
+          fontFamily: '"Schibsted Grotesk Variable", "Segoe UI", system-ui, sans-serif',
+          fontSize: "15px",
+        },
+      });
+      return mermaid;
+    })
+    .catch((error) => {
+      mermaidPromise = undefined;
+      throw error;
+    }));
 }
-

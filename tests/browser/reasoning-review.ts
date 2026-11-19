@@ -11,7 +11,10 @@ export async function verifyReasoningReview(browser: Browser, appUrl: string) {
     await openReview.focus();
     await openReview.press("Enter");
     const review = page.getByRole("region", { name: "Reasoning review", exact: true });
-    assert.equal(await review.getByRole("heading", { name: "Reasoning review", exact: true }).evaluate((el) => el === document.activeElement), true);
+    assert.equal(
+      await review.getByRole("heading", { name: "Reasoning review", exact: true }).evaluate((el) => el === document.activeElement),
+      true,
+    );
     assert.match(await review.innerText(), /Audience not set/);
     assert.match(await review.innerText(), /Intended outcome not set/);
     assert.match(await review.innerText(), /does not establish truth or reasoning quality/);
@@ -29,11 +32,20 @@ export async function verifyReasoningReview(browser: Browser, appUrl: string) {
     const connection = review.getByRole("textbox", { name: "How does this reason support your answer?", exact: true });
     await connection.fill("A pilot tests the assumption before committing resources.");
     await connection.press("Tab");
-    assert.equal(await review.getByRole("textbox", { name: "What are you assuming?", exact: true }).evaluate((el) => el === document.activeElement), true);
+    assert.equal(
+      await review.getByRole("textbox", { name: "What are you assuming?", exact: true }).evaluate((el) => el === document.activeElement),
+      true,
+    );
     await page.getByRole("button", { name: "Back to editing", exact: true }).click();
-    assert.equal(await page.getByRole("textbox", { name: "Intended outcome (optional)", exact: true }).evaluate((el) => el === document.activeElement), true);
+    assert.equal(
+      await page.getByRole("textbox", { name: "Intended outcome (optional)", exact: true }).evaluate((el) => el === document.activeElement),
+      true,
+    );
     await page.getByText("Challenge this reason", { exact: false }).click();
-    assert.equal(await page.getByRole("textbox", { name: "How does this reason support your answer?", exact: true }).inputValue(), "A pilot tests the assumption before committing resources.");
+    assert.equal(
+      await page.getByRole("textbox", { name: "How does this reason support your answer?", exact: true }).inputValue(),
+      "A pilot tests the assumption before committing resources.",
+    );
     await page.getByRole("button", { name: "Undo", exact: true }).click();
     await openReview.click();
     assert.equal(await connection.inputValue(), "");
@@ -46,14 +58,20 @@ export async function verifyReasoningReview(browser: Browser, appUrl: string) {
     await page.setViewportSize({ width: 390, height: 844 });
     await connection.focus();
     await connection.press("Tab");
-    assert.equal(await review.getByRole("textbox", { name: "What are you assuming?", exact: true }).evaluate((el) => el === document.activeElement), true);
+    assert.equal(
+      await review.getByRole("textbox", { name: "What are you assuming?", exact: true }).evaluate((el) => el === document.activeElement),
+      true,
+    );
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true);
     await page.getByRole("tab", { name: /Gather Facts/ }).click();
     assert.equal(await review.count(), 0);
     await openReview.click();
     await page.getByRole("button", { name: "Back to editing", exact: true }).click();
     assert.equal(await page.getByRole("tab", { name: /Gather Facts/ }).getAttribute("aria-selected"), "true");
-    assert.equal(await page.getByRole("heading", { name: "Gather Facts", exact: true }).evaluate((el) => el === document.activeElement), true);
+    assert.equal(
+      await page.getByRole("heading", { name: "Gather Facts", exact: true }).evaluate((el) => el === document.activeElement),
+      true,
+    );
   } finally {
     await context.close();
   }

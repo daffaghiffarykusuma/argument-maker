@@ -17,7 +17,9 @@ export type Excursion = "review" | "outline";
 const focusable = "button, input, textarea, select, summary, [tabindex]";
 
 function hasTextSelection(element: Element): element is HTMLInputElement | HTMLTextAreaElement {
-  return element instanceof HTMLTextAreaElement || (element instanceof HTMLInputElement && ["text", "search", "url"].includes(element.type));
+  return (
+    element instanceof HTMLTextAreaElement || (element instanceof HTMLInputElement && ["text", "search", "url"].includes(element.type))
+  );
 }
 
 /**
@@ -42,9 +44,13 @@ export function createEditingPosition(root: HTMLDivElement, currentStage: () => 
       const panel = target.closest('[role="tabpanel"]');
       if (!panel || !target.matches(focusable)) return;
       current = {
-        stage: currentStage(), id: target.id,
+        stage: currentStage(),
+        id: target.id,
         index: [...panel.querySelectorAll(focusable)].indexOf(target),
-        x: window.scrollX, y: window.scrollY, scrollTop: target.scrollTop, scrollLeft: target.scrollLeft,
+        x: window.scrollX,
+        y: window.scrollY,
+        scrollTop: target.scrollTop,
+        scrollLeft: target.scrollLeft,
         selection: hasTextSelection(target) ? [target.selectionStart, target.selectionEnd, target.selectionDirection ?? "none"] : undefined,
       };
     },
@@ -53,7 +59,8 @@ export function createEditingPosition(root: HTMLDivElement, currentStage: () => 
     hold(excursion: Excursion, anchorId?: string) {
       const stage = currentStage();
       if (current?.stage === stage) held.set(excursion, { ...current });
-      else if (anchorId) held.set(excursion, { stage, id: anchorId, index: -1, x: window.scrollX, y: window.scrollY, scrollTop: 0, scrollLeft: 0 });
+      else if (anchorId)
+        held.set(excursion, { stage, id: anchorId, index: -1, x: window.scrollX, y: window.scrollY, scrollTop: 0, scrollLeft: 0 });
       else held.delete(excursion);
     },
 
@@ -83,8 +90,9 @@ export function createEditingPosition(root: HTMLDivElement, currentStage: () => 
       const active = document.activeElement as HTMLElement | null;
       const index = active ? [...root.querySelectorAll(focusable)].indexOf(active) : -1;
       const id = active?.id;
-      const selection = active && hasTextSelection(active) ? [active.selectionStart, active.selectionEnd] as const : undefined;
-      const x = window.scrollX, y = window.scrollY;
+      const selection = active && hasTextSelection(active) ? ([active.selectionStart, active.selectionEnd] as const) : undefined;
+      const x = window.scrollX,
+        y = window.scrollY;
       render();
       const replacement = id ? document.getElementById(id) : [...root.querySelectorAll<HTMLElement>(focusable)][index];
       replacement?.focus({ preventScroll: true });

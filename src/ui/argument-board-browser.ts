@@ -1,7 +1,7 @@
 import { destinationLabel, type ArgumentBoard, type SupportMode } from "../board/argument-board";
 import { parseExportFile } from "../board/export-file-contract";
 import { confirmAction, showShortcuts, type ConfirmOptions } from "./app-dialog";
-import { type ArgumentBoardSession, type WorkflowStage } from "../board/argument-board-session";
+import type { ArgumentBoardSession, WorkflowStage } from "../board/argument-board-session";
 
 type IconName = "copy" | "download" | "upload" | "undo" | "redo" | "trash" | "up" | "down" | "eye" | "eyeOff";
 
@@ -50,13 +50,20 @@ import { replaceRegion } from "./region";
 import type { WritingAction, WritingGateEvent } from "./writing-review-gate";
 
 export function mountArgumentBoardApp(appRoot: HTMLDivElement, initialSession?: ArgumentBoardSession) {
-  const session = mountBoardControls(appRoot, initialSession, { render, change: handleChange, action: handleAction, upload: openBoardFile, refresh: refreshEditingState });
+  const session = mountBoardControls(appRoot, initialSession, {
+    render,
+    change: handleChange,
+    action: handleAction,
+    upload: openBoardFile,
+    refresh: refreshEditingState,
+  });
   render(appRoot, session);
 }
 
 function render(appRoot: HTMLDivElement, session: ArgumentBoardSession) {
   const view = views.get(appRoot)!;
-  for (const details of appRoot.querySelectorAll<HTMLDetailsElement>('details[data-disclosure]')) view.disclosures.set(details.dataset.disclosure!, details.open);
+  for (const details of appRoot.querySelectorAll<HTMLDetailsElement>("details[data-disclosure]"))
+    view.disclosures.set(details.dataset.disclosure!, details.open);
   view.draft.flush();
   const snapshot = session.snapshot();
   const writing = view.writing.view();
@@ -79,7 +86,7 @@ function render(appRoot: HTMLDivElement, session: ArgumentBoardSession) {
     </div>
   `;
 
-  for (const details of appRoot.querySelectorAll<HTMLDetailsElement>('details[data-disclosure]')) {
+  for (const details of appRoot.querySelectorAll<HTMLDetailsElement>("details[data-disclosure]")) {
     if (view.disclosures.has(details.dataset.disclosure!)) details.open = view.disclosures.get(details.dataset.disclosure!)!;
   }
   void view.preview.sync();
@@ -240,13 +247,22 @@ function renderConstructStage(
 }
 
 function renderFramingSummary(board: ArgumentBoard, section: "context" | "planning"): string {
-  const fields = section === "context"
-    ? [["Situation", board.scqa.situation.text], ["Complication", board.scqa.complication.text]]
-    : [["Audience", board.audience], ["Intended outcome", board.intendedOutcome]];
+  const fields =
+    section === "context"
+      ? [
+          ["Situation", board.scqa.situation.text],
+          ["Complication", board.scqa.complication.text],
+        ]
+      : [
+          ["Audience", board.audience],
+          ["Intended outcome", board.intendedOutcome],
+        ];
   const populated = fields.filter(([, text]) => text?.trim());
   return populated.length
     ? populated.map(([label, text]) => `<span>${label}: ${escapeHtml(text!.trim().replace(/\s+/g, " "))}</span>`).join("")
-    : section === "context" ? "Add Situation and Complication when needed" : "Optional Audience and Intended outcome";
+    : section === "context"
+      ? "Add Situation and Complication when needed"
+      : "Optional Audience and Intended outcome";
 }
 
 function renderStartingGuidance(board: ArgumentBoard): string {
@@ -271,9 +287,7 @@ function renderTextPanel(
 ): string {
   const slot = board.scqa[field];
   const destinationId = field === "situation" || field === "complication" ? field : undefined;
-  const classes = ["panel", field === "answer" ? "answer-panel" : "", destinationId ? "evidence-panel" : ""]
-    .filter(Boolean)
-    .join(" ");
+  const classes = ["panel", field === "answer" ? "answer-panel" : "", destinationId ? "evidence-panel" : ""].filter(Boolean).join(" ");
 
   return `
     <article class="${classes}">
@@ -288,7 +302,12 @@ function renderTextPanel(
   `;
 }
 
-function renderArgument(board: ArgumentBoard, argument: ArgumentBoard["supportingArguments"][number], index: number, facts: GatheredFactEditing): string {
+function renderArgument(
+  board: ArgumentBoard,
+  argument: ArgumentBoard["supportingArguments"][number],
+  index: number,
+  facts: GatheredFactEditing,
+): string {
   return `
     <article class="argument-card">
       <div class="argument-header">
@@ -440,7 +459,8 @@ const actions: Record<string, (context: ActionContext) => void | Promise<void>> 
     rerender(appRoot, session);
   },
   zoom: ({ view, data }) => view.preview.zoom(data.zoom === "fit" ? "fit" : data.zoom === "in" ? "in" : "out"),
-  "download-writing": ({ appRoot, session, data }) => requestWritingAction(appRoot, session, data.format === "markdown" ? "markdown" : "text"),
+  "download-writing": ({ appRoot, session, data }) =>
+    requestWritingAction(appRoot, session, data.format === "markdown" ? "markdown" : "text"),
   print: ({ appRoot, session }) => requestWritingAction(appRoot, session, "print"),
   "copy-outline": ({ appRoot, session }) => requestWritingAction(appRoot, session, "copy-outline"),
   "copy-mermaid": ({ appRoot, session }) => void copyOutput(appRoot, session.copyMermaid(), "Mermaid"),
@@ -449,7 +469,11 @@ const actions: Record<string, (context: ActionContext) => void | Promise<void>> 
     rerender(appRoot, session);
   },
   "load-other-draft": async ({ appRoot, session, view }) => {
-    const question = { title: "Load the other tab's draft?", message: "The board in this tab will be replaced. You can undo this replacement.", confirmLabel: "Load other draft" };
+    const question = {
+      title: "Load the other tab's draft?",
+      message: "The board in this tab will be replaced. You can undo this replacement.",
+      confirmLabel: "Load other draft",
+    };
     if (session.hasTouchedContent() && !(await confirmAction(question))) return;
     if (view.draft.loadOther(() => true)) {
       resetWritingReview(view);
@@ -599,13 +623,20 @@ function requestWritingAction(appRoot: HTMLDivElement, session: ArgumentBoardSes
 function returnFromReview(appRoot: HTMLDivElement, session: ArgumentBoardSession) {
   const { positions } = views.get(appRoot)!;
   const position = positions.release("review");
-  if (!position) { renderAndFocus(appRoot, session, "open-reasoning-review"); return; }
+  if (!position) {
+    renderAndFocus(appRoot, session, "open-reasoning-review");
+    return;
+  }
   session.setStage(position.stage);
   render(appRoot, session);
   positions.restore(position, appRoot.querySelector<HTMLElement>("#open-reasoning-review"));
 }
 
-function performWritingAction(appRoot: HTMLDivElement, session: ArgumentBoardSession, { action, draft }: { action: WritingAction; draft: boolean }) {
+function performWritingAction(
+  appRoot: HTMLDivElement,
+  session: ArgumentBoardSession,
+  { action, draft }: { action: WritingAction; draft: boolean },
+) {
   if (action === "copy-outline") void copyOutput(appRoot, session.copyOutline({ draft }), "Outline");
   else if (action === "print") {
     appRoot.querySelector(".print-document")!.outerHTML = renderPrintDocument(session.snapshot().board, draft);
@@ -634,11 +665,26 @@ async function deleteFact(appRoot: HTMLDivElement, session: ArgumentBoardSession
   const impact = factDeletionImpact(session.snapshot().board, factId);
   if (!impact) return;
   const usage = new Intl.ListFormat("en").format(impact.usage);
-  if (usage && !(await confirmAction({ title: "Delete this fact?", message: `It will be removed from ${usage}. You can undo this.`, confirmLabel: "Delete fact", danger: true }))) return;
+  if (
+    usage &&
+    !(await confirmAction({
+      title: "Delete this fact?",
+      message: `It will be removed from ${usage}. You can undo this.`,
+      confirmLabel: "Delete fact",
+      danger: true,
+    }))
+  )
+    return;
 
   const nextFocus = impact.nextFocusFactId;
   session.dispatch({ type: "delete-gathered-fact", factId });
-  offerUndo(appRoot, session, usage ? `Fact deleted and removed from ${usage}.` : "Fact deleted.", "deletion", `fact-${safeDomId(factId)}-text`);
+  offerUndo(
+    appRoot,
+    session,
+    usage ? `Fact deleted and removed from ${usage}.` : "Fact deleted.",
+    "deletion",
+    `fact-${safeDomId(factId)}-text`,
+  );
   renderAndFocus(appRoot, session, nextFocus ? `fact-${safeDomId(nextFocus)}-text` : "add-fact");
 }
 
@@ -661,7 +707,8 @@ function openIssue(appRoot: HTMLDivElement, session: ArgumentBoardSession, targe
 }
 
 function focusCanonicalFact(appRoot: HTMLDivElement, session: ArgumentBoardSession, factId: string) {
-  const view = views.get(appRoot)!; view.facts.resetSearch();
+  const view = views.get(appRoot)!;
+  view.facts.resetSearch();
   session.setStage("gather");
   renderAndFocus(appRoot, session, `fact-${safeDomId(factId)}-text`);
 }
@@ -706,7 +753,15 @@ async function openBoardFile(appRoot: HTMLDivElement, session: ArgumentBoardSess
 }
 
 async function clearBoard(appRoot: HTMLDivElement, session: ArgumentBoardSession) {
-  if (session.hasTouchedContent() && !(await confirmAction({ title: "Clear this board?", message: "Download it first if you want to keep it. You can undo clearing.", confirmLabel: "Clear board", danger: true }))) {
+  if (
+    session.hasTouchedContent() &&
+    !(await confirmAction({
+      title: "Clear this board?",
+      message: "Download it first if you want to keep it. You can undo clearing.",
+      confirmLabel: "Clear board",
+      danger: true,
+    }))
+  ) {
     return;
   }
 
@@ -763,7 +818,9 @@ function currentNotice(view: ViewState, board: ArgumentBoard): Notice | undefine
 
 function renderNotice(view: ViewState, board: ArgumentBoard): string {
   const notice = currentNotice(view, board);
-  const undo = notice?.undo ? `<button type="button" id="notice-undo" data-action="undo-notice">Undo<span class="sr-only"> ${escapeHtml(notice.undo.label)}</span></button>` : "";
+  const undo = notice?.undo
+    ? `<button type="button" id="notice-undo" data-action="undo-notice">Undo<span class="sr-only"> ${escapeHtml(notice.undo.label)}</span></button>`
+    : "";
   return `<span>${escapeHtml(notice?.message ?? "")}</span>${undo}`;
 }
 
@@ -816,11 +873,13 @@ function renderIcon(icon: IconName): string {
     upload: '<path d="M12 21V11"></path><path d="m8 15 4-4 4 4"></path><path d="M4 7V5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v2"></path>',
     undo: '<path d="M9 14 4 9l5-5"></path><path d="M4 9h10a6 6 0 0 1 0 12h-2"></path>',
     redo: '<path d="m15 14 5-5-5-5"></path><path d="M20 9H10a6 6 0 0 0 0 12h2"></path>',
-    trash: '<path d="M3 6h18"></path><path d="M8 6V4h8v2"></path><path d="M19 6l-1 14H6L5 6"></path><path d="M10 11v5"></path><path d="M14 11v5"></path>',
+    trash:
+      '<path d="M3 6h18"></path><path d="M8 6V4h8v2"></path><path d="M19 6l-1 14H6L5 6"></path><path d="M10 11v5"></path><path d="M14 11v5"></path>',
     up: '<path d="m6 15 6-6 6 6"></path>',
     down: '<path d="m6 9 6 6 6-6"></path>',
     eye: '<path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z"></path><circle cx="12" cy="12" r="3"></circle>',
-    eyeOff: '<path d="m3 3 18 18"></path><path d="M10.6 10.6A3 3 0 0 0 13.4 13.4"></path><path d="M9.9 5.2A10.6 10.6 0 0 1 12 5c6.5 0 10 7 10 7a17.9 17.9 0 0 1-3.1 4.1"></path><path d="M6.6 6.6C3.7 8.3 2 12 2 12s3.5 7 10 7a10.5 10.5 0 0 0 4.1-.8"></path>',
+    eyeOff:
+      '<path d="m3 3 18 18"></path><path d="M10.6 10.6A3 3 0 0 0 13.4 13.4"></path><path d="M9.9 5.2A10.6 10.6 0 0 1 12 5c6.5 0 10 7 10 7a17.9 17.9 0 0 1-3.1 4.1"></path><path d="M6.6 6.6C3.7 8.3 2 12 2 12s3.5 7 10 7a10.5 10.5 0 0 0 4.1-.8"></path>',
   };
 
   return `<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${paths[icon]}</svg>`;

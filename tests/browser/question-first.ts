@@ -29,7 +29,9 @@ export async function verifyQuestionFirst(browser: Browser, appUrl: string) {
     await answerAppDialog(page, "confirm");
     await page.getByRole("heading", { name: "Construct Argument", exact: true }).waitFor();
     await page.setViewportSize({ width: 390, height: 844 });
-    await page.getByRole("textbox", { name: "What is your tentative claim or main answer? Answer", exact: true }).fill("We should expand capacity.");
+    await page
+      .getByRole("textbox", { name: "What is your tentative claim or main answer? Answer", exact: true })
+      .fill("We should expand capacity.");
     await page.locator("#scqa-answer").press("Tab");
     assert.equal(await page.locator("#scqa-question").inputValue(), "");
     assert.equal(await page.getByRole("button", { name: "Gather supporting material" }).isVisible(), true);

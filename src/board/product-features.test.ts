@@ -41,14 +41,24 @@ test("source details and reasoning notes round-trip, old boards still load, and 
 test("writing exports reuse citation numbers, preserve source metadata, and mark incomplete attached evidence", () => {
   let board = createExampleBoard();
   board.gatheredFacts[0]!.quotation = "Keyboard navigation";
-  board.gatheredFacts.push({ id: "unused", text: "Unused finding", touched: true, evidenceLink: "https://example.com/unused", dataType: "" });
+  board.gatheredFacts.push({
+    id: "unused",
+    text: "Unused finding",
+    touched: true,
+    evidenceLink: "https://example.com/unused",
+    dataType: "",
+  });
   const doc = projectArgumentPreview(board).writing;
   expect(doc.sources).toHaveLength(1);
   expect(doc.sections[1]!.facts[0]!.citation).toBe(doc.sections[4]!.facts[0]!.citation);
   expect(createWritingExport(board, "markdown").contents).toContain("Possible objection:");
   expect(createWritingExport(board, "text").contents).toContain("Quotation: Keyboard navigation");
   expect(createWritingExport(board, "text").contents).not.toContain("Unused finding");
-  board = applyArgumentBoardCommand(board, { type: "update-gathered-fact", factId: "fact-1", changes: { evidenceLink: "javascript:alert(1)", text: "<img src=x>" } });
+  board = applyArgumentBoardCommand(board, {
+    type: "update-gathered-fact",
+    factId: "fact-1",
+    changes: { evidenceLink: "javascript:alert(1)", text: "<img src=x>" },
+  });
   const output = createWritingExport(board, "markdown");
   expect(output.contents).toContain("[Missing or invalid evidence link]");
   expect(output.contents).not.toContain("javascript:");
@@ -59,7 +69,11 @@ test("Copy Outline retains support modes and citations without adding reasoning 
   const session = createArgumentBoardSession();
   session.importFile(createExportFile(createExampleBoard()).contents, () => true);
   session.dispatch({ type: "add-supporting-argument" });
-  session.dispatch({ type: "update-supporting-argument", argumentId: "argument-2", changes: { text: "A familiar pattern reduces guesswork", mode: "reasoning" } });
+  session.dispatch({
+    type: "update-supporting-argument",
+    argumentId: "argument-2",
+    changes: { text: "A familiar pattern reduces guesswork", mode: "reasoning" },
+  });
   const board = session.snapshot().board;
   const outline = session.copyOutline({ draft: true });
   expect(outline).toContain("\nDraft\n");
@@ -78,7 +92,15 @@ test("Copy Outline retains support modes and citations without adding reasoning 
 
 test("fact search combines terms across metadata and filters unused or incomplete drafts", () => {
   const board = createExampleBoard();
-  board.gatheredFacts.push({ id: "draft", text: "A keyboard observation", sourceTitle: "Interview notes", quotation: "Focus moved", touched: true, evidenceLink: "", dataType: "observation" });
+  board.gatheredFacts.push({
+    id: "draft",
+    text: "A keyboard observation",
+    sourceTitle: "Interview notes",
+    quotation: "Focus moved",
+    touched: true,
+    evidenceLink: "",
+    dataType: "observation",
+  });
   expect(filterFacts(board, "interview focus", "all").map(({ id }) => id)).toEqual(["draft"]);
   expect(filterFacts(board, "keyboard", "unused").map(({ id }) => id)).toEqual(["draft"]);
   expect(filterFacts(board, "", "incomplete").map(({ id }) => id)).toEqual(["draft"]);
