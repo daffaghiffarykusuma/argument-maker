@@ -1,4 +1,6 @@
-import type { ArgumentBoard, SupportMode } from "../board/argument-board";
+import { destinationLabel, type ArgumentBoard, type SupportMode } from "../board/argument-board";
+import { parseExportFile } from "../board/export-file-contract";
+import { confirmAction, showShortcuts, type ConfirmOptions } from "./app-dialog";
 import { type ArgumentBoardSession, type WorkflowStage } from "../board/argument-board-session";
 
 type IconName = "copy" | "download" | "upload" | "undo" | "redo" | "trash" | "up" | "down" | "eye" | "eyeOff";
@@ -38,8 +40,8 @@ const commandDeskActions = {
 import { hasOutlineContent, narrativeGuidance, suggestStartingStep } from "../board/construction-guidance";
 import { createExampleBoard } from "../board/example-board";
 import { factDeletionImpact, usedFactCount } from "../board/fact-library";
-import { views, type ViewState } from "./board-view-state";
-import { mountBoardControls, renderDraftControls } from "./board-controls";
+import { views, type Notice, type ViewState } from "./board-view-state";
+import { dismissDraftSuggestion, mountBoardControls, renderDraftControls } from "./board-controls";
 import { renderReasoningPrompts, renderCompactOutline, renderPrintDocument } from "./enhancement-view";
 import { escapeHtml, escapeAttr, safeDomId } from "./html";
 import type { GatheredFactEditing } from "./gathered-fact-editing";
@@ -48,7 +50,7 @@ import { replaceRegion } from "./region";
 import type { WritingAction, WritingGateEvent } from "./writing-review-gate";
 
 export function mountArgumentBoardApp(appRoot: HTMLDivElement, initialSession?: ArgumentBoardSession) {
-  const session = mountBoardControls(appRoot, initialSession, { render, change: handleChange, action: handleAction, upload: handleUpload, refresh: refreshEditingState });
+  const session = mountBoardControls(appRoot, initialSession, { render, change: handleChange, action: handleAction, upload: openBoardFile, refresh: refreshEditingState });
   render(appRoot, session);
 }
 
@@ -58,6 +60,7 @@ function render(appRoot: HTMLDivElement, session: ArgumentBoardSession) {
   view.draft.flush();
   const snapshot = session.snapshot();
   const writing = view.writing.view();
+  syncDocumentTitle(snapshot.board);
 
   appRoot.innerHTML = `
     <div class="app-shell">
@@ -72,7 +75,7 @@ function render(appRoot: HTMLDivElement, session: ArgumentBoardSession) {
         ${writing.panel === "invitation" ? renderWritingInvitation() : writing.panel === "review" ? renderReasoningReview(snapshot.board, snapshot.issues, writing.offerContinue) : renderStage(snapshot.board, snapshot.stage, snapshot.issues, view)}
         ${renderPrintDocument(snapshot.board, writing.draft)}
       </main>
-      <div class="copy-feedback" role="status" aria-label="Copy feedback" aria-live="polite" aria-atomic="true"><span>${escapeHtml(view.copyFeedback?.message ?? "")}</span></div>
+      <div class="${noticeClass(view, snapshot.board)}" role="status" aria-label="Notifications" aria-live="polite" aria-atomic="true">${renderNotice(view, snapshot.board)}</div>
     </div>
   `;
 
@@ -101,12 +104,13 @@ function renderWorkspaceHeader(canUndo: boolean, canRedo: boolean): string {
         <details class="board-menu" data-disclosure="board-menu">
           <summary id="board-menu-toggle"><span class="desktop-label">Board</span><span class="mobile-label">More</span></summary>
           <div class="board-menu-actions" aria-label="Board file actions">
-        ${renderCommandButton(commandDeskActions.download)}
+        ${renderCommandButton(commandDeskActions.download, 'aria-keyshortcuts="Control+S Meta+S"')}
         <label class="icon-button file-button" aria-label="${commandDeskActions.upload.label}" title="${commandDeskActions.upload.label}" data-tooltip="${commandDeskActions.upload.label}" tabindex="0">
           ${renderIcon(commandDeskActions.upload.icon)}<span class="tool-label">Upload Board</span>
           <input type="file" tabindex="-1" accept=".json,.argument.json,application/json" data-action="upload" />
         </label>
-        <p>Portable editable file for reopening your board. Local drafts are optional.</p>
+        <p>Portable editable file for reopening your board. You can also drop a board file onto the page. Local drafts are optional.</p>
+        <button type="button" data-action="show-shortcuts" aria-keyshortcuts="Shift+?">Keyboard shortcuts</button>
         <hr>
         ${renderCommandButton(commandDeskActions.clear)}
           </div>
@@ -132,17 +136,11 @@ function renderTopbar(board: ArgumentBoard): string {
 }
 
 function renderStageNavigation(stage: WorkflowStage): string {
-  const stages: Array<{ id: WorkflowStage; label: string }> = [
-    { id: "construct", label: "Construct Argument" },
-    { id: "gather", label: "Gather Facts" },
-    { id: "preview", label: "Preview" },
-  ];
-
   return `
     <nav class="stage-tabs" role="tablist" aria-label="Argument workflow stages">
-      ${stages
+      ${workflowStages
         .map(
-          ({ id, label }) => `
+          ({ id, label }, index) => `
             <button
               type="button"
               role="tab"
@@ -150,6 +148,7 @@ function renderStageNavigation(stage: WorkflowStage): string {
               id="stage-tab-${id}"
               tabindex="${stage === id ? 0 : -1}"
               aria-controls="stage-panel-${id}"
+              aria-keyshortcuts="Alt+${index + 1}"
               data-action="stage"
               data-stage="${id}"
               class="${stage === id ? "active" : ""}"
@@ -388,129 +387,194 @@ function handleChange(
   if (refresh) rerender(appRoot, session);
 }
 
-function handleAction(appRoot: HTMLDivElement, session: ArgumentBoardSession, target: HTMLElement) {
-  const action = target.dataset.action;
-  const factId = target.dataset.factId;
-  const argumentId = target.dataset.argumentId;
-  const destinationId = target.dataset.destinationId;
-  const direction = target.dataset.direction === "up" ? "up" : "down";
+export type ActionData = Readonly<Record<string, string | undefined>>;
 
-  const view = views.get(appRoot)!;
-  if (action === "open-review") {
+interface ActionContext {
+  appRoot: HTMLDivElement;
+  session: ArgumentBoardSession;
+  view: ViewState;
+  data: ActionData;
+}
+
+const direction = (data: ActionData) => (data.direction === "up" ? "up" : "down");
+
+/** UI commands by `data-action` name. Buttons and keyboard shortcuts both dispatch through here. */
+const actions: Record<string, (context: ActionContext) => void | Promise<void>> = {
+  "open-review": ({ appRoot, session }) => {
     sendWriting(appRoot, { type: "open-review" });
     renderAndFocus(appRoot, session, "reasoning-review-heading");
-  } else if (action === "close-review") {
+  },
+  "close-review": ({ appRoot, session }) => {
     sendWriting(appRoot, { type: "close-review" });
     returnFromReview(appRoot, session);
-  } else if (action === "review-writing") {
+  },
+  "review-writing": ({ appRoot, session }) => {
     sendWriting(appRoot, { type: "review-now" });
     renderAndFocus(appRoot, session, "reasoning-review-heading");
-  } else if (action === "export-draft" || action === "continue-writing") {
-    const { perform } = sendWriting(appRoot, { type: "choose-label", label: action === "export-draft" ? "draft" : "reviewed" });
-    if (!perform) return;
-    render(appRoot, session);
-    focusWritingMenu(appRoot);
-    performWritingAction(appRoot, session, perform);
-  } else if (action === "cancel-writing") {
+  },
+  "export-draft": (context) => chooseWritingLabel(context, "draft"),
+  "continue-writing": (context) => chooseWritingLabel(context, "reviewed"),
+  "cancel-writing": ({ appRoot, session }) => {
     const { settled } = sendWriting(appRoot, { type: "cancel-export" });
     render(appRoot, session);
     if (settled) focusWritingMenu(appRoot);
-  } else if (action === "toggle-draft-label") {
+  },
+  "toggle-draft-label": ({ appRoot, session }) => {
     sendWriting(appRoot, { type: "toggle-draft-label" });
     rerender(appRoot, session);
-  } else if (action === "load-example") {
-    const result = session.importFile(JSON.stringify(createExampleBoard()), () => confirm("Replace this board with the worked example? You can undo this."));
-    if (result?.ok) { resetWritingReview(view); view.facts.resetSearch(); session.setStage("construct"); renderAndFocus(appRoot, session, "stage-heading-construct"); }
-  } else if (action === "preview-mode") {
-    view.preview.setMode(target.dataset.mode === "outline" ? "outline" : "diagram");
+  },
+  "load-example": async ({ appRoot, session, view }) => {
+    const result = await replaceBoard(session, JSON.stringify(createExampleBoard()), {
+      title: "Replace this board with the worked example?",
+      message: "Your current board will be replaced. You can undo this.",
+      confirmLabel: "Use worked example",
+    });
+    if (!result?.ok) return;
+    resetWritingReview(view);
+    view.facts.resetSearch();
+    session.setStage("construct");
+    renderAndFocus(appRoot, session, "stage-heading-construct");
+  },
+  "preview-mode": ({ appRoot, session, view, data }) => {
+    view.preview.setMode(data.mode === "outline" ? "outline" : "diagram");
     rerender(appRoot, session);
-  } else if (action === "zoom") {
-    view.preview.zoom(target.dataset.zoom === "fit" ? "fit" : target.dataset.zoom === "in" ? "in" : "out");
-  } else if (action === "download-writing") {
-    requestWritingAction(appRoot, session, target.dataset.format as "markdown" | "text");
-  } else if (action === "print") {
-    requestWritingAction(appRoot, session, "print");
-  } else if (action === "keep-this-draft") {
+  },
+  zoom: ({ view, data }) => view.preview.zoom(data.zoom === "fit" ? "fit" : data.zoom === "in" ? "in" : "out"),
+  "download-writing": ({ appRoot, session, data }) => requestWritingAction(appRoot, session, data.format === "markdown" ? "markdown" : "text"),
+  print: ({ appRoot, session }) => requestWritingAction(appRoot, session, "print"),
+  "copy-outline": ({ appRoot, session }) => requestWritingAction(appRoot, session, "copy-outline"),
+  "copy-mermaid": ({ appRoot, session }) => void copyOutput(appRoot, session.copyMermaid(), "Mermaid"),
+  "keep-this-draft": ({ appRoot, session, view }) => {
     view.draft.setEnabled(true);
     rerender(appRoot, session);
-  } else if (action === "load-other-draft") {
-    if (view.draft.loadOther(() => confirm("Load the other tab's draft? You can undo this replacement."))) {
+  },
+  "load-other-draft": async ({ appRoot, session, view }) => {
+    const question = { title: "Load the other tab's draft?", message: "The board in this tab will be replaced. You can undo this replacement.", confirmLabel: "Load other draft" };
+    if (session.hasTouchedContent() && !(await confirmAction(question))) return;
+    if (view.draft.loadOther(() => true)) {
       resetWritingReview(view);
       rerender(appRoot, session);
     }
-  } else if (action === "focus-framing") {
-    appRoot.querySelector<HTMLElement>(`#${target.dataset.targetId}`)?.focus();
-  } else if (action === "stage") {
+  },
+  "focus-framing": ({ appRoot, data }) => appRoot.querySelector<HTMLElement>(`#${data.targetId}`)?.focus(),
+  stage: ({ appRoot, session, data }) => {
     sendWriting(appRoot, { type: "leave" });
-    const stage = target.dataset.stage as WorkflowStage;
+    const stage = data.stage as WorkflowStage;
     session.setStage(stage);
     renderAndFocus(appRoot, session, `stage-heading-${stage}`);
-  } else if (action === "add-fact") {
+  },
+  "add-fact": ({ appRoot, session, view }) => {
     const board = session.dispatch({ type: "create-gathered-fact" });
     view.facts.beginFact(board.gatheredFacts.at(-1)!.id);
     focusCanonicalFact(appRoot, session, board.gatheredFacts.at(-1)!.id);
-  } else if (action === "move-library-fact" && factId) {
-    session.dispatch({ type: "move-gathered-fact", factId, direction });
-    focusCanonicalFact(appRoot, session, factId);
-  } else if (action === "another-fact-source" && factId) {
-    const source = session.snapshot().board.gatheredFacts.find((fact) => fact.id === factId);
-    if (!source) return;
+  },
+  "move-library-fact": ({ appRoot, session, data }) => {
+    if (!data.factId) return;
+    session.dispatch({ type: "move-gathered-fact", factId: data.factId, direction: direction(data) });
+    focusCanonicalFact(appRoot, session, data.factId);
+  },
+  "another-fact-source": ({ appRoot, session, view, data: { factId } }) => {
+    if (!factId || !session.snapshot().board.gatheredFacts.some((fact) => fact.id === factId)) return;
     const board = session.dispatch({ type: "reuse-fact-source", factId });
     view.facts.beginFact(board.gatheredFacts.at(-1)!.id);
     focusCanonicalFact(appRoot, session, board.gatheredFacts.at(-1)!.id);
-  } else if (action === "delete-fact" && factId) {
-    deleteFact(appRoot, session, factId);
-  } else if (action === "add-argument") {
+  },
+  "delete-fact": async ({ appRoot, session, data: { factId } }) => {
+    if (factId) await deleteFact(appRoot, session, factId);
+  },
+  "add-argument": ({ appRoot, session }) => {
     const board = session.dispatch({ type: "add-supporting-argument" });
     renderAndFocus(appRoot, session, `argument-text-${safeDomId(board.supportingArguments.at(-1)!.id)}`);
-  } else if (action === "move-argument" && argumentId) {
-    session.dispatch({ type: "move-supporting-argument", argumentId, direction });
-    renderAndFocus(appRoot, session, `argument-text-${safeDomId(argumentId)}`);
-  } else if (action === "duplicate-argument" && argumentId) {
+  },
+  "move-argument": ({ appRoot, session, data }) => {
+    if (!data.argumentId) return;
+    session.dispatch({ type: "move-supporting-argument", argumentId: data.argumentId, direction: direction(data) });
+    renderAndFocus(appRoot, session, `argument-text-${safeDomId(data.argumentId)}`);
+  },
+  "duplicate-argument": ({ appRoot, session, data: { argumentId } }) => {
+    if (!argumentId) return;
     const beforeIds = new Set(session.snapshot().board.supportingArguments.map(({ id }) => id));
     const board = session.dispatch({ type: "duplicate-supporting-argument", argumentId });
     const copy = board.supportingArguments.find(({ id }) => !beforeIds.has(id));
     renderAndFocus(appRoot, session, copy ? `argument-text-${safeDomId(copy.id)}` : undefined);
-  } else if (action === "delete-argument" && argumentId) {
+  },
+  "delete-argument": ({ appRoot, session, data: { argumentId } }) => {
+    if (!argumentId) return;
+    const index = session.snapshot().board.supportingArguments.findIndex(({ id }) => id === argumentId);
     session.dispatch({ type: "delete-supporting-argument", argumentId });
+    offerUndo(appRoot, session, `Supporting Argument ${index + 1} deleted.`, "deletion", `argument-text-${safeDomId(argumentId)}`);
     renderAndFocus(appRoot, session, "supporting-arguments");
-  } else if (action === "attach-fact" && factId && destinationId) {
+  },
+  "attach-fact": ({ appRoot, session, data: { factId, destinationId } }) => {
+    if (!factId || !destinationId) return;
     session.dispatch({ type: "attach-fact", destinationId, factId });
     render(appRoot, session);
     document.getElementById(`attachment-picker-${safeDomId(destinationId)}`)?.focus();
-  } else if (action === "create-fact-here" && destinationId) {
+  },
+  "create-fact-here": ({ appRoot, session, view, data: { destinationId } }) => {
+    if (!destinationId) return;
     const board = session.dispatch({ type: "create-gathered-fact", destinationId });
     const newFact = board.gatheredFacts.at(-1)!;
     view.facts.beginFact(newFact.id);
     view.disclosures.set(`destination-${destinationId}`, true);
     renderAndFocus(appRoot, session, `attached-${safeDomId(destinationId)}-${safeDomId(newFact.id)}-text`);
-  } else if (action === "focus-attached-fact") {
-    document.getElementById(target.dataset.focusId ?? "")?.focus();
-  } else if (action === "open-fact" && factId) {
-    focusCanonicalFact(appRoot, session, factId);
-  } else if (action === "move-attached-fact" && factId && destinationId) {
-    session.dispatch({ type: "move-attached-fact", destinationId, factId, direction });
+  },
+  "focus-attached-fact": ({ data }) => document.getElementById(data.focusId ?? "")?.focus(),
+  "open-fact": ({ appRoot, session, data: { factId } }) => {
+    if (factId) focusCanonicalFact(appRoot, session, factId);
+  },
+  "move-attached-fact": ({ appRoot, session, data }) => {
+    const { factId, destinationId } = data;
+    if (!factId || !destinationId) return;
+    session.dispatch({ type: "move-attached-fact", destinationId, factId, direction: direction(data) });
     renderAndFocus(appRoot, session, `attached-${safeDomId(destinationId)}-${safeDomId(factId)}-text`);
-  } else if (action === "detach-fact" && factId && destinationId) {
+  },
+  "detach-fact": ({ appRoot, session, data: { factId, destinationId } }) => {
+    if (!factId || !destinationId) return;
+    const label = destinationLabel(session.snapshot().board, destinationId);
     session.dispatch({ type: "detach-fact", destinationId, factId });
-    renderAndFocus(appRoot, session, `stage-heading-construct`);
-  } else if (action === "open-issue") {
-    openIssue(appRoot, session, target.dataset.targetId ?? "");
-  } else if (action === "copy-outline") {
-    requestWritingAction(appRoot, session, "copy-outline");
-  } else if (action === "copy-mermaid") {
-    void copyOutput(appRoot, session.copyMermaid(), "Mermaid");
-  } else if (action === "download") {
-    downloadBoard(session);
-  } else if (action === "clear") {
-    clearBoard(appRoot, session);
-  } else if (action === "undo") {
+    offerUndo(appRoot, session, `Fact removed from ${label}.`, "removal", `attached-${safeDomId(destinationId)}-${safeDomId(factId)}-text`);
+    renderAndFocus(appRoot, session, "stage-heading-construct");
+  },
+  "open-issue": ({ appRoot, session, data }) => openIssue(appRoot, session, data.targetId ?? ""),
+  download: ({ session }) => downloadFile(session.exportFile()),
+  clear: ({ appRoot, session }) => clearBoard(appRoot, session),
+  undo: ({ appRoot, session }) => {
     session.undo();
     render(appRoot, session);
-  } else if (action === "redo") {
+  },
+  redo: ({ appRoot, session }) => {
     session.redo();
     render(appRoot, session);
-  }
+  },
+  "undo-notice": ({ appRoot, session, view }) => {
+    const undo = view.notice?.undo;
+    if (!undo || undo.board !== session.snapshot().board) return;
+    session.undo();
+    view.notice = { message: "Restored.", request: Symbol() };
+    renderAndFocus(appRoot, session, undo.focusId);
+  },
+  "show-shortcuts": () => showShortcuts(keyboardShortcuts()),
+  "accept-draft-suggestion": ({ appRoot, session, view }) => {
+    view.draft.setEnabled(true);
+    renderAndFocus(appRoot, session, "autosave");
+  },
+  "dismiss-draft-suggestion": ({ appRoot, session, view }) => {
+    dismissDraftSuggestion(view);
+    renderAndFocus(appRoot, session, "autosave");
+  },
+};
+
+function handleAction(appRoot: HTMLDivElement, session: ArgumentBoardSession, action: string, data: ActionData = {}) {
+  void actions[action]?.({ appRoot, session, view: views.get(appRoot)!, data });
+}
+
+function chooseWritingLabel({ appRoot, session }: ActionContext, label: "draft" | "reviewed") {
+  const { perform } = sendWriting(appRoot, { type: "choose-label", label });
+  if (!perform) return;
+  render(appRoot, session);
+  focusWritingMenu(appRoot);
+  performWritingAction(appRoot, session, perform);
 }
 
 function resetWritingReview(view: ViewState) {
@@ -556,27 +620,25 @@ function focusWritingMenu(appRoot: HTMLDivElement) {
 async function copyOutput(appRoot: HTMLDivElement, contents: string, label: "Outline" | "Mermaid") {
   const view = views.get(appRoot)!;
   const request = Symbol();
-  const update = (message: string) => {
-    view.copyFeedback = { message, request };
-    const status = appRoot.querySelector(".copy-feedback span");
-    if (status) status.textContent = message;
-  };
+  const update = (message: string) => setNotice(appRoot, { message, request });
   update(`Copying ${label.toLowerCase()}…`);
   try {
     await navigator.clipboard.writeText(contents);
-    if (view.copyFeedback?.request === request) update(`${label} copied.`);
+    if (view.notice?.request === request) update(`${label} copied.`);
   } catch {
-    if (view.copyFeedback?.request === request) update(`Could not copy ${label.toLowerCase()}. Try Copy ${label} again.`);
+    if (view.notice?.request === request) update(`Could not copy ${label.toLowerCase()}. Try Copy ${label} again.`);
   }
 }
 
-function deleteFact(appRoot: HTMLDivElement, session: ArgumentBoardSession, factId: string) {
+async function deleteFact(appRoot: HTMLDivElement, session: ArgumentBoardSession, factId: string) {
   const impact = factDeletionImpact(session.snapshot().board, factId);
   if (!impact) return;
-  if (impact.usage.length > 0 && !confirm(`Delete this fact? It will be removed from ${new Intl.ListFormat("en").format(impact.usage)}.`)) return;
+  const usage = new Intl.ListFormat("en").format(impact.usage);
+  if (usage && !(await confirmAction({ title: "Delete this fact?", message: `It will be removed from ${usage}. You can undo this.`, confirmLabel: "Delete fact", danger: true }))) return;
 
   const nextFocus = impact.nextFocusFactId;
   session.dispatch({ type: "delete-gathered-fact", factId });
+  offerUndo(appRoot, session, usage ? `Fact deleted and removed from ${usage}.` : "Fact deleted.", "deletion", `fact-${safeDomId(factId)}-text`);
   renderAndFocus(appRoot, session, nextFocus ? `fact-${safeDomId(nextFocus)}-text` : "add-fact");
 }
 
@@ -613,10 +675,6 @@ function rerender(appRoot: HTMLDivElement, session: ArgumentBoardSession) {
   views.get(appRoot)!.positions.rerender(() => render(appRoot, session));
 }
 
-function downloadBoard(session: ArgumentBoardSession) {
-  downloadFile(session.exportFile());
-}
-
 function downloadFile(file: { contents: string; mimeType: string; name: string }) {
   const blob = new Blob([file.contents], { type: file.mimeType });
   const url = URL.createObjectURL(blob);
@@ -627,21 +685,18 @@ function downloadFile(file: { contents: string; mimeType: string; name: string }
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-async function handleUpload(appRoot: HTMLDivElement, session: ArgumentBoardSession, input: HTMLInputElement) {
-  const file = input.files?.[0];
-  input.value = "";
-  if (!file) return;
-
-  const result = session.importFile(
-    await file.text(),
-    () => confirm("Replace this board? Download it first if you want to keep it."),
-  );
+async function openBoardFile(appRoot: HTMLDivElement, session: ArgumentBoardSession, file: File) {
+  const result = await replaceBoard(session, await file.text(), {
+    title: "Replace this board?",
+    message: "Download it first if you want to keep it. You can undo this replacement.",
+    confirmLabel: "Open board",
+  });
   if (!result) {
     return;
   }
 
   if (!result.ok) {
-    alert(result.message);
+    setNotice(appRoot, { message: `Could not open ${file.name}. ${result.message}`, request: Symbol(), tone: "error" });
     return;
   }
 
@@ -650,18 +705,90 @@ async function handleUpload(appRoot: HTMLDivElement, session: ArgumentBoardSessi
   renderAndFocus(appRoot, session, "stage-heading-gather");
 }
 
-function clearBoard(appRoot: HTMLDivElement, session: ArgumentBoardSession) {
-  if (session.hasTouchedContent() && !confirm("Clear this board? Download it first if you want to keep it.")) {
+async function clearBoard(appRoot: HTMLDivElement, session: ArgumentBoardSession) {
+  if (session.hasTouchedContent() && !(await confirmAction({ title: "Clear this board?", message: "Download it first if you want to keep it. You can undo clearing.", confirmLabel: "Clear board", danger: true }))) {
     return;
   }
 
   session.clear();
   resetWritingReview(views.get(appRoot)!);
+  offerUndo(appRoot, session, "Board cleared.", "clearing", "board-title");
   views.get(appRoot)!.disclosures.set("readiness", false);
   const checklist = appRoot.querySelector<HTMLDetailsElement>('details[data-disclosure="readiness"]');
   if (checklist) checklist.open = false;
   session.setStage("construct");
   renderAndFocus(appRoot, session, "stage-heading-construct");
+}
+
+const workflowStages: Array<{ id: WorkflowStage; label: string }> = [
+  { id: "construct", label: "Construct Argument" },
+  { id: "gather", label: "Gather Facts" },
+  { id: "preview", label: "Preview" },
+];
+
+export function stageForShortcut(digit: number): WorkflowStage | undefined {
+  return workflowStages[digit - 1]?.id;
+}
+
+function keyboardShortcuts(): Array<[keys: string, description: string]> {
+  const mod = /Mac|iPhone|iPad/.test(navigator.platform) ? "⌘" : "Ctrl";
+  return [
+    [`${mod}+S`, "Download editable board"],
+    [`${mod}+Z`, "Undo board change (outside text fields)"],
+    [`${mod}+Shift+Z|Ctrl+Y`, "Redo board change (outside text fields)"],
+    ...workflowStages.map(({ label }, index): [string, string] => [`Alt+${index + 1}`, `Go to ${label}`]),
+    ["←|→|Home|End", "Move between workflow tabs"],
+    ["Esc", "Close a menu, fact picker, or dialog"],
+    ["?", "Show keyboard shortcuts"],
+  ];
+}
+
+function syncDocumentTitle(board: ArgumentBoard) {
+  const title = board.title.trim();
+  document.title = title ? `${title} · Argument Maker` : "Argument Maker";
+}
+
+async function replaceBoard(session: ArgumentBoardSession, contents: string, question: ConfirmOptions) {
+  const parsed = parseExportFile(contents);
+  if (!parsed.ok) return parsed;
+  if (session.hasTouchedContent() && !(await confirmAction(question))) return undefined;
+  return session.importFile(contents, () => true);
+}
+
+/** An undo offer is only valid while the board is exactly as the deletion left it. */
+function currentNotice(view: ViewState, board: ArgumentBoard): Notice | undefined {
+  if (view.notice?.undo && view.notice.undo.board !== board) view.notice = undefined;
+  return view.notice;
+}
+
+function renderNotice(view: ViewState, board: ArgumentBoard): string {
+  const notice = currentNotice(view, board);
+  const undo = notice?.undo ? `<button type="button" id="notice-undo" data-action="undo-notice">Undo<span class="sr-only"> ${escapeHtml(notice.undo.label)}</span></button>` : "";
+  return `<span>${escapeHtml(notice?.message ?? "")}</span>${undo}`;
+}
+
+function noticeClass(view: ViewState, board: ArgumentBoard): string {
+  return currentNotice(view, board)?.tone === "error" ? "notice notice-error" : "notice";
+}
+
+function syncNotice(appRoot: HTMLDivElement, board: ArgumentBoard) {
+  const region = appRoot.querySelector<HTMLElement>(".notice");
+  if (!region) return;
+  const view = views.get(appRoot)!;
+  const markup = renderNotice(view, board);
+  region.className = noticeClass(view, board);
+  // Leave unchanged content alone so a focused Undo button keeps focus.
+  if (region.innerHTML !== markup) region.innerHTML = markup;
+}
+
+function setNotice(appRoot: HTMLDivElement, notice: Notice) {
+  const view = views.get(appRoot)!;
+  view.notice = notice;
+  syncNotice(appRoot, view.draft.session.snapshot().board);
+}
+
+function offerUndo(appRoot: HTMLDivElement, session: ArgumentBoardSession, message: string, label: string, focusId: string) {
+  views.get(appRoot)!.notice = { message, request: Symbol(), undo: { board: session.snapshot().board, focusId, label } };
 }
 
 function renderIconButton(options: IconButtonOptions): string {
@@ -706,6 +833,8 @@ function renderCommandButton(control: CommandDeskActionControl, attrs?: string):
 /** Update the regions that summarize the board while an editor inside them keeps focus. */
 function refreshEditingState(appRoot: HTMLDivElement, session: ArgumentBoardSession) {
   const { board, issues } = session.snapshot();
+  syncDocumentTitle(board);
+  syncNotice(appRoot, board);
   for (const section of ["context", "planning"] as const) {
     replaceRegion(appRoot.querySelector(`[data-framing-summary="${section}"]`), renderFramingSummary(board, section));
   }

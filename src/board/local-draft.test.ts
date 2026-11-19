@@ -279,3 +279,24 @@ test("opting out cancels a pending save, preserves the board and ignores subsequ
   expect(draft.snapshot()).toMatchObject({ enabled: false, conflict: false, hasUnsavedChanges: true });
   expect(createLocalDraft({ storage }).snapshot().enabled).toBe(false);
 });
+
+test("suggests saving only once there is work to lose and nothing would be overwritten", () => {
+  const { draft, edit } = setup();
+  expect(draft.snapshot().suggestSaving).toBe(false);
+  edit("Worth keeping");
+  expect(draft.snapshot().suggestSaving).toBe(true);
+  draft.setEnabled(true);
+  expect(draft.snapshot().suggestSaving).toBe(false);
+  draft.setEnabled(false);
+  expect(draft.snapshot().suggestSaving).toBe(true);
+
+  const storage = memoryStorage();
+  storage.setItem(localDraftKey, "{bad");
+  const corrupt = createLocalDraft({ storage });
+  corrupt.session.dispatch({ type: "update-title", title: "New work" });
+  expect(corrupt.snapshot().suggestSaving).toBe(false);
+  storage.failRead = true;
+  const blocked = createLocalDraft({ storage });
+  blocked.session.dispatch({ type: "update-title", title: "New work" });
+  expect(blocked.snapshot().suggestSaving).toBe(false);
+});

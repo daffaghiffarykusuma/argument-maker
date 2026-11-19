@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { attachGatheredFact } from "./attachment-picker-flow.ts";
 import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
+import { answerAppDialog } from "./app-dialog.ts";
 
 
 
@@ -61,8 +62,8 @@ export async function verifyFactGuidance(browser: Browser, url: string) {
     assert.doesNotMatch(await situation.locator(".attachment-guidance").innerText(), /already attached/);
     console.log("fact-guidance: empty, incomplete, all-attached, mixed and attachment recovery passed");
     await page.getByRole("tab", { name: /Gather Facts/ }).click();
-    page.once("dialog", (dialog) => dialog.accept());
     await page.getByRole("button", { name: "Worked example", exact: true }).click();
+    await answerAppDialog(page, "confirm");
     await page.getByRole("button", { name: "Reasoning review", exact: true }).click();
     await page.locator("#writing-menu-toggle").click();
     await page.getByRole("button", { name: "Copy", exact: true }).click();

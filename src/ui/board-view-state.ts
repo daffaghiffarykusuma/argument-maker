@@ -3,6 +3,15 @@ import type { LocalDraft } from "../board/local-draft";
 import type { EditingPositionTracker } from "./editing-position";
 import type { GatheredFactEditing } from "./gathered-fact-editing";
 import type { WritingReviewGate } from "./writing-review-gate";
+import type { ArgumentBoard } from "../board/argument-board";
+
+/** Transient status in the notice region. An undo offer expires once the board changes. */
+export interface Notice {
+  message: string;
+  request: symbol;
+  tone?: "error";
+  undo?: { board: ArgumentBoard; focusId: string; label: string };
+}
 
 export interface ViewState {
   draft: LocalDraft;
@@ -11,6 +20,7 @@ export interface ViewState {
   positions: EditingPositionTracker;
   writing: WritingReviewGate;
   disclosures: Map<string, boolean>;
-  copyFeedback?: { message: string; request: symbol };
+  notice?: Notice;
+  draftSuggestionDismissed?: boolean;
 }
 export const views = new WeakMap<HTMLDivElement, ViewState>();

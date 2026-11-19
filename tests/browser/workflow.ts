@@ -8,6 +8,7 @@ import { existsSync, mkdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import type { Browser, Page } from "playwright";
 import { verifyClipboardFeedback } from "./clipboard.ts";
+import { answerAppDialog, notice } from "./app-dialog.ts";
 
 const smokeDir = join(testDir, "../..", "output", "browser-smoke");
 const screenshotPath = join(smokeDir, "argument-workflow.png");
@@ -202,27 +203,28 @@ export async function verifyWorkflow(browser: Browser, appUrl: string) {
       expect(downloadedPath).toBeTruthy();
       console.log("browser-smoke: downloaded version-2 board");
 
-      page.once("dialog", (dialog) => dialog.accept());
       await page.locator("#board-menu-toggle").click();
       await page.getByRole("button", { name: "Clear Board" }).click();
+      await answerAppDialog(page, "confirm");
+      expect(await notice(page).innerText()).toContain("Board cleared.");
       await page.getByRole("tab", { name: /Gather Facts/ }).click();
       expect(await page.locator(".fact-card").count()).toBe(0);
-      await page.getByRole("button", { name: "Undo" }).click();
+      await page.getByRole("button", { name: "Undo", exact: true }).click();
       expect(await page.locator(".fact-card").count()).toBe(3);
       console.log("browser-smoke: cleared and restored board");
 
-      page.once("dialog", (dialog) => dialog.accept());
       await page.locator('input[data-action="upload"]').setInputFiles(downloadedPath!);
+      await answerAppDialog(page, "confirm");
       await page.getByRole("heading", { name: "Gather Facts" }).waitFor();
       expect(await page.locator(".fact-card").count()).toBe(3);
       console.log("browser-smoke: imported downloaded board");
 
-      page.once("dialog", (dialog) => dialog.accept());
       await page.locator('input[data-action="upload"]').setInputFiles({
         name: "version-1.argument.json",
         mimeType: "application/json",
         buffer: Buffer.from(JSON.stringify({ schemaVersion: 1, appName: "Argument Maker" })),
       });
+      await notice(page).getByText(/^Could not open version-1\.argument\.json\./).waitFor();
       expect(await page.locator(".fact-card").count()).toBe(3);
       console.log("browser-smoke: rejected version-1 board");
 
@@ -307,12 +309,12 @@ export async function verifyWorkflow(browser: Browser, appUrl: string) {
       await otherTab.getByRole("button", { name: "Keep saving this board" }).click();
       const loadOther = page.getByRole("button", { name: "Load other draft" });
       await loadOther.waitFor();
-      page.once("dialog", (dialog) => dialog.dismiss());
       await loadOther.click();
+      await answerAppDialog(page, "cancel");
       expect(await page.getByRole("textbox", { name: "Board title" }).inputValue()).toBe("Keep my case");
       expect(await page.locator(".save-status").innerText()).toContain("Choose which board");
-      page.once("dialog", (dialog) => dialog.accept());
       await loadOther.click();
+      await answerAppDialog(page, "confirm");
       expect(await page.getByRole("textbox", { name: "Board title" }).inputValue()).toBe("Other tab revision");
       expect(await page.locator(".conflict-actions").count()).toBe(0);
       expect(await page.locator(".save-status").innerText()).toContain("restored");
@@ -331,11 +333,11 @@ export async function verifyWorkflow(browser: Browser, appUrl: string) {
       console.log("browser-smoke: verified 390-pixel Preview");
 
       await page.getByRole("tab", { name: /Gather Facts/ }).click();
-      page.once("dialog", (dialog) => dialog.accept());
       await page.locator('[data-action="delete-fact"][data-fact-id="fact-1"]').click();
+      await answerAppDialog(page, "confirm");
       expect(await page.locator(".fact-card").count()).toBe(2);
       expect(await page.evaluate(() => document.activeElement?.getAttribute("data-fact-id"))).toBe("fact-2");
-      await page.getByRole("button", { name: "Undo" }).click();
+      await page.getByRole("button", { name: "Undo", exact: true }).click();
       expect(await page.locator(".fact-card").count()).toBe(3);
       console.log("browser-smoke: restored cascading deletion");
     })();

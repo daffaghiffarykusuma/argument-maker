@@ -22,6 +22,7 @@ export const scenarios = {
   "writing-review": () => import("./writing-review.ts").then((m) => m.verifyWritingReview),
   "unified-exports": () => import("./unified-exports.ts").then((m) => m.verifyUnifiedExports),
   "preview-security": () => import("./preview-security.ts").then((m) => m.verifyPreviewSecurity),
+  "quality-of-life": () => import("./quality-of-life.ts").then((m) => m.verifyQualityOfLife),
 } satisfies Record<string, () => Promise<Scenario>>;
 
 /** Run only when named explicitly: they capture screenshots rather than assert behaviour. */

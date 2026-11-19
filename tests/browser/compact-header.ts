@@ -1,6 +1,7 @@
 import type { Browser } from "playwright";
 import assert from "node:assert/strict";
 import { mkdir, readFile } from "node:fs/promises";
+import { answerAppDialog } from "./app-dialog.ts";
 
 export async function verifyCompactHeader(browser: Browser, url: string) {
   const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
@@ -33,8 +34,8 @@ export async function verifyCompactHeader(browser: Browser, url: string) {
   assert.equal(await page.getByRole("button", { name: "Download editable board", exact: true }).isVisible(), false);
   assert.equal(await board.evaluate(el => el === document.activeElement), true);
   await board.click();
-  page.once("dialog", dialog => dialog.dismiss());
   await page.getByRole("button", { name: "Clear Board", exact: true }).click();
+  await answerAppDialog(page, "cancel");
   assert.equal(await page.getByRole("textbox", { name: "Board title", exact: true }).inputValue(), "A portable argument");
   await page.keyboard.press("Escape");
   await page.getByRole("button", { name: "Undo", exact: true }).click();

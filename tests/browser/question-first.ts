@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import type { Browser } from "playwright";
+import { answerAppDialog } from "./app-dialog.ts";
 
 export async function verifyQuestionFirst(browser: Browser, appUrl: string) {
   const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
@@ -23,9 +24,9 @@ export async function verifyQuestionFirst(browser: Browser, appUrl: string) {
     await page.locator('details[data-disclosure="readiness"] > summary').click();
     assert.equal(await page.getByText("Add your main answer.", { exact: true }).isVisible(), true);
 
-    page.once("dialog", dialog => dialog.accept());
     await page.locator("#board-menu-toggle").click();
     await page.getByRole("button", { name: "Clear Board", exact: true }).click();
+    await answerAppDialog(page, "confirm");
     await page.getByRole("heading", { name: "Construct Argument", exact: true }).waitFor();
     await page.setViewportSize({ width: 390, height: 844 });
     await page.getByRole("textbox", { name: "What is your tentative claim or main answer? Answer", exact: true }).fill("We should expand capacity.");

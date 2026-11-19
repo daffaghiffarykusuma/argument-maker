@@ -6,13 +6,15 @@ import { escapeHtml } from "./html";
 import { createEditingPosition, type EditingPositionTracker } from "./editing-position";
 import { createGatheredFactEditing } from "./gathered-fact-editing";
 import { createWritingReviewGate } from "./writing-review-gate";
+import { type ActionData, stageForShortcut } from "./argument-board-browser";
+import { isModalOpen } from "./app-dialog";
 
 type Editor = HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
 interface Controls {
   render(root: HTMLDivElement, session: ArgumentBoardSession): void;
   change(root: HTMLDivElement, session: ArgumentBoardSession, target: Editor, refresh?: boolean): void;
-  action(root: HTMLDivElement, session: ArgumentBoardSession, target: HTMLElement): void;
-  upload(root: HTMLDivElement, session: ArgumentBoardSession, input: HTMLInputElement): Promise<void>;
+  action(root: HTMLDivElement, session: ArgumentBoardSession, action: string, data?: ActionData): void;
+  upload(root: HTMLDivElement, session: ArgumentBoardSession, file: File): Promise<void>;
   refresh(root: HTMLDivElement, session: ArgumentBoardSession): void;
 }
 
@@ -32,7 +34,7 @@ export function mountBoardControls(root: HTMLDivElement, initial: ArgumentBoardS
   views.get(root)?.preview.dispose();
   const preview = createArgumentPreview(root);
   const positions = createEditingPosition(root, () => session.snapshot().stage);
-  const view: ViewState = { draft, facts, preview, positions, writing: createWritingReviewGate(), disclosures };
+  const view: ViewState = { draft, facts, preview, positions, writing: createWritingReviewGate(), disclosures, draftSuggestionDismissed: readSuggestionDismissed() };
   views.set(root, view);
   const wideOutline = window.matchMedia("(min-width: 1201px)");
   wideOutline.addEventListener("change", () => {
@@ -82,6 +84,7 @@ export function mountBoardControls(root: HTMLDivElement, initial: ArgumentBoardS
       if (button) button.disabled = action === "undo" ? !snapshot.canUndo : !snapshot.canRedo;
     }
     controls.refresh(root, session);
+    updateDraftControls(root);
   });
   root.addEventListener("change", (event) => {
     const target = event.target;
@@ -89,7 +92,11 @@ export function mountBoardControls(root: HTMLDivElement, initial: ArgumentBoardS
       const menu = root.querySelector<HTMLDetailsElement>(".board-menu");
       if (menu) menu.open = false;
       view.disclosures.set("board-menu", false);
-      cancelRender(); void controls.upload(root, session, target); return;
+      const file = target.files?.[0];
+      target.value = "";
+      cancelRender();
+      if (file) void controls.upload(root, session, file);
+      return;
     }
     if (target instanceof HTMLInputElement && target.dataset.action === "autosave") {
       cancelRender();
@@ -153,7 +160,7 @@ export function mountBoardControls(root: HTMLDivElement, initial: ArgumentBoardS
         view.disclosures.set(menu.dataset.disclosure!, false);
         menu.querySelector<HTMLElement>("summary")?.focus();
       }
-      cancelRender(); session.finishEdit(); controls.action(root, session, target);
+      cancelRender(); session.finishEdit(); controls.action(root, session, target.dataset.action ?? "", { ...target.dataset });
     }
   });
   root.addEventListener("keydown", (event) => {
@@ -190,7 +197,87 @@ export function mountBoardControls(root: HTMLDivElement, initial: ArgumentBoardS
       render();
     }
   });
+  // Dropping a board file anywhere on the page opens it, like Upload Board.
+  let dragDepth = 0;
+  const carriesFiles = (event: DragEvent) => event.dataTransfer?.types.includes("Files") ?? false;
+  const endDrag = () => {
+    dragDepth = 0;
+    root.classList.remove("file-drop-active");
+  };
+  window.addEventListener("dragenter", (event) => {
+    if (!carriesFiles(event)) return;
+    dragDepth += 1;
+    root.classList.add("file-drop-active");
+  });
+  window.addEventListener("dragleave", (event) => {
+    if (!carriesFiles(event)) return;
+    dragDepth = Math.max(0, dragDepth - 1);
+    if (dragDepth === 0) endDrag();
+  });
+  window.addEventListener("dragover", (event) => {
+    if (!carriesFiles(event)) return;
+    event.preventDefault();
+    event.dataTransfer!.dropEffect = isModalOpen() ? "none" : "copy";
+  });
+  window.addEventListener("drop", (event) => {
+    if (!carriesFiles(event)) return;
+    event.preventDefault();
+    endDrag();
+    const file = event.dataTransfer?.files[0];
+    if (!file || isModalOpen()) return;
+    cancelRender(); session.finishEdit();
+    void controls.upload(root, session, file);
+  });
+  // Page-wide shortcuts work wherever focus is, including text fields.
+  window.addEventListener("keydown", (event) => {
+    if (event.defaultPrevented || isModalOpen()) return;
+    const target = event.target instanceof HTMLElement ? event.target : document.body;
+    const modifier = event.ctrlKey || event.metaKey;
+    const typing = target.matches('input, textarea, select, [contenteditable="true"]');
+    let command: [string, ActionData?] | undefined;
+    if (modifier && !event.altKey && !event.shiftKey && event.key.toLowerCase() === "s") command = ["download"];
+    else if (event.altKey && !modifier && !event.shiftKey && /^Digit[1-9]$/.test(event.code)) {
+      const stage = stageForShortcut(Number(event.code.slice(5)));
+      if (stage) command = ["stage", { stage }];
+    } else if (event.key === "?" && !modifier && !event.altKey && !typing) command = ["show-shortcuts"];
+    if (!command) return;
+    event.preventDefault();
+    cancelRender(); session.finishEdit();
+    for (const menu of root.querySelectorAll<HTMLDetailsElement>(".board-menu[open], .writing-menu[open]")) {
+      menu.open = false;
+      view.disclosures.set(menu.dataset.disclosure!, false);
+    }
+    controls.action(root, session, ...command);
+  });
   return session;
+}
+
+const suggestionDismissedKey = "argument-maker.draft-suggestion-dismissed";
+
+function readSuggestionDismissed(): boolean {
+  try {
+    return window.localStorage.getItem(suggestionDismissedKey) === "true";
+  } catch {
+    return false;
+  }
+}
+
+export function dismissDraftSuggestion(view: ViewState) {
+  view.draftSuggestionDismissed = true;
+  try {
+    window.localStorage.setItem(suggestionDismissedKey, "true");
+  } catch {
+    // The suggestion stays dismissed for this tab.
+  }
+}
+
+const draftSuggestion = `<div class="draft-suggestion" role="group" aria-labelledby="draft-suggestion-text">
+  <p id="draft-suggestion-text">Keep a draft in this browser so refreshing or closing the tab doesn't lose your work.</p>
+  <div class="draft-suggestion-actions"><button type="button" data-action="accept-draft-suggestion">Turn on draft saving</button><button type="button" data-action="dismiss-draft-suggestion">Not now</button></div>
+</div>`;
+
+function shouldSuggestSaving(view: ViewState): boolean {
+  return !view.draftSuggestionDismissed && view.draft.snapshot().suggestSaving;
 }
 
 const conflictActions = '<div class="conflict-actions"><button type="button" data-action="load-other-draft">Load other draft</button><button type="button" data-action="keep-this-draft">Keep saving this board</button></div>';
@@ -203,6 +290,14 @@ function updateDraftControls(root: HTMLDivElement) {
   if (checkbox) checkbox.checked = draft.enabled;
   const status = region.querySelector(".save-status");
   if (status) status.textContent = draft.status;
+  const suggestion = region.querySelector(".draft-suggestion");
+  const view = views.get(root)!;
+  if (shouldSuggestSaving(view) && !suggestion) region.insertAdjacentHTML("beforeend", draftSuggestion);
+  else if (!shouldSuggestSaving(view) && suggestion) {
+    const restoreFocus = suggestion.contains(document.activeElement);
+    suggestion.remove();
+    if (restoreFocus) checkbox?.focus({ preventScroll: true });
+  }
   const actions = region.querySelector(".conflict-actions");
   if (draft.conflict && !actions) region.insertAdjacentHTML("beforeend", conflictActions);
   else if (!draft.conflict && actions) {
@@ -233,5 +328,6 @@ export function renderDraftControls(view: ViewState): string {
   const draft = view.draft.snapshot();
   return `<label class="autosave-label"><input id="autosave" type="checkbox" data-action="autosave" ${draft.enabled ? "checked" : ""}> Save draft in this browser</label>
     <span class="save-status" role="status">${escapeHtml(draft.status)}</span>
-    ${draft.conflict ? conflictActions : ""}`;
+    ${draft.conflict ? conflictActions : ""}
+    ${shouldSuggestSaving(view) ? draftSuggestion : ""}`;
 }

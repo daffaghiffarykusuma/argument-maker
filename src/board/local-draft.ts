@@ -24,6 +24,8 @@ export function createLocalDraft({ storage, initialSession, onChange = () => {},
   let savedBoard: ArgumentBoard | undefined;
   let cancelSave: (() => void) | undefined;
   let status = temporaryStatus;
+  // Suggesting autosave would overwrite an unreadable draft or fail without storage.
+  let canOfferSaving = true;
 
   // An explicitly supplied session must not restore or overwrite a stored draft.
   if (!initialSession) {
@@ -35,10 +37,14 @@ export function createLocalDraft({ storage, initialSession, onChange = () => {},
           savedBoard = result.board;
           enabled = true;
           status = "Local draft restored.";
-        } else status = "Saved draft could not be read. Download this board before enabling autosave.";
+        } else {
+          status = "Saved draft could not be read. Download this board before enabling autosave.";
+          canOfferSaving = false;
+        }
       }
     } catch {
       status = "Browser storage unavailable. Download your board to keep it.";
+      canOfferSaving = false;
     }
   }
   const session = initialSession ?? createArgumentBoardSession(savedBoard);
@@ -95,6 +101,8 @@ export function createLocalDraft({ storage, initialSession, onChange = () => {},
         conflict,
         status,
         hasUnsavedChanges: session.hasTouchedContent() && (!enabled || conflict || savedBoard !== session.snapshot().board),
+        /** Whether to suggest turning on saving: there is work to lose and nothing would be overwritten. */
+        suggestSaving: canOfferSaving && !enabled && !conflict && session.hasTouchedContent(),
       };
     },
     scheduleSave() {
@@ -117,6 +125,7 @@ export function createLocalDraft({ storage, initialSession, onChange = () => {},
         savedBoard = next ? board : undefined;
         enabled = next;
         conflict = false;
+        canOfferSaving = true;
         status = next ? "Saved in this browser." : temporaryStatus;
       } catch {
         status = "Draft could not be saved or removed. Download your board to keep it.";

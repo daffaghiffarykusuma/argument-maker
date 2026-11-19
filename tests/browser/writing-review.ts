@@ -3,6 +3,7 @@ import { mkdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { Browser, Page } from "playwright";
 import { attachGatheredFact } from "./attachment-picker-flow.ts";
+import { answerAppDialog, notice } from "./app-dialog.ts";
 
 export async function verifyWritingReview(browser: Browser, appUrl: string) {
   const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
@@ -40,8 +41,8 @@ export async function verifyWritingReview(browser: Browser, appUrl: string) {
 
     for (const draft of [true, false]) {
       for (const format of ["copy", "markdown", "text", "print"] as const) {
-        page.once("dialog", (dialog) => dialog.accept());
         await page.locator('input[type="file"]').setInputFiles({ name: "planning.argument.json", mimeType: "application/json", buffer: Buffer.from(boardFile) });
+        await answerAppDialog(page, "confirm");
         await page.getByRole("tab", { name: /Preview/ }).click();
         await page.getByRole("button", { name: "Readable outline", exact: true }).click();
         const origin = { copy: "Construct Argument", markdown: "Gather Facts", text: "Preview", print: "Construct Argument" };
@@ -81,15 +82,13 @@ export async function verifyWritingReview(browser: Browser, appUrl: string) {
     await page.getByRole("button", { name: "Download editable board", exact: true }).click();
     const savedFile = JSON.parse(await readFile((await (await savedDownload).path())!, "utf8"));
     assert.deepEqual(savedFile, JSON.parse(boardFile), "Review choice must not change editable board content");
-    const cancelledImport = page.waitForEvent("dialog");
     await page.locator('input[type="file"]').setInputFiles({ name: "cancel.argument.json", mimeType: "application/json", buffer: Buffer.from(boardFile) });
-    await (await cancelledImport).dismiss();
+    await answerAppDialog(page, "cancel");
     await page.locator("#writing-menu-toggle").click();
     await page.getByRole("button", { name: "Copy", exact: true }).click();
     assert.equal(await page.getByRole("heading", { name: "Before you share", exact: true }).count(), 0);
-    const rejectedImport = page.waitForEvent("dialog");
     await page.locator('input[type="file"]').setInputFiles({ name: "invalid.argument.json", mimeType: "application/json", buffer: Buffer.from("not JSON") });
-    await (await rejectedImport).accept();
+    await notice(page).getByText(/^Could not open invalid\.argument\.json\./).waitFor();
     await page.locator("#writing-menu-toggle").click();
     await page.getByRole("button", { name: "Copy", exact: true }).click();
     assert.equal(await page.getByRole("heading", { name: "Before you share", exact: true }).count(), 0);
@@ -103,9 +102,9 @@ export async function verifyWritingReview(browser: Browser, appUrl: string) {
     assert.match(await page.evaluate(() => (window as any).copiedWriting), /\bDraft\b/);
     await page.getByRole("button", { name: "Reasoning review", exact: true }).click();
     await page.getByRole("button", { name: "Back to editing", exact: true }).click();
-    page.once("dialog", (dialog) => dialog.accept());
     await page.locator("#board-menu-toggle").click();
     await page.getByRole("button", { name: "Clear Board", exact: true }).click();
+    await answerAppDialog(page, "confirm");
     await page.locator("#writing-menu-toggle").click();
     await page.getByRole("button", { name: "Copy", exact: true }).click();
     await page.getByRole("heading", { name: "Before you share", exact: true }).waitFor();

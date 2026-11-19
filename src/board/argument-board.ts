@@ -198,7 +198,7 @@ function getDestinationFactIds(board: ArgumentBoard, destinationId: FactDestinat
   return board.supportingArguments.find((argument) => argument.id === destinationId)?.factIds;
 }
 
-function destinationLabel(board: ArgumentBoard, destinationId: FactDestinationId): string {
+export function destinationLabel(board: ArgumentBoard, destinationId: FactDestinationId): string {
   if (destinationId === "situation") {
     return "Situation";
   }
