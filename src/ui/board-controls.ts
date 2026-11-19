@@ -217,6 +217,11 @@ export function mountBoardControls(root: HTMLDivElement, initial: ArgumentBoardS
       root.querySelector<HTMLButtonElement>('#outline-panel [data-action="close-outline"]')?.focus();
       return;
     }
+    // The board title is one line of prose that wraps; Enter finishes it instead of breaking it.
+    if (event.key === "Enter" && target.id === "board-title") {
+      event.preventDefault();
+      return;
+    }
     const picker = target.closest<HTMLDetailsElement>(".attachment-picker");
     if (event.key === "Escape" && picker?.open) {
       event.preventDefault();

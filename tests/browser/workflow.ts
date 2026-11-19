@@ -166,7 +166,7 @@ export async function verifyWorkflow(browser: Browser, appUrl: string) {
 
       await page.getByRole("tab", { name: /Construct Argument/ }).click();
       await page.locator('[data-action="mode-change"][data-argument-id="argument-1"][value="evidence-backed"]').check();
-      expect(await page.locator(".checklist").innerText()).toContain("Review 0 structural issues");
+      expect(await page.locator(".checklist").innerText()).toContain("No structural gaps");
 
       await page.getByRole("tab", { name: /Preview/ }).click();
       await page.locator(".mermaid-diagram svg").waitFor();

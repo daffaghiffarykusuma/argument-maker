@@ -3,7 +3,20 @@ import { parseExportFile } from "../board/export-file-contract";
 import { confirmAction, showShortcuts, type ConfirmOptions } from "./app-dialog";
 import type { ArgumentBoardSession, WorkflowStage } from "../board/argument-board-session";
 
-type IconName = "copy" | "download" | "upload" | "undo" | "redo" | "trash" | "up" | "down" | "eye" | "eyeOff";
+type IconName =
+  | "copy"
+  | "download"
+  | "upload"
+  | "undo"
+  | "redo"
+  | "trash"
+  | "up"
+  | "down"
+  | "eye"
+  | "eyeOff"
+  | "keyboard"
+  | "review"
+  | "outline";
 
 interface IconButtonOptions {
   action: string;
@@ -75,9 +88,9 @@ function render(appRoot: HTMLDivElement, session: ArgumentBoardSession) {
       <main class="desk-main">
         ${renderTopbar(snapshot.board)}
         <div class="draft-controls">${renderDraftControls(view)}</div>
-        <div class="stage-bar">
+        <div class="stage-bar${writing.panel === "stage" ? "" : " stage-covered"}">
         ${renderStageNavigation(snapshot.stage)}
-        <div class="review-entry"><button id="open-reasoning-review" type="button" data-action="open-review" aria-expanded="${writing.panel === "review"}">Reasoning review</button>${writing.label ? `<button type="button" data-action="toggle-draft-label" aria-pressed="${writing.label === "draft"}">Label writing exports as Draft</button>` : ""}</div>
+        <div class="review-entry">${snapshot.stage === "construct" && writing.panel === "stage" ? `<button type="button" id="view-outline" class="view-outline" data-action="open-outline" aria-haspopup="dialog" aria-controls="outline-panel">${renderIcon("outline")}View outline</button>` : ""}<button id="open-reasoning-review" type="button" data-action="open-review" aria-expanded="${writing.panel === "review"}">${renderIcon("review")}Reasoning review</button>${writing.label ? `<button type="button" data-action="toggle-draft-label" aria-pressed="${writing.label === "draft"}">Label writing exports as Draft</button>` : ""}</div>
         </div>
         ${writing.panel === "invitation" ? renderWritingInvitation() : writing.panel === "review" ? renderReasoningReview(snapshot.board, snapshot.issues, writing.offerContinue) : renderStage(snapshot.board, snapshot.stage, snapshot.issues, view)}
         ${renderPrintDocument(snapshot.board, writing.draft)}
@@ -117,7 +130,7 @@ function renderWorkspaceHeader(canUndo: boolean, canRedo: boolean): string {
           <input type="file" tabindex="-1" accept=".json,.argument.json,application/json" data-action="upload" />
         </label>
         <p>Portable editable file for reopening your board. You can also drop a board file onto the page. Local drafts are optional.</p>
-        <button type="button" data-action="show-shortcuts" aria-keyshortcuts="Shift+?">Keyboard shortcuts</button>
+        <button type="button" data-action="show-shortcuts" aria-keyshortcuts="Shift+?">${renderIcon("keyboard")}Keyboard shortcuts</button>
         <hr>
         ${renderCommandButton(commandDeskActions.clear)}
           </div>
@@ -133,7 +146,7 @@ function renderTopbar(board: ArgumentBoard): string {
   return `
     <header class="topbar" aria-label="Argument board status">
       <div class="title-group">
-        <input id="board-title" class="title-input" aria-label="Board title" value="${escapeAttr(board.title)}" placeholder="A good argument starts here." data-action="title" />
+        <textarea id="board-title" class="title-input" aria-label="Board title" rows="1" placeholder="A good argument starts here." data-action="title">${escapeHtml(board.title)}</textarea>
       </div>
       <div class="desk-status">
         <div><strong>${board.gatheredFacts.length}</strong><span>${board.gatheredFacts.length === 1 ? "fact" : "facts"} gathered</span></div><div><strong>${usedCount}</strong><span>in your argument</span></div>
@@ -181,7 +194,11 @@ function renderStage(
     return renderConstructStage(board, issues, view.facts);
   }
 
-  return view.preview.render(board, renderCommandButton(commandDeskActions.copyMermaid));
+  const { action, icon, label } = commandDeskActions.copyMermaid;
+  return view.preview.render(
+    board,
+    `<button type="button" class="copy-mermaid" data-action="${action}">${renderIcon(icon)}${label}</button>`,
+  );
 }
 
 function renderConstructStage(
@@ -191,12 +208,7 @@ function renderConstructStage(
 ): string {
   return `
     <section id="stage-panel-construct" class="workflow-stage" role="tabpanel" aria-labelledby="stage-tab-construct">
-      <div class="section-heading">
-        <div>
-          <h2 id="stage-heading-construct" tabindex="-1">Construct Argument</h2>
-        </div>
-        <button type="button" id="view-outline" class="view-outline" data-action="open-outline" aria-haspopup="dialog" aria-controls="outline-panel">View outline</button>
-      </div>
+      <h2 id="stage-heading-construct" class="stage-title" tabindex="-1">Construct Argument</h2>
       <div class="starting-guidance">${renderStartingGuidance(board)}</div>
       <div class="construction-layout"><div class="construction-editor">
       ${renderChecklist(issues)}
@@ -233,7 +245,7 @@ function renderConstructStage(
           <button type="button" data-action="add-argument">+ Argument</button>
         </div>
         <div class="argument-list">
-          ${board.supportingArguments.map((argument, index) => renderArgument(board, argument, index, facts)).join("")}
+          ${board.supportingArguments.map((argument, index) => renderArgument(board, argument, index, facts)).join("") || '<p class="empty-arguments">No supporting reasons yet. Add one to explain why someone should accept your Answer.</p>'}
         </div>
       </section>
       </div><aside class="construction-outline" aria-label="Live argument outline"><h3>Argument outline</h3><div class="construction-outline-content">${renderStartingOutline(board)}</div></aside></div>
@@ -347,24 +359,23 @@ function renderChecklist(issues: ReturnType<ArgumentBoardSession["snapshot"]>["i
 
 function renderChecklistContent(issues: ReturnType<ArgumentBoardSession["snapshot"]>["issues"]): string {
   return `
-      <h2>Structural checks</h2>
-      <p>Check for missing parts whenever you are ready. These checks do not assess your reasoning.</p>
-      <details data-disclosure="readiness"><summary>Review ${issues.length} structural issue${issues.length === 1 ? "" : "s"}</summary><ul>
-        ${
-          issues.length === 0
-            ? "<li>No structural issues found.</li>"
-            : issues
-                .map(
-                  (issue) => `
+      ${
+        issues.length === 0
+          ? '<div class="checks-row checks-ok"><span class="checks-title">Structural checks</span><span class="checks-count">No structural gaps</span><span class="checks-note">Checks find missing parts, not weak reasoning.</span></div>'
+          : `<details data-disclosure="readiness"><summary class="checks-row"><span class="checks-title">Structural checks</span><span class="checks-count">Review ${issues.length} structural issue${issues.length === 1 ? "" : "s"}</span></summary>
+      <p class="checks-note">Checks find missing parts whenever you are ready. They do not assess your reasoning.</p><ul>
+        ${issues
+          .map(
+            (issue) => `
                     <li>
                       <button type="button" class="issue-link" data-action="open-issue" data-target-id="${escapeAttr(issue.targetId)}">${escapeHtml(issue.message)}</button>
                       ${issue.fieldMessages?.map((message) => `<span>${escapeHtml(message)}</span>`).join("") ?? ""}
                     </li>
                   `,
-                )
-                .join("")
-        }
-      </ul></details>
+          )
+          .join("")}
+      </ul></details>`
+      }
   `;
 }
 
@@ -379,7 +390,7 @@ function handleChange(
   const argumentId = target.dataset.argumentId;
 
   if (action === "title") {
-    dispatch({ type: "update-title", title: target.value });
+    dispatch({ type: "update-title", title: target.value.replace(/\s*\n+\s*/g, " ") });
   } else if (action === "planning-context" && (target.dataset.field === "audience" || target.dataset.field === "intendedOutcome")) {
     dispatch({ type: "update-planning-context", field: target.dataset.field, text: target.value });
   } else if (action === "scqa" && target instanceof HTMLTextAreaElement) {
@@ -876,6 +887,9 @@ function renderIcon(icon: IconName): string {
     trash:
       '<path d="M3 6h18"></path><path d="M8 6V4h8v2"></path><path d="M19 6l-1 14H6L5 6"></path><path d="M10 11v5"></path><path d="M14 11v5"></path>',
     up: '<path d="m6 15 6-6 6 6"></path>',
+    keyboard: '<rect x="2" y="6" width="20" height="12" rx="2"></rect><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"></path>',
+    outline: '<path d="M8 6h12M8 12h12M8 18h12"></path><path d="M4 6h.01M4 12h.01M4 18h.01"></path>',
+    review: '<path d="M4 5h11M4 10h7M4 15h5"></path><circle cx="16" cy="15" r="3.5"></circle><path d="m18.5 17.5 2.5 2.5"></path>',
     down: '<path d="m6 9 6 6 6-6"></path>',
     eye: '<path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z"></path><circle cx="12" cy="12" r="3"></circle>',
     eyeOff:

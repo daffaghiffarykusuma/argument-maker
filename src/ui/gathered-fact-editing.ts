@@ -195,18 +195,16 @@ function renderFactFeedback(state: ReturnType<typeof factState>): string {
 function renderGatherStage(board: ArgumentBoard, view: FactSearch, untouchedFacts: ReadonlySet<string>): string {
   return `
     <section id="stage-panel-gather" class="workflow-stage" role="tabpanel" aria-labelledby="stage-tab-gather">
-      <div class="section-heading">
-        <div>
-          <h2 id="stage-heading-gather" tabindex="-1">Gather Facts</h2>
-        </div>
+      <h2 id="stage-heading-gather" class="stage-title" tabindex="-1">Gather Facts</h2>
+      <div class="stage-intro">
+        <p class="verification-note">Link format checked; source quality and factual accuracy are not verified.</p>
         <button id="add-fact" type="button" data-action="add-fact">+ Add fact</button>
       </div>
-      <p class="verification-note">Link format checked; source quality and factual accuracy are not verified.</p>
       ${renderLibraryTools(board, view)}
       <div class="fact-library">
         ${
           board.gatheredFacts.length === 0
-            ? `<div class="empty-state"><div class="empty-slip" aria-hidden="true"><p>A finding you can point to.</p><small>Its source: a link, a book passage, an interview</small></div><h3>No facts yet</h3><p>Add a finding and its source to get started.</p><button type="button" data-action="add-fact">Create your first fact</button></div>`
+            ? `<div class="empty-state"><div class="empty-slip" aria-hidden="true"><p>A finding you can point to.</p><small>Its source: a link, a book passage, an interview</small></div><h3>No facts yet</h3><p>Add a finding and its source, or open a worked example to see how a finished board fits together.</p><button type="button" data-action="load-example">Worked example</button></div>`
             : filterFacts(board, view.query, view.filter).length
               ? filterFacts(board, view.query, view.filter)
                   .map((fact) => renderFactCard(board, fact, untouchedFacts.has(fact.id)))
@@ -231,11 +229,10 @@ function renderFactCard(board: ArgumentBoard, fact: GatheredFact, untouched = fa
           <strong class="fact-status" role="status">${state.status}</strong>
         </div>
         <div class="usage-block">
-          <strong>${usage.length === 0 ? "Unused" : `Used in ${usage.length} place${usage.length === 1 ? "" : "s"}`}</strong>
+          <strong>${usage.length === 0 ? "Not used yet" : "Used in"}</strong>
           ${usage.map((label) => `<span class="usage-badge">${escapeHtml(label)}</span>`).join("")}
         </div>
       </div>
-      ${usage.length === 0 ? "" : `<p class="shared-warning">Used in ${usage.length} place${usage.length === 1 ? "" : "s"}. Changes update all uses.</p>`}
       <div class="fact-summary">${renderFactSummary(fact)}</div>
       <details class="fact-editor" data-disclosure="editor-${prefix}" ${untouched ? "open" : ""}>
       <summary>Edit fact</summary>
@@ -258,6 +255,7 @@ function renderFactCard(board: ArgumentBoard, fact: GatheredFact, untouched = fa
         <button type="button" data-action="move-library-fact" data-fact-id="${escapeAttr(fact.id)}" data-direction="up">Move up</button>
         <button type="button" data-action="move-library-fact" data-fact-id="${escapeAttr(fact.id)}" data-direction="down">Move down</button>
         <button type="button" data-action="another-fact-source" data-fact-id="${escapeAttr(fact.id)}">Another fact from this source</button>
+        ${usage.length > 1 ? '<span class="shared-warning">Edits update every use</span>' : ""}
         <button type="button" class="danger" data-action="delete-fact" data-fact-id="${escapeAttr(fact.id)}">Delete fact</button>
       </div>
     </article>
@@ -266,7 +264,8 @@ function renderFactCard(board: ArgumentBoard, fact: GatheredFact, untouched = fa
 
 function renderFactSummary(fact: GatheredFact): string {
   const source = [fact.sourceTitle, fact.descriptiveCitation, fact.evidenceLink].filter((value) => value?.trim()).join(" · ");
-  return `<p class="fact-finding">${escapeHtml(fact.text.trim() || "No finding yet")}</p><p class="fact-source"><strong>Source reference</strong> ${escapeHtml(source || "No source yet")}</p>`;
+  const empty = !fact.text.trim() && !source ? " is-empty" : "";
+  return `<p class="fact-finding${empty}">${escapeHtml(fact.text.trim() || "No finding yet")}</p><p class="fact-source"><strong>Source reference</strong> ${escapeHtml(source || "No source yet")}</p>`;
 }
 
 function renderDestinationFacts(board: ArgumentBoard, destinationId: FactDestinationId, untouchedFacts: ReadonlySet<string>): string {
@@ -313,8 +312,7 @@ function renderAttachmentResults(board: ArgumentBoard, destinationId: FactDestin
     .map(
       ({ fact, number, usage, status, guidance }) => `<article class="attachment-result" aria-label="Gathered Fact ${number}">
       ${renderFactSummary(fact)}
-      <p>${escapeHtml(usage.length ? `Used in ${usage.join(", ")}` : "Unused")}</p>
-      <p>${{ attached: "Already attached here", incomplete: "Incomplete", available: "Available to attach" }[status]}</p>
+      <p class="pick-meta"><span class="pick-status pick-${status}">${{ attached: "Already attached here", incomplete: "Incomplete", available: "Available to attach" }[status]}</span> ${escapeHtml(usage.length ? `Used in ${usage.join(", ")}` : "Unused")}</p>
       ${guidance.length ? `<p>${guidance.map(escapeHtml).join(" ")}</p>` : ""}
       ${status === "attached" ? `<button type="button" data-action="show-attached-fact" data-fact-id="${escapeAttr(fact.id)}">View attached fact</button>` : status === "incomplete" ? `<button type="button" data-action="open-fact" data-fact-id="${escapeAttr(fact.id)}">Complete this fact</button>` : `<button type="button" data-action="attach-fact" data-fact-id="${escapeAttr(fact.id)}" data-destination-id="${escapeAttr(destinationId)}">Attach fact</button>`}
     </article>`,

@@ -91,14 +91,17 @@ async function renderMermaid(id: string, source: string): Promise<string> {
 function renderPreviewStage(preview: ReturnType<typeof projectArgumentPreview>, mode: PreviewMode, copyButton: string): string {
   return `
     <section id="stage-panel-preview" class="workflow-stage preview-view" role="tabpanel" aria-labelledby="stage-tab-preview">
-      <div class="section-heading">
-        <div>
-          <h2 id="stage-heading-preview" tabindex="-1">Argument Preview</h2>
+      <h2 id="stage-heading-preview" class="stage-title" tabindex="-1">Argument Preview</h2>
+      <div class="stage-intro">
+        <div class="preview-tools" aria-label="Preview tools">
+          <button type="button" data-action="preview-mode" data-mode="diagram" aria-pressed="${mode === "diagram"}">Diagram</button>
+          <button type="button" data-action="preview-mode" data-mode="outline" aria-pressed="${mode === "outline"}">Readable outline</button>
         </div>
+        ${renderZoomTools(mode)}
         ${copyButton}
       </div>
       <p class="verification-note">Link format checked; source quality and factual accuracy are not verified.</p>
-      ${renderPreviewTools(preview, mode)}
+      <div class="outline-preview" ${mode === "outline" ? "" : "hidden"}>${renderWritingDocument(preview.writing)}</div>
       <div class="mermaid-diagram" ${mode === "diagram" ? "" : "hidden"} role="img" aria-label="Rendered Argument Board workflow">
         <div class="mermaid-status">Rendering workflow...</div>
       </div>
@@ -150,13 +153,8 @@ function renderEvidenceSource(fact: ArgumentPreviewFact): string {
     : '<span class="invalid-source">Evidence link or descriptive citation is missing</span>';
 }
 
-function renderPreviewTools(preview: ReturnType<typeof projectArgumentPreview>, mode: PreviewMode): string {
-  return `<div class="preview-tools" aria-label="Preview tools">
-    <button type="button" data-action="preview-mode" data-mode="diagram" aria-pressed="${mode === "diagram"}">Diagram</button>
-    <button type="button" data-action="preview-mode" data-mode="outline" aria-pressed="${mode === "outline"}">Readable outline</button>
-    </div>
-    <div class="outline-preview" ${mode === "outline" ? "" : "hidden"}>${renderWritingDocument(preview.writing)}</div>
-    <div class="zoom-tools" ${mode === "diagram" ? "" : "hidden"}><button type="button" data-action="zoom" data-zoom="out" aria-label="Zoom out">−</button><output class="zoom-status" aria-live="polite">Fit</output><button type="button" data-action="zoom" data-zoom="in" aria-label="Zoom in">+</button><button type="button" data-action="zoom" data-zoom="fit">Fit to view</button></div>`;
+function renderZoomTools(mode: PreviewMode): string {
+  return `<div class="zoom-tools" role="group" aria-label="Diagram zoom" ${mode === "diagram" ? "" : "hidden"}><button type="button" data-action="zoom" data-zoom="out" aria-label="Zoom out">−</button><output class="zoom-status" aria-live="polite">Fit</output><button type="button" data-action="zoom" data-zoom="in" aria-label="Zoom in">+</button><button type="button" data-action="zoom" data-zoom="fit">Fit to view</button></div>`;
 }
 
 function loadMermaid() {
@@ -167,6 +165,8 @@ function loadMermaid() {
         startOnLoad: false,
         securityLevel: "strict",
         theme: "base",
+        // Wider labels keep each claim to a few lines, so the chart stays legible at Fit.
+        flowchart: { wrappingWidth: 300, nodeSpacing: 36, rankSpacing: 44, padding: 14 },
         themeVariables: {
           background: "#0b120f",
           primaryColor: "#1a2621",
