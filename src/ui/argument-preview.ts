@@ -1,4 +1,6 @@
 import type { ArgumentBoard } from "../board/argument-board";
+import { hasOutlineContent } from "../board/construction-guidance";
+import { usedFactCount } from "../board/fact-library";
 import { projectArgumentPreview, type ArgumentPreviewFact } from "../board/argument-preview-projection";
 import { escapeAttr, escapeHtml } from "./html";
 import { renderWritingDocument } from "./writing-view";
@@ -26,18 +28,26 @@ export function createArgumentPreview(root: HTMLDivElement, renderDiagram: Diagr
     if (!container || !svg || container.hidden) return;
     const box = svg.viewBox.baseVal;
     if (!box.width || !box.height) return;
-    const scale = Math.min(1, (container.clientWidth - 32) / box.width, (container.clientHeight - 32) / box.height) * zoom;
+    // The canvas grows with the diagram up to its max-height, so fit against that cap rather than the current height.
+    const padding = 32;
+    const maxHeight = Number.parseFloat(getComputedStyle(container).maxHeight) || container.clientHeight;
+    const fit = Math.min(1, (container.clientWidth - padding) / box.width, (maxHeight - padding) / box.height);
+    // On a phone, fitting a wide diagram would shrink its labels below reading size; scroll sideways instead.
+    const readable = container.clientWidth < 640 ? 0.7 : 0;
+    const scale = Math.max(fit, readable) * zoom;
     svg.style.width = `${Math.max(1, box.width * scale)}px`;
     svg.style.height = `${Math.max(1, box.height * scale)}px`;
     const output = root.querySelector(".zoom-status");
-    if (output) output.textContent = zoom === 1 ? "Fit" : `${Math.round(zoom * 100)}% of fit`;
+    if (output) output.textContent = `${Math.round(zoom * 100)}%`;
   }
 
   return {
     render(board: ArgumentBoard, copyButton: string): string {
       const projection = projectArgumentPreview(board);
       source = projection.mermaid;
-      return renderPreviewStage(projection, mode, copyButton);
+      // Before anything is written or attached the diagram is only the empty frame, with nothing worth copying.
+      const empty = !hasOutlineContent(board) && usedFactCount(board) === 0;
+      return renderPreviewStage(projection, mode, zoom, empty ? "" : copyButton, empty);
     },
     async sync(): Promise<void> {
       const currentGeneration = ++generation;
@@ -55,6 +65,8 @@ export function createArgumentPreview(root: HTMLDivElement, renderDiagram: Diagr
         if (currentGeneration === generation && !disposed) {
           container.innerHTML = svg;
           sizeDiagram();
+          // A diagram wider than a phone opens on its centred top, where the chain of claims starts.
+          container.scrollLeft = (container.scrollWidth - container.clientWidth) / 2;
         }
       } catch {
         // An older failure must not evict a newer pending or completed diagram.
@@ -88,19 +100,29 @@ async function renderMermaid(id: string, source: string): Promise<string> {
   return (await mermaid.render(id, source)).svg;
 }
 
-function renderPreviewStage(preview: ReturnType<typeof projectArgumentPreview>, mode: PreviewMode, copyButton: string): string {
+function renderPreviewStage(
+  preview: ReturnType<typeof projectArgumentPreview>,
+  mode: PreviewMode,
+  zoom: number,
+  copyButton: string,
+  empty: boolean,
+): string {
   return `
-    <section id="stage-panel-preview" class="workflow-stage preview-view" role="tabpanel" aria-labelledby="stage-tab-preview">
-      <h2 id="stage-heading-preview" class="stage-title" tabindex="-1">Argument Preview</h2>
+    <section class="review-section preview-view" aria-labelledby="review-read-heading">
+      <h3 id="review-read-heading">Your argument</h3>
       <div class="stage-intro">
         <div class="preview-tools" aria-label="Preview tools">
-          <button type="button" data-action="preview-mode" data-mode="diagram" aria-pressed="${mode === "diagram"}">Diagram</button>
-          <button type="button" data-action="preview-mode" data-mode="outline" aria-pressed="${mode === "outline"}">Readable outline</button>
+          <button type="button" id="preview-mode-diagram" data-action="preview-mode" data-mode="diagram" aria-pressed="${mode === "diagram"}">Diagram</button>
+          <button type="button" id="preview-mode-outline" data-action="preview-mode" data-mode="outline" aria-pressed="${mode === "outline"}">Readable outline</button>
         </div>
-        ${renderZoomTools(mode)}
+        ${renderZoomTools(mode, zoom)}
         ${copyButton}
       </div>
-      <p class="verification-note">Link format checked; source quality and factual accuracy are not verified.</p>
+      ${
+        empty
+          ? '<div class="starting-guidance"><p>Nothing written yet. This is the shape your argument will take.</p><button type="button" data-action="stage" data-stage="construct">Start writing</button></div>'
+          : '<p class="verification-note">Link format checked; source quality and factual accuracy are not verified.</p>'
+      }
       <div class="outline-preview" ${mode === "outline" ? "" : "hidden"}>${renderWritingDocument(preview.writing)}</div>
       <div class="mermaid-diagram" ${mode === "diagram" ? "" : "hidden"} role="img" aria-label="Rendered Argument Board workflow">
         <div class="mermaid-status">Rendering workflow...</div>
@@ -153,8 +175,8 @@ function renderEvidenceSource(fact: ArgumentPreviewFact): string {
     : '<span class="invalid-source">Evidence link or descriptive citation is missing</span>';
 }
 
-function renderZoomTools(mode: PreviewMode): string {
-  return `<div class="zoom-tools" role="group" aria-label="Diagram zoom" ${mode === "diagram" ? "" : "hidden"}><button type="button" data-action="zoom" data-zoom="out" aria-label="Zoom out">−</button><output class="zoom-status" aria-live="polite">Fit</output><button type="button" data-action="zoom" data-zoom="in" aria-label="Zoom in">+</button><button type="button" data-action="zoom" data-zoom="fit">Fit to view</button></div>`;
+function renderZoomTools(mode: PreviewMode, zoom: number): string {
+  return `<div class="zoom-tools" role="group" aria-label="Diagram zoom" ${mode === "diagram" ? "" : "hidden"}><button type="button" data-action="zoom" data-zoom="out" aria-label="Zoom out">−</button><output class="zoom-status" aria-live="polite">${Math.round(zoom * 100)}%</output><button type="button" data-action="zoom" data-zoom="in" aria-label="Zoom in">+</button><button type="button" data-action="zoom" data-zoom="fit">Fit to view</button></div>`;
 }
 
 function loadMermaid() {

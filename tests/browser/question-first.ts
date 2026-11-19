@@ -9,16 +9,20 @@ export async function verifyQuestionFirst(browser: Browser, appUrl: string) {
     await page.goto(appUrl);
     await page.getByRole("heading", { name: "Construct Argument", exact: true }).waitFor();
     assert.equal(await page.locator('[aria-label="Argument frame"] textarea').first().getAttribute("id"), "scqa-question");
-    assert.equal(await page.locator('details[data-disclosure="readiness"]').getAttribute("open"), null);
+    // An untouched board does not list every empty field as an issue.
+    assert.equal(await page.locator('details[data-disclosure="readiness"]').count(), 0);
+    assert.match(await page.locator(".checklist").innerText(), /Appear as you write/);
     assert.equal(await page.getByText("Add your main answer.", { exact: true }).isVisible(), false);
-    await page.getByRole("button", { name: "Start with a question" }).click();
-    assert.equal(await page.evaluate(() => document.activeElement?.id), "scqa-question");
-    await page.locator("#scqa-question").fill("How should we meet rising demand?");
+    await page.locator("#scqa-question").focus();
+    const questionTop = (await page.locator("#scqa-question").boundingBox())!.y;
+    await page.locator("#scqa-question").pressSequentially("How should we meet rising demand?");
+    assert.equal((await page.locator("#scqa-question").boundingBox())!.y, questionTop, "the field being typed in never moves");
     await page.locator("#scqa-question").press("Tab");
     assert.equal(await page.evaluate(() => document.activeElement?.id), "scqa-answer");
+    await page.locator("#scqa-answer").blur();
     await page.getByRole("button", { name: "Gather supporting material" }).click();
     assert.equal(await page.evaluate(() => document.activeElement?.id), "stage-heading-gather");
-    await page.getByRole("tab", { name: /Preview/ }).click();
+    await page.getByRole("tab", { name: /Review/ }).click();
     await page.getByRole("tab", { name: /Construct Argument/ }).click();
     assert.equal(await page.locator("#scqa-question").inputValue(), "How should we meet rising demand?");
     await page.locator('details[data-disclosure="readiness"] > summary').click();
@@ -32,7 +36,7 @@ export async function verifyQuestionFirst(browser: Browser, appUrl: string) {
     await page
       .getByRole("textbox", { name: "What is your tentative claim or main answer? Answer", exact: true })
       .fill("We should expand capacity.");
-    await page.locator("#scqa-answer").press("Tab");
+    await page.locator("#scqa-answer").blur();
     assert.equal(await page.locator("#scqa-question").inputValue(), "");
     assert.equal(await page.getByRole("button", { name: "Gather supporting material" }).isVisible(), true);
     await page.locator("#scqa-answer").fill("");

@@ -66,7 +66,7 @@ export async function verifyPreviewLifecycle() {
     await pending.hide();
     await pending.show();
     check(pending.requests.length === 1, "completed diagram must remain cached across stages");
-    check(pending.root.querySelector(".zoom-status")!.textContent === "125% of fit", "zoom must persist on cached insertion");
+    check(pending.root.querySelector(".zoom-status")!.textContent === "125%", "zoom must persist on cached insertion");
     check(pending.root.querySelector<SVGSVGElement>("svg")!.style.width === width, "cached diagram must be sized again");
     pending.root.style.width = "240px";
     for (let frame = 0; frame < 60 && pending.root.querySelector<SVGSVGElement>("svg")!.style.width === width; frame++) {
@@ -74,11 +74,11 @@ export async function verifyPreviewLifecycle() {
     }
     check(parseFloat(pending.root.querySelector<SVGSVGElement>("svg")!.style.width) < parseFloat(width), "resize must refit the diagram");
     for (let i = 0; i < 30; i++) pending.preview.zoom("in");
-    check(pending.root.querySelector(".zoom-status")!.textContent === "600% of fit", "zoom must stop at its upper limit");
+    check(pending.root.querySelector(".zoom-status")!.textContent === "600%", "zoom must stop at its upper limit");
     for (let i = 0; i < 30; i++) pending.preview.zoom("out");
-    check(pending.root.querySelector(".zoom-status")!.textContent === "50% of fit", "zoom must stop at its lower limit");
+    check(pending.root.querySelector(".zoom-status")!.textContent === "50%", "zoom must stop at its lower limit");
     pending.preview.zoom("fit");
-    check(pending.root.querySelector(".zoom-status")!.textContent === "Fit", "fit must reset zoom");
+    check(pending.root.querySelector(".zoom-status")!.textContent === "100%", "fit must reset zoom");
   } finally {
     pending.close();
   }

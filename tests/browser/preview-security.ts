@@ -35,6 +35,9 @@ export async function verifyPreviewSecurity(browser: Browser, url: string) {
         page.setDefaultTimeout(15_000);
         try {
           await page.goto(url);
+          // Drafts save by default; each case uploads onto an empty board.
+          await page.evaluate(() => localStorage.clear());
+          await page.reload();
           const board = createDefaultBoard();
           for (const slot of Object.values(board.scqa)) slot.text = text;
           board.supportingArguments[0]!.text = text;
@@ -46,7 +49,7 @@ export async function verifyPreviewSecurity(browser: Browser, url: string) {
             .locator('input[type="file"]')
             .setInputFiles({ name: "untrusted.argument.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(board)) });
           await page.getByRole("heading", { name: "Gather Facts", exact: true }).waitFor();
-          await page.getByRole("tab", { name: /Preview/ }).click();
+          await page.getByRole("tab", { name: /Review/ }).click();
           const svg = page.locator(".mermaid-diagram svg");
           await svg.waitFor();
           assert.deepEqual(externalRequests, [], `External requests for ${JSON.stringify(text)}`);
@@ -63,10 +66,20 @@ export async function verifyPreviewSecurity(browser: Browser, url: string) {
             ]) {
               await page.setViewportSize(viewport);
               await page.getByRole("button", { name: "Fit to view" }).click();
+              // Desktop fits the whole diagram; a phone keeps labels at reading size and scrolls the canvas sideways instead.
               assert.equal(
-                await svg.evaluate((element) => element.getBoundingClientRect().width <= element.parentElement!.clientWidth),
+                await svg.evaluate((element) => {
+                  const width = element.getBoundingClientRect().width;
+                  const readable = (element as SVGSVGElement).viewBox.baseVal.width * 0.7;
+                  return width <= element.parentElement!.clientWidth || Math.abs(width - readable) < 1;
+                }),
                 true,
-                "diagram fits desktop and mobile",
+                "diagram fits desktop and stays readable on mobile",
+              );
+              assert.equal(
+                await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+                true,
+                "a wide diagram scrolls inside its canvas, not the page",
               );
             }
           }

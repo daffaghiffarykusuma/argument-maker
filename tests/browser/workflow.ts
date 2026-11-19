@@ -168,7 +168,7 @@ export async function verifyWorkflow(browser: Browser, appUrl: string) {
       await page.locator('[data-action="mode-change"][data-argument-id="argument-1"][value="evidence-backed"]').check();
       expect(await page.locator(".checklist").innerText()).toContain("No structural gaps");
 
-      await page.getByRole("tab", { name: /Preview/ }).click();
+      await page.getByRole("tab", { name: /Review/ }).click();
       await page.locator(".mermaid-diagram svg").waitFor();
       expect(await page.locator(".evidence-group").count()).toBe(3);
       expect(await page.getByRole("link", { name: /Open evidence source for Demand rose 25%/ }).count()).toBe(2);
@@ -182,7 +182,7 @@ export async function verifyWorkflow(browser: Browser, appUrl: string) {
       const diagram = page.locator(".mermaid-diagram svg");
       const originalDiagramId = await diagram.getAttribute("id");
       await page.getByRole("tab", { name: /Construct Argument/ }).click();
-      await page.getByRole("tab", { name: /Preview/ }).click();
+      await page.getByRole("tab", { name: /Review/ }).click();
       await diagram.waitFor();
       expect(await diagram.getAttribute("id")).toBe(originalDiagramId);
       await page.getByRole("button", { name: "Readable outline", exact: true }).click();
@@ -346,7 +346,7 @@ export async function verifyWorkflow(browser: Browser, appUrl: string) {
 
       await page.setViewportSize({ width: 390, height: 900 });
       expect(await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth)).toBe(false);
-      await page.getByRole("tab", { name: /Preview/ }).click();
+      await page.getByRole("tab", { name: /Review/ }).click();
       await page.locator(".mermaid-diagram svg").waitFor();
       expect(await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth)).toBe(false);
       console.log("browser-smoke: verified 390-pixel Preview");

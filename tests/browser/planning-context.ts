@@ -33,7 +33,7 @@ export async function verifyPlanningContext(browser: Browser, appUrl: string) {
     await audience.press("Tab");
     assert.equal(await outcome.evaluate((el) => el === document.activeElement), true);
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true);
-    await page.getByRole("tab", { name: /Preview/ }).click();
+    await page.getByRole("tab", { name: /Review/ }).click();
     await page.getByRole("button", { name: "Readable outline", exact: true }).click();
     const assertPrivate = (text: string) => {
       assert.equal(text.includes("Private service managers"), false);

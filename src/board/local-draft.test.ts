@@ -62,16 +62,16 @@ function setup() {
   return { storage, clock, statuses, draft, edit, storedBoard };
 }
 
-test("saving is opt-in, restores on startup and preserves an explicitly supplied session", () => {
+test("saving is on by default, skips untouched boards, restores on startup and preserves an explicitly supplied session", () => {
   const { storage, clock, draft, edit } = setup();
-  expect(draft.snapshot().hasUnsavedChanges).toBe(false);
-  edit("Temporary board");
-  draft.scheduleSave();
-  clock.advance(1000);
-  expect(draft.flush()).toBe(false);
+  expect(draft.snapshot()).toMatchObject({ enabled: true, hasUnsavedChanges: false });
+  expect(draft.snapshot().status).toContain("this browser only");
+  expect(draft.flush()).toBe(true);
   expect(storage.getItem(localDraftKey)).toBeNull();
-  expect(draft.snapshot().hasUnsavedChanges).toBe(true);
-  expect(draft.setEnabled(true)).toBe(true);
+  edit("First board");
+  draft.scheduleSave();
+  clock.advance(250);
+  expect(JSON.parse(storage.getItem(localDraftKey)!).title).toBe("First board");
   expect(draft.snapshot().hasUnsavedChanges).toBe(false);
 
   const restored = createLocalDraft({ storage });
@@ -86,7 +86,7 @@ test("saving is opt-in, restores on startup and preserves an explicitly supplied
   const supplied = createLocalDraft({ storage, initialSession });
   expect(supplied.session).toBe(initialSession);
   expect(supplied.snapshot()).toMatchObject({ enabled: false, hasUnsavedChanges: true });
-  expect(supplied.snapshot().status).toContain("Temporary session");
+  expect(supplied.snapshot().status).toContain("Not saving");
 });
 
 test("typing debounces for 250 ms, publishes status and navigation can flush synchronously", () => {
@@ -246,6 +246,7 @@ test.each(["missing", "corrupt", "unavailable"])("a recovery with %s storage kee
 
 test("failed enabling, saving and removal retain honest save state and can recover", () => {
   const { draft, edit, storage, storedBoard, statuses } = setup();
+  draft.setEnabled(false);
   edit("Unsaved board");
   storage.failWrite = true;
   expect(draft.setEnabled(true)).toBe(false);
@@ -301,23 +302,25 @@ test("opting out cancels a pending save, preserves the board and ignores subsequ
   expect(createLocalDraft({ storage }).snapshot().enabled).toBe(false);
 });
 
-test("suggests saving only once there is work to lose and nothing would be overwritten", () => {
-  const { draft, edit } = setup();
-  expect(draft.snapshot().suggestSaving).toBe(false);
-  edit("Worth keeping");
-  expect(draft.snapshot().suggestSaving).toBe(true);
-  draft.setEnabled(true);
-  expect(draft.snapshot().suggestSaving).toBe(false);
+test("turning saving off is remembered for later visits until it is turned back on", () => {
+  const { draft, storage } = setup();
   draft.setEnabled(false);
-  expect(draft.snapshot().suggestSaving).toBe(true);
+  expect(createLocalDraft({ storage }).snapshot()).toMatchObject({ enabled: false, status: expect.stringContaining("Not saving") });
+  draft.setEnabled(true);
+  storage.removeItem(localDraftKey);
+  expect(createLocalDraft({ storage }).snapshot().enabled).toBe(true);
+});
 
-  const storage = memoryStorage();
-  storage.setItem(localDraftKey, "{bad");
-  const corrupt = createLocalDraft({ storage });
-  corrupt.session.dispatch({ type: "update-title", title: "New work" });
-  expect(corrupt.snapshot().suggestSaving).toBe(false);
-  storage.failRead = true;
-  const blocked = createLocalDraft({ storage });
-  blocked.session.dispatch({ type: "update-title", title: "New work" });
-  expect(blocked.snapshot().suggestSaving).toBe(false);
+test("an untouched tab ignores another tab's draft until its own first save, which then asks which to keep", () => {
+  const { draft, storage, edit, clock, storedBoard } = setup();
+  const other = createLocalDraft({ storage });
+  other.session.dispatch({ type: "update-title", title: "Other tab" });
+  other.flush();
+  draft.storageChanged(localDraftKey);
+  expect(draft.snapshot().conflict).toBe(false);
+  edit("This tab");
+  draft.scheduleSave();
+  clock.advance(250);
+  expect(draft.snapshot().conflict).toBe(true);
+  expect(storedBoard().title).toBe("Other tab");
 });

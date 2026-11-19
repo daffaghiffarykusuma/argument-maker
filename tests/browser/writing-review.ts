@@ -43,7 +43,7 @@ export async function verifyWritingReview(browser: Browser, appUrl: string) {
     await page.getByRole("button", { name: "Download editable board", exact: true }).click();
     const boardFile = await readFile((await (await boardDownload).path())!, "utf8");
     assert.equal(await page.getByRole("heading", { name: "Before you share", exact: true }).count(), 0);
-    await page.getByRole("tab", { name: /Preview/ }).click();
+    await page.getByRole("tab", { name: /Review/ }).click();
     await page.getByRole("button", { name: "Copy Mermaid", exact: true }).click();
     assert.match(await page.evaluate(() => (window as any).copiedWriting), /flowchart/);
     assert.equal(await page.getByRole("heading", { name: "Before you share", exact: true }).count(), 0);
@@ -54,9 +54,9 @@ export async function verifyWritingReview(browser: Browser, appUrl: string) {
           .locator('input[type="file"]')
           .setInputFiles({ name: "planning.argument.json", mimeType: "application/json", buffer: Buffer.from(boardFile) });
         await answerAppDialog(page, "confirm");
-        await page.getByRole("tab", { name: /Preview/ }).click();
+        await page.getByRole("tab", { name: /Review/ }).click();
         await page.getByRole("button", { name: "Readable outline", exact: true }).click();
-        const origin = { copy: "Construct Argument", markdown: "Gather Facts", text: "Preview", print: "Construct Argument" };
+        const origin = { copy: "Construct Argument", markdown: "Gather Facts", text: "Review", print: "Construct Argument" };
         await page.getByRole("tab", { name: origin[format], exact: true }).click();
         const button = writingButton(page, format);
         await page.locator("#writing-menu-toggle").click();
@@ -68,7 +68,7 @@ export async function verifyWritingReview(browser: Browser, appUrl: string) {
         if (draft) await invitation.getByRole("button", { name: "Export draft", exact: true }).click();
         else {
           await invitation.getByRole("button", { name: "Review now", exact: true }).click();
-          await page.getByRole("heading", { name: "Reasoning review", exact: true }).waitFor();
+          assert.equal(await page.getByRole("tab", { name: "Review", exact: true }).getAttribute("aria-selected"), "true");
           await page.getByRole("button", { name: "Continue to export", exact: true }).click();
         }
         const contents = download
@@ -120,12 +120,14 @@ export async function verifyWritingReview(browser: Browser, appUrl: string) {
     await page.locator("#writing-menu-toggle").click();
     await page.getByRole("button", { name: "Copy", exact: true }).click();
     assert.equal(await page.getByRole("heading", { name: "Before you share", exact: true }).count(), 0);
+    // The Draft label is an export setting, so it lives in the Export writing menu.
+    await page.locator("#writing-menu-toggle").click();
     await page.getByRole("button", { name: "Label writing exports as Draft", exact: true }).click();
     await page.locator("#writing-menu-toggle").click();
     await page.getByRole("button", { name: "Copy", exact: true }).click();
     assert.match(await page.evaluate(() => (window as any).copiedWriting), /\bDraft\b/);
-    await page.getByRole("button", { name: "Reasoning review", exact: true }).click();
-    await page.getByRole("button", { name: "Back to editing", exact: true }).click();
+    await page.getByRole("tab", { name: "Review", exact: true }).click();
+    await page.getByRole("tab", { name: "Construct Argument", exact: true }).click();
     await page.locator("#board-menu-toggle").click();
     await page.getByRole("button", { name: "Clear Board", exact: true }).click();
     await answerAppDialog(page, "confirm");

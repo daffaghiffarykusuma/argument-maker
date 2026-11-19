@@ -89,6 +89,10 @@ export function createGatheredFactEditing(root: HTMLDivElement, session: Argumen
       if (field && editor.value !== (fact[field] ?? "")) editor.value = fact[field] ?? "";
     }
     const board = session.snapshot().board;
+    for (const count of root.querySelectorAll<HTMLElement>(".destination-facts > summary > .attached-count")) {
+      const html = renderAttachedCount(board, count.closest<HTMLElement>(".destination-facts")!.dataset.destinationId!);
+      if (count.outerHTML !== html) count.outerHTML = html;
+    }
     for (const picker of root.querySelectorAll<HTMLElement>(".attachment-picker")) {
       refreshPicker(board, picker);
       const guidance = picker.closest(".destination-facts")?.querySelector(".attachment-guidance");
@@ -252,8 +256,7 @@ function renderFactCard(board: ArgumentBoard, fact: GatheredFact, untouched = fa
       <div class="fact-feedback" aria-live="polite">${renderFactFeedback(state)}</div>
       </details>
       <div class="text-actions" aria-label="Gathered Fact ${number} controls">
-        <button type="button" data-action="move-library-fact" data-fact-id="${escapeAttr(fact.id)}" data-direction="up">Move up</button>
-        <button type="button" data-action="move-library-fact" data-fact-id="${escapeAttr(fact.id)}" data-direction="down">Move down</button>
+        ${renderMoveButtons(`data-action="move-library-fact" data-fact-id="${escapeAttr(fact.id)}"`, number - 1, board.gatheredFacts.length)}
         <button type="button" data-action="another-fact-source" data-fact-id="${escapeAttr(fact.id)}">Another fact from this source</button>
         ${usage.length > 1 ? '<span class="shared-warning">Edits update every use</span>' : ""}
         <button type="button" class="danger" data-action="delete-fact" data-fact-id="${escapeAttr(fact.id)}">Delete fact</button>
@@ -272,16 +275,17 @@ function renderDestinationFacts(board: ArgumentBoard, destinationId: FactDestina
   const { attachedFacts: facts, label } = readFactAttachments(board, destinationId);
   const availability = attachmentAvailability(board, destinationId);
   const guidanceId = `attachment-guidance-${safeDomId(destinationId)}`;
+  const research = board.gatheredFacts.length > 0;
 
   return `
-    <details class="destination-facts" data-disclosure="destination-${escapeAttr(destinationId)}" aria-label="Facts supporting ${escapeAttr(label)}"><summary>Supporting Facts <span>${facts.length} attached</span></summary>
+    <details class="destination-facts" data-disclosure="destination-${escapeAttr(destinationId)}" data-destination-id="${escapeAttr(destinationId)}" aria-label="Facts supporting ${escapeAttr(label)}"><summary>Supporting Facts ${renderAttachedCount(board, destinationId)}</summary>
       <div class="destination-heading">
         <div>
           <strong>Supporting Facts</strong>
           <span>${facts.length} attached</span>
         </div>
         <div class="fact-picker">
-          <details class="attachment-picker" data-destination-id="${escapeAttr(destinationId)}">
+          <details class="attachment-picker" data-destination-id="${escapeAttr(destinationId)}" ${research ? "" : "hidden"}>
             <summary id="attachment-picker-${safeDomId(destinationId)}">Choose Gathered Facts</summary>
             <p>Attach to ${escapeHtml(label)}</p>
             <label>Search facts to attach<input type="search" data-action="attachment-search" placeholder="Finding, source, date, or quotation"></label>
@@ -295,12 +299,27 @@ function renderDestinationFacts(board: ArgumentBoard, destinationId: FactDestina
       <div class="attached-list">
         ${
           facts.length === 0
-            ? `<p class="empty-attachment">No facts attached.</p>`
-            : facts.map((fact, index) => renderAttachedFact(board, destinationId, fact, index, untouchedFacts.has(fact.id))).join("")
+            ? research
+              ? `<p class="empty-attachment">No facts attached.</p>`
+              : ""
+            : facts
+                .map((fact, index) => renderAttachedFact(board, destinationId, fact, index, facts.length, untouchedFacts.has(fact.id)))
+                .join("")
         }
       </div>
     </details>
   `;
+}
+
+/** The count on a destination's disclosure. An Evidence-backed reason without a complete fact says so where the author works, not only in the checks. */
+function renderAttachedCount(board: ArgumentBoard, destinationId: FactDestinationId): string {
+  const { attachedFacts: facts } = readFactAttachments(board, destinationId);
+  const needsEvidence =
+    board.supportingArguments.find((argument) => argument.id === destinationId)?.mode === "evidence-backed" &&
+    !facts.some((fact) => factCompleteness(fact).length === 0);
+  if (needsEvidence)
+    return `<span class="attached-count needs-fact">${facts.length ? `${facts.length} attached, none complete` : "Needs a complete fact"}</span>`;
+  return `<span class="attached-count${facts.length ? "" : " is-empty"}">${facts.length} attached</span>`;
 }
 
 function renderAttachmentResults(board: ArgumentBoard, destinationId: FactDestinationId, query: string) {
@@ -329,6 +348,7 @@ function renderAttachedFact(
   destinationId: FactDestinationId,
   fact: GatheredFact,
   index: number,
+  count: number,
   untouched = false,
 ): string {
   const { usage } = describeFact(board, fact);
@@ -361,12 +381,18 @@ function renderAttachedFact(
       </details>
       <div class="text-actions">
         <button type="button" data-action="open-fact" data-fact-id="${escapeAttr(fact.id)}">Open in Gathered Facts</button>
-        <button type="button" data-action="move-attached-fact" data-destination-id="${escapeAttr(destinationId)}" data-fact-id="${escapeAttr(fact.id)}" data-direction="up">Move up</button>
-        <button type="button" data-action="move-attached-fact" data-destination-id="${escapeAttr(destinationId)}" data-fact-id="${escapeAttr(fact.id)}" data-direction="down">Move down</button>
+        ${renderMoveButtons(`data-action="move-attached-fact" data-destination-id="${escapeAttr(destinationId)}" data-fact-id="${escapeAttr(fact.id)}"`, index, count)}
         <button type="button" data-action="detach-fact" data-destination-id="${escapeAttr(destinationId)}" data-fact-id="${escapeAttr(fact.id)}">Remove from here</button>
       </div>
     </article>
   `;
+}
+
+/** Reorder controls that only appear when there is something to reorder, and never offer a move past either end. */
+function renderMoveButtons(attrs: string, index: number, count: number): string {
+  if (count < 2) return "";
+  return `<button type="button" ${attrs} data-direction="up" ${index === 0 ? "disabled" : ""}>Move up</button>
+        <button type="button" ${attrs} data-direction="down" ${index === count - 1 ? "disabled" : ""}>Move down</button>`;
 }
 
 function renderDataTypeField(fact: GatheredFact, id: string): string {
@@ -390,8 +416,7 @@ function renderDataTypeOption(value: DataType, label: string, selected: DataType
 
 function renderLibraryTools(board: ArgumentBoard, view: FactSearch): string {
   return `<div class="library-tools"><label>Search facts<input id="fact-search" type="search" data-action="fact-search" value="${escapeAttr(view.query)}" placeholder="Text, source, date, or quotation"></label>
-    <label>Show<select id="fact-filter" data-action="fact-filter">${(["all", "unused", "incomplete"] as const).map((filter) => `<option value="${filter}" ${view.filter === filter ? "selected" : ""}>${filter === "all" ? "All facts" : filter === "unused" ? "Unused facts" : "Incomplete facts"}</option>`).join("")}</select></label>
-    <button type="button" data-action="load-example">Worked example</button></div>
+    <label>Show<select id="fact-filter" data-action="fact-filter">${(["all", "unused", "incomplete"] as const).map((filter) => `<option value="${filter}" ${view.filter === filter ? "selected" : ""}>${filter === "all" ? "All facts" : filter === "unused" ? "Unused facts" : "Incomplete facts"}</option>`).join("")}</select></label></div>
     <p id="fact-results" role="status">${filterFacts(board, view.query, view.filter).length} of ${board.gatheredFacts.length} facts</p>`;
 }
 

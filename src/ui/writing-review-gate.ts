@@ -1,16 +1,15 @@
 /**
- * Owns the optional Reasoning review that sits in front of Writing exports:
- * which panel replaces the workflow stage, which export is waiting, and
- * whether exports carry the Draft label. It has no DOM knowledge, so every
- * transition is unit-testable.
+ * Owns the optional review that sits in front of Writing exports: whether the
+ * invitation covers the workflow stage, which export is waiting, and whether
+ * exports carry the Draft label. Review itself is an ordinary workflow tab; this
+ * gate only remembers that an export waits for the author to finish reviewing.
+ * It has no DOM knowledge, so every transition is unit-testable.
  */
 export type WritingAction = "copy-outline" | "markdown" | "text" | "print";
-export type WritingPanel = "stage" | "invitation" | "review";
+export type WritingPanel = "stage" | "invitation";
 export type WritingLabel = "draft" | "reviewed";
 
 export type WritingGateEvent =
-  | { type: "open-review" }
-  | { type: "close-review" }
   | { type: "request-export"; action: WritingAction }
   | { type: "review-now" }
   | { type: "choose-label"; label: WritingLabel }
@@ -25,13 +24,11 @@ export interface WritingGateView {
   label?: WritingLabel;
   /** Whether Writing exports, including a browser print, show the Draft label. */
   draft: boolean;
-  /** Whether the Reasoning review offers "Continue to export". */
-  offerContinue: boolean;
+  /** The export waiting for the author to finish reviewing; Review offers "Continue to export" for it. */
+  waiting?: WritingAction;
 }
 
 export interface WritingGateOutcome {
-  /** The author left the workflow stage, so their editing position should be held for the return. */
-  leftStage: boolean;
   /** An export the caller should perform now, with its Draft label already decided. */
   perform?: { action: WritingAction; draft: boolean };
   /** The export that was waiting, if this event resolved or cancelled it. */
@@ -47,55 +44,47 @@ export function createWritingReviewGate() {
   const draft = () => label !== "reviewed";
 
   function view(): WritingGateView {
-    return { panel, label, draft: draft(), offerContinue: panel === "review" && pending !== undefined };
+    return { panel, label, draft: draft(), waiting: panel === "stage" ? pending : undefined };
   }
 
   function send(event: WritingGateEvent): WritingGateOutcome {
-    const fromStage = panel === "stage";
-    const outcome = (extra: Partial<WritingGateOutcome> = {}): WritingGateOutcome => ({
-      leftStage: fromStage && panel !== "stage",
-      ...extra,
-    });
-
     switch (event.type) {
-      case "open-review":
-        panel = "review";
-        return outcome();
-      case "close-review":
-      case "leave":
-        panel = "stage";
-        return outcome();
       case "request-export":
-        if (label) return outcome({ perform: { action: event.action, draft: draft() } });
+        if (label) return { perform: { action: event.action, draft: draft() } };
         pending = event.action;
         panel = "invitation";
-        return outcome();
+        return {};
       case "review-now":
         label = "reviewed";
-        panel = "review";
-        return outcome();
+        panel = "stage";
+        return {};
       case "choose-label": {
         const action = pending;
-        if (!action) return outcome();
+        if (!action) return {};
         label = event.label;
         pending = undefined;
         panel = "stage";
-        return outcome({ perform: { action, draft: draft() }, settled: action });
+        return { perform: { action, draft: draft() }, settled: action };
       }
       case "cancel-export": {
         const action = pending;
         pending = undefined;
         panel = "stage";
-        return outcome({ settled: action });
+        return { settled: action };
       }
       case "toggle-draft-label":
         label = label === "draft" ? "reviewed" : "draft";
-        return outcome();
+        return {};
+      case "leave":
+        // Walking away from the invitation abandons its export; an export waiting on review stays available.
+        if (panel === "invitation") pending = undefined;
+        panel = "stage";
+        return {};
       case "reset":
         panel = "stage";
         label = undefined;
         pending = undefined;
-        return outcome();
+        return {};
     }
   }
 

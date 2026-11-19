@@ -54,13 +54,13 @@ import { hasOutlineContent, narrativeGuidance, suggestStartingStep } from "../bo
 import { createExampleBoard } from "../board/example-board";
 import { factDeletionImpact, usedFactCount } from "../board/fact-library";
 import { views, type Notice, type ViewState } from "./board-view-state";
-import { dismissDraftSuggestion, mountBoardControls, renderDraftControls } from "./board-controls";
+import { mountBoardControls, renderDraftControls } from "./board-controls";
 import { renderReasoningPrompts, renderCompactOutline, renderPrintDocument } from "./enhancement-view";
-import { escapeHtml, escapeAttr, safeDomId } from "./html";
+import { escapeHtml, escapeAttr, isTyping, safeDomId } from "./html";
 import type { GatheredFactEditing } from "./gathered-fact-editing";
-import { renderReasoningReview, renderWritingInvitation } from "./reasoning-review";
+import { renderExportWaiting, renderReviewChecks, renderReviewReasoning, renderWritingInvitation } from "./reasoning-review";
 import { replaceRegion } from "./region";
-import type { WritingAction, WritingGateEvent } from "./writing-review-gate";
+import type { WritingAction, WritingGateEvent, WritingLabel } from "./writing-review-gate";
 
 export function mountArgumentBoardApp(appRoot: HTMLDivElement, initialSession?: ArgumentBoardSession) {
   const session = mountBoardControls(appRoot, initialSession, {
@@ -84,15 +84,15 @@ function render(appRoot: HTMLDivElement, session: ArgumentBoardSession) {
 
   appRoot.innerHTML = `
     <div class="app-shell">
-      ${renderWorkspaceHeader(snapshot.canUndo, snapshot.canRedo)}
+      ${renderWorkspaceHeader(snapshot.canUndo, snapshot.canRedo, writing.label)}
       <main class="desk-main">
         ${renderTopbar(snapshot.board)}
         <div class="draft-controls">${renderDraftControls(view)}</div>
         <div class="stage-bar${writing.panel === "stage" ? "" : " stage-covered"}">
         ${renderStageNavigation(snapshot.stage)}
-        <div class="review-entry">${snapshot.stage === "construct" && writing.panel === "stage" ? `<button type="button" id="view-outline" class="view-outline" data-action="open-outline" aria-haspopup="dialog" aria-controls="outline-panel">${renderIcon("outline")}View outline</button>` : ""}<button id="open-reasoning-review" type="button" data-action="open-review" aria-expanded="${writing.panel === "review"}">${renderIcon("review")}Reasoning review</button>${writing.label ? `<button type="button" data-action="toggle-draft-label" aria-pressed="${writing.label === "draft"}">Label writing exports as Draft</button>` : ""}</div>
+        ${snapshot.stage === "construct" && writing.panel === "stage" ? `<div class="review-entry"><button type="button" id="view-outline" class="view-outline" data-action="open-outline" aria-haspopup="dialog" aria-controls="outline-panel">${renderIcon("outline")}View outline</button></div>` : ""}
         </div>
-        ${writing.panel === "invitation" ? renderWritingInvitation() : writing.panel === "review" ? renderReasoningReview(snapshot.board, snapshot.issues, writing.offerContinue) : renderStage(snapshot.board, snapshot.stage, snapshot.issues, view)}
+        ${writing.panel === "invitation" ? renderWritingInvitation() : renderStage(snapshot.board, snapshot.stage, snapshot.issues, view)}
         ${renderPrintDocument(snapshot.board, writing.draft)}
       </main>
       <div class="${noticeClass(view, snapshot.board)}" role="status" aria-label="Notifications" aria-live="polite" aria-atomic="true">${renderNotice(view, snapshot.board)}</div>
@@ -105,7 +105,7 @@ function render(appRoot: HTMLDivElement, session: ArgumentBoardSession) {
   void view.preview.sync();
 }
 
-function renderWorkspaceHeader(canUndo: boolean, canRedo: boolean): string {
+function renderWorkspaceHeader(canUndo: boolean, canRedo: boolean, label: WritingLabel | undefined): string {
   return `
     <header class="workspace-header" aria-label="Workspace commands">
       <div class="workspace-brand"><svg class="brand-mark" aria-hidden="true" viewBox="0 0 24 24"><path d="M7 7v11.5M7 12.5h11M7 18.5h11" fill="none" stroke="#3c4f46" stroke-width="1.5" stroke-linecap="round"/><circle cx="7" cy="5.5" r="3" fill="#d8b15e"/><circle cx="7" cy="12.5" r="2.1" fill="#0e1613" stroke="#d8b15e" stroke-width="1.3"/><circle cx="7" cy="18.5" r="2.1" fill="#0e1613" stroke="#d8b15e" stroke-width="1.3"/></svg><span>Argument Maker</span></div>
@@ -117,6 +117,7 @@ function renderWorkspaceHeader(canUndo: boolean, canRedo: boolean): string {
             <button type="button" data-action="download-writing" data-format="markdown">Markdown</button>
             <button type="button" data-action="download-writing" data-format="text">Text</button>
             <button type="button" data-action="print">Print/PDF</button>
+            ${label ? `<hr><button type="button" class="draft-label-toggle" data-action="toggle-draft-label" aria-pressed="${label === "draft"}">Label writing exports as Draft</button>` : ""}
           </div>
         </details>
         ${renderCommandButton({ ...commandDeskActions.undo, disabled: !canUndo })}
@@ -129,7 +130,9 @@ function renderWorkspaceHeader(canUndo: boolean, canRedo: boolean): string {
           ${renderIcon(commandDeskActions.upload.icon)}<span class="tool-label">Upload Board</span>
           <input type="file" tabindex="-1" accept=".json,.argument.json,application/json" data-action="upload" />
         </label>
-        <p>Portable editable file for reopening your board. You can also drop a board file onto the page. Local drafts are optional.</p>
+        <p>Portable editable file for reopening your board on any device. You can also drop a board file onto the page.</p>
+        <hr>
+        <button type="button" data-action="load-example">${renderIcon("outline")}Open worked example</button>
         <button type="button" data-action="show-shortcuts" aria-keyshortcuts="Shift+?">${renderIcon("keyboard")}Keyboard shortcuts</button>
         <hr>
         ${renderCommandButton(commandDeskActions.clear)}
@@ -146,7 +149,7 @@ function renderTopbar(board: ArgumentBoard): string {
   return `
     <header class="topbar" aria-label="Argument board status">
       <div class="title-group">
-        <textarea id="board-title" class="title-input" aria-label="Board title" rows="1" placeholder="A good argument starts here." data-action="title">${escapeHtml(board.title)}</textarea>
+        <textarea id="board-title" class="title-input" aria-label="Board title" rows="1" placeholder="Untitled argument" data-action="title">${escapeHtml(board.title)}</textarea>
       </div>
       <div class="desk-status">
         <div><strong>${board.gatheredFacts.length}</strong><span>${board.gatheredFacts.length === 1 ? "fact" : "facts"} gathered</span></div><div><strong>${usedCount}</strong><span>in your argument</span></div>
@@ -195,10 +198,21 @@ function renderStage(
   }
 
   const { action, icon, label } = commandDeskActions.copyMermaid;
-  return view.preview.render(
-    board,
-    `<button type="button" class="copy-mermaid" data-action="${action}">${renderIcon(icon)}${label}</button>`,
-  );
+  const waiting = view.writing.view().waiting;
+  return `
+    <section id="stage-panel-preview" class="workflow-stage review-stage" role="tabpanel" aria-labelledby="stage-tab-preview">
+      <h2 id="stage-heading-preview" class="stage-title" tabindex="-1">Review</h2>
+      ${waiting ? renderExportWaiting(waiting) : ""}
+      ${renderReviewChecks(issues, hasStarted(board))}
+      ${view.preview.render(board, `<button type="button" class="copy-mermaid" data-action="${action}">${renderIcon(icon)}${label}</button>`)}
+      ${renderReviewReasoning(board)}
+    </section>
+  `;
+}
+
+/** Whether the author has begun; before then, structural checks would only list every empty field. */
+function hasStarted(board: ArgumentBoard): boolean {
+  return hasOutlineContent(board) || board.gatheredFacts.length > 0;
 }
 
 function renderConstructStage(
@@ -211,7 +225,7 @@ function renderConstructStage(
       <h2 id="stage-heading-construct" class="stage-title" tabindex="-1">Construct Argument</h2>
       <div class="starting-guidance">${renderStartingGuidance(board)}</div>
       <div class="construction-layout"><div class="construction-editor">
-      ${renderChecklist(issues)}
+      ${renderChecklist(board, issues)}
       <section class="scqa-grid" aria-label="Argument frame">
         ${renderTextPanel(board, "question", "What question must this answer?", "Question", facts)}
         ${renderTextPanel(board, "answer", "What is your tentative claim or main answer?", "Answer", facts)}
@@ -279,10 +293,10 @@ function renderFramingSummary(board: ArgumentBoard, section: "context" | "planni
 
 function renderStartingGuidance(board: ArgumentBoard): string {
   return {
-    frame: `<p>Start with a question or a tentative claim. You can revise either as you learn and use any workspace tab at any time.</p><button type="button" data-action="focus-framing" data-target-id="scqa-question">Start with a question</button> <button type="button" data-action="focus-framing" data-target-id="scqa-answer">Start with a tentative claim</button>`,
+    frame: `<p>Start with a question or a tentative claim. You can revise either as you learn.</p><button type="button" data-action="load-example">See a worked example</button>`,
     gather: `<p>Find material that supports or challenges your idea. You can also keep developing your reasoning here.</p><button type="button" data-action="stage" data-stage="gather">Gather supporting material</button>`,
     reason: `<p>Explain how your supporting material leads to your Answer.</p><button type="button" data-action="focus-framing" data-target-id="supporting-arguments">Develop a supporting reason</button>`,
-    preview: `<p>Read your argument as a whole and look for gaps in its reasoning.</p><button type="button" data-action="stage" data-stage="preview">Preview your argument</button>`,
+    preview: `<p>Read your argument as a whole and look for gaps in its reasoning.</p><button type="button" data-action="stage" data-stage="preview">Review your argument</button>`,
   }[suggestStartingStep(board)];
 }
 
@@ -330,8 +344,12 @@ function renderArgument(
         </label>
         <div class="card-controls" aria-label="Supporting Argument ${index + 1} controls">
           ${renderModeControl(argument.id, argument.mode)}
-          ${renderCommandButton(commandDeskActions.moveArgumentUp, `data-direction="up" data-argument-id="${escapeAttr(argument.id)}"`)}
-          ${renderCommandButton(commandDeskActions.moveArgumentDown, `data-direction="down" data-argument-id="${escapeAttr(argument.id)}"`)}
+          ${
+            board.supportingArguments.length > 1
+              ? `${renderCommandButton({ ...commandDeskActions.moveArgumentUp, disabled: index === 0 }, `data-direction="up" data-argument-id="${escapeAttr(argument.id)}"`)}
+          ${renderCommandButton({ ...commandDeskActions.moveArgumentDown, disabled: index === board.supportingArguments.length - 1 }, `data-direction="down" data-argument-id="${escapeAttr(argument.id)}"`)}`
+              : ""
+          }
           ${renderCommandButton(commandDeskActions.duplicateArgument, `data-argument-id="${escapeAttr(argument.id)}"`)}
           ${renderCommandButton(commandDeskActions.deleteArgument, `data-argument-id="${escapeAttr(argument.id)}"`)}
         </div>
@@ -353,16 +371,19 @@ function renderModeControl(argumentId: string, mode: SupportMode): string {
   `;
 }
 
-function renderChecklist(issues: ReturnType<ArgumentBoardSession["snapshot"]>["issues"]): string {
-  return `<aside class="checklist" aria-label="Review checklist">${renderChecklistContent(issues)}</aside>`;
+function renderChecklist(board: ArgumentBoard, issues: ReturnType<ArgumentBoardSession["snapshot"]>["issues"]): string {
+  return `<aside class="checklist" aria-label="Review checklist">${renderChecklistContent(board, issues)}</aside>`;
 }
 
-function renderChecklistContent(issues: ReturnType<ArgumentBoardSession["snapshot"]>["issues"]): string {
+function renderChecklistContent(board: ArgumentBoard, issues: ReturnType<ArgumentBoardSession["snapshot"]>["issues"]): string {
+  // An untouched board has nothing to check yet; listing every empty field reads as a reprimand.
+  if (!hasStarted(board))
+    return '<div class="checks-row checks-idle"><span class="checks-title">Structural checks</span><span class="checks-count">Appear as you write</span><span class="checks-note">They find missing parts, not weak reasoning.</span></div>';
   return `
       ${
         issues.length === 0
           ? '<div class="checks-row checks-ok"><span class="checks-title">Structural checks</span><span class="checks-count">No structural gaps</span><span class="checks-note">Checks find missing parts, not weak reasoning.</span></div>'
-          : `<details data-disclosure="readiness"><summary class="checks-row"><span class="checks-title">Structural checks</span><span class="checks-count">Review ${issues.length} structural issue${issues.length === 1 ? "" : "s"}</span></summary>
+          : `<details data-disclosure="readiness"><summary class="checks-row"><span class="checks-title">Structural checks</span><span class="checks-count">${issues.length} gap${issues.length === 1 ? "" : "s"} to fill</span></summary>
       <p class="checks-note">Checks find missing parts whenever you are ready. They do not assess your reasoning.</p><ul>
         ${issues
           .map(
@@ -430,17 +451,10 @@ const direction = (data: ActionData) => (data.direction === "up" ? "up" : "down"
 
 /** UI commands by `data-action` name. Buttons and keyboard shortcuts both dispatch through here. */
 const actions: Record<string, (context: ActionContext) => void | Promise<void>> = {
-  "open-review": ({ appRoot, session }) => {
-    sendWriting(appRoot, { type: "open-review" });
-    renderAndFocus(appRoot, session, "reasoning-review-heading");
-  },
-  "close-review": ({ appRoot, session }) => {
-    sendWriting(appRoot, { type: "close-review" });
-    returnFromReview(appRoot, session);
-  },
   "review-writing": ({ appRoot, session }) => {
     sendWriting(appRoot, { type: "review-now" });
-    renderAndFocus(appRoot, session, "reasoning-review-heading");
+    leaveStage(appRoot, session, "preview");
+    renderAndFocus(appRoot, session, "stage-heading-preview");
   },
   "export-draft": (context) => chooseWritingLabel(context, "draft"),
   "continue-writing": (context) => chooseWritingLabel(context, "reviewed"),
@@ -492,12 +506,7 @@ const actions: Record<string, (context: ActionContext) => void | Promise<void>> 
     }
   },
   "focus-framing": ({ appRoot, data }) => appRoot.querySelector<HTMLElement>(`#${data.targetId}`)?.focus(),
-  stage: ({ appRoot, session, data }) => {
-    sendWriting(appRoot, { type: "leave" });
-    const stage = data.stage as WorkflowStage;
-    session.setStage(stage);
-    renderAndFocus(appRoot, session, `stage-heading-${stage}`);
-  },
+  stage: ({ appRoot, session, data }) => switchStage(appRoot, session, data.stage as WorkflowStage),
   "add-fact": ({ appRoot, session, view }) => {
     const board = session.dispatch({ type: "create-gathered-fact" });
     view.facts.beginFact(board.gatheredFacts.at(-1)!.id);
@@ -590,14 +599,6 @@ const actions: Record<string, (context: ActionContext) => void | Promise<void>> 
     renderAndFocus(appRoot, session, undo.focusId);
   },
   "show-shortcuts": () => showShortcuts(keyboardShortcuts()),
-  "accept-draft-suggestion": ({ appRoot, session, view }) => {
-    view.draft.setEnabled(true);
-    renderAndFocus(appRoot, session, "autosave");
-  },
-  "dismiss-draft-suggestion": ({ appRoot, session, view }) => {
-    dismissDraftSuggestion(view);
-    renderAndFocus(appRoot, session, "autosave");
-  },
 };
 
 function handleAction(appRoot: HTMLDivElement, session: ArgumentBoardSession, action: string, data: ActionData = {}) {
@@ -617,30 +618,40 @@ function resetWritingReview(view: ViewState) {
   view.positions.reset();
 }
 
-/** Every Writing review transition goes through here, so leaving a stage always holds the author's place. */
 function sendWriting(appRoot: HTMLDivElement, event: WritingGateEvent) {
-  const view = views.get(appRoot)!;
-  const outcome = view.writing.send(event);
-  if (outcome.leftStage) view.positions.hold("review", "open-reasoning-review");
-  return outcome;
+  return views.get(appRoot)!.writing.send(event);
+}
+
+/** Move to another stage, holding the author's place in the one they leave so coming back resumes it. */
+function leaveStage(appRoot: HTMLDivElement, session: ArgumentBoardSession, stage: WorkflowStage) {
+  const from = session.snapshot().stage;
+  if (from !== stage) views.get(appRoot)!.positions.hold(from);
+  session.setStage(stage);
+}
+
+/**
+ * Show a stage where the author left it: the same control, caret and scroll. A control that no longer
+ * exists, such as a next-step button that has since changed, keeps only the scroll and focuses the heading.
+ */
+function switchStage(appRoot: HTMLDivElement, session: ArgumentBoardSession, stage: WorkflowStage) {
+  sendWriting(appRoot, { type: "leave" });
+  const { positions } = views.get(appRoot)!;
+  const from = session.snapshot().stage;
+  leaveStage(appRoot, session, stage);
+  const position = from === stage ? undefined : positions.release(stage);
+  render(appRoot, session);
+  const heading = document.getElementById(`stage-heading-${stage}`);
+  if (position?.id && document.getElementById(position.id)) positions.restore(position, heading);
+  else if (position) {
+    heading?.focus({ preventScroll: true });
+    window.scrollTo(position.x, position.y);
+  } else positions.focus(`stage-heading-${stage}`);
 }
 
 function requestWritingAction(appRoot: HTMLDivElement, session: ArgumentBoardSession, action: WritingAction) {
   const { perform } = sendWriting(appRoot, { type: "request-export", action });
   if (perform) performWritingAction(appRoot, session, perform);
   else renderAndFocus(appRoot, session, "writing-invitation-heading");
-}
-
-function returnFromReview(appRoot: HTMLDivElement, session: ArgumentBoardSession) {
-  const { positions } = views.get(appRoot)!;
-  const position = positions.release("review");
-  if (!position) {
-    renderAndFocus(appRoot, session, "open-reasoning-review");
-    return;
-  }
-  session.setStage(position.stage);
-  render(appRoot, session);
-  positions.restore(position, appRoot.querySelector<HTMLElement>("#open-reasoning-review"));
 }
 
 function performWritingAction(
@@ -707,7 +718,7 @@ function openIssue(appRoot: HTMLDivElement, session: ArgumentBoardSession, targe
     return;
   }
 
-  session.setStage("construct");
+  leaveStage(appRoot, session, "construct");
   const focusId =
     targetId === "supporting-arguments"
       ? "supporting-arguments"
@@ -720,7 +731,7 @@ function openIssue(appRoot: HTMLDivElement, session: ArgumentBoardSession, targe
 function focusCanonicalFact(appRoot: HTMLDivElement, session: ArgumentBoardSession, factId: string) {
   const view = views.get(appRoot)!;
   view.facts.resetSearch();
-  session.setStage("gather");
+  leaveStage(appRoot, session, "gather");
   renderAndFocus(appRoot, session, `fact-${safeDomId(factId)}-text`);
 }
 
@@ -789,7 +800,7 @@ async function clearBoard(appRoot: HTMLDivElement, session: ArgumentBoardSession
 const workflowStages: Array<{ id: WorkflowStage; label: string }> = [
   { id: "construct", label: "Construct Argument" },
   { id: "gather", label: "Gather Facts" },
-  { id: "preview", label: "Preview" },
+  { id: "preview", label: "Review" },
 ];
 
 export function stageForShortcut(digit: number): WorkflowStage | undefined {
@@ -912,8 +923,9 @@ function refreshEditingState(appRoot: HTMLDivElement, session: ArgumentBoardSess
     replaceRegion(appRoot.querySelector(`[data-framing-summary="${section}"]`), renderFramingSummary(board, section));
   }
   for (const outline of appRoot.querySelectorAll(".construction-outline-content")) replaceRegion(outline, renderStartingOutline(board));
-  replaceRegion(appRoot.querySelector(".starting-guidance"), renderStartingGuidance(board));
-  replaceRegion(appRoot.querySelector(".checklist"), renderChecklistContent(issues));
+  // The next-step strip sits above the editor; changing it mid-typing would push the field being typed in.
+  if (!isTyping()) replaceRegion(appRoot.querySelector(".starting-guidance"), renderStartingGuidance(board));
+  replaceRegion(appRoot.querySelector(".checklist"), renderChecklistContent(board, issues));
   for (const field of ["question", "answer", "situation", "complication"] as const) {
     const message = appRoot.querySelector<HTMLElement>(`#scqa-${field}-guidance`);
     if (message) {

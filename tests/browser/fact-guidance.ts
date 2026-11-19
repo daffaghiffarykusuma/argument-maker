@@ -65,14 +65,13 @@ export async function verifyFactGuidance(browser: Browser, url: string) {
     await situation.getByRole("button", { name: "Close picker" }).click();
     assert.doesNotMatch(await situation.locator(".attachment-guidance").innerText(), /already attached/);
     console.log("fact-guidance: empty, incomplete, all-attached, mixed and attachment recovery passed");
-    await page.getByRole("tab", { name: /Gather Facts/ }).click();
-    await page.getByRole("button", { name: "Worked example", exact: true }).click();
+    await page.locator("#board-menu-toggle").click();
+    await page.getByRole("button", { name: "Open worked example", exact: true }).click();
     await answerAppDialog(page, "confirm");
-    await page.getByRole("button", { name: "Reasoning review", exact: true }).click();
     await page.locator("#writing-menu-toggle").click();
     await page.getByRole("button", { name: "Copy", exact: true }).click();
     await page.getByRole("button", { name: "Review now", exact: true }).click();
-    await page.getByRole("button", { name: "Back to editing", exact: true }).click();
+    await page.getByRole("tab", { name: "Review", exact: true, selected: true }).waitFor();
     await page.getByRole("tab", { name: /Gather Facts/ }).click();
     await page.getByRole("button", { name: "Add fact" }).click();
     const fresh = page.locator('.fact-card[data-fact-id="fact-2"]');

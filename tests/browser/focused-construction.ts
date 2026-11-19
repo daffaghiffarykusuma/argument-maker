@@ -36,8 +36,11 @@ export async function verifyFocusedConstruction(browser: Browser, url: string) {
   assert.equal(await page.locator("#scqa-situation").inputValue(), "Demand is rising.");
   assert.equal(await page.locator("#scqa-complication").inputValue(), "Capacity is fixed.");
   console.log("focused-construction-02: fresh fields, keyboard disclosures and populated summaries passed");
+  // Drafts save by default; start this part from an empty board.
+  await page.evaluate(() => localStorage.clear());
   await page.goto(url);
-  await page.getByRole("button", { name: "Reasoning review", exact: true }).click();
+  await page.locator("#scqa-question").fill("How should we respond?");
+  await page.getByRole("tab", { name: "Review", exact: true }).click();
   await page.getByRole("button", { name: "Add what is happening.", exact: true }).click();
   assert.equal(
     await page.locator("#scqa-situation").evaluate((el) => el === document.activeElement),
@@ -61,8 +64,8 @@ export async function verifyFocusedConstruction(browser: Browser, url: string) {
   await situation.fill("Context retained");
   await situation.press("Home");
   await situation.press("Shift+ArrowRight");
-  await page.getByRole("button", { name: "Reasoning review", exact: true }).click();
-  await page.getByRole("button", { name: "Back to editing", exact: true }).click();
+  await page.getByRole("tab", { name: "Review", exact: true }).click();
+  await page.getByRole("tab", { name: "Construct Argument", exact: true }).click();
   assert.equal(await situation.evaluate((el) => el === document.activeElement), true);
   assert.deepEqual(await situation.evaluate((el: HTMLTextAreaElement) => [el.selectionStart, el.selectionEnd]), [0, 1]);
   await page.getByRole("checkbox", { name: "Save draft in this browser" }).check();

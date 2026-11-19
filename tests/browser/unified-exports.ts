@@ -13,7 +13,7 @@ export async function verifyUnifiedExports(browser: Browser, url: string) {
     const exports = header.getByText("Export writing", { exact: true });
     await exports.waitFor();
     await mkdir("output/playwright/unified-exports-07", { recursive: true });
-    for (const stage of ["Construct Argument", "Gather Facts", "Preview"]) {
+    for (const stage of ["Construct Argument", "Gather Facts", "Review"]) {
       await page.getByRole("tab", { name: stage, exact: true }).click();
       await exports.focus();
       await page.keyboard.press("Enter");

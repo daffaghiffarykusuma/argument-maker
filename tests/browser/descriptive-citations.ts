@@ -38,7 +38,7 @@ export async function verifyDescriptiveCitations(browser: Browser, url: string) 
     await page.getByLabel("Descriptive citation", { exact: true }).first().fill("Interview <notes>, page 4");
     await page.getByLabel("Descriptive citation", { exact: true }).first().press("Tab");
     assert.equal(await page.getByLabel("Descriptive citation", { exact: true }).nth(1).inputValue(), "Interview <notes>, page 4");
-    await page.getByRole("tab", { name: /Preview/ }).click();
+    await page.getByRole("tab", { name: /Review/ }).click();
     await page.getByRole("button", { name: "Readable outline", exact: true }).click();
     const outline = page.locator(".outline-preview");
     assert.match(await outline.innerText(), /Interview <notes>, page 4/);
@@ -71,7 +71,7 @@ export async function verifyDescriptiveCitations(browser: Browser, url: string) 
     await page.getByLabel("Evidence Link", { exact: true }).press("Tab");
     assert.match(await page.locator(".field-guidance").innerText(), /valid http/);
     await page.screenshot({ path: join(output, "mobile-entry.png"), fullPage: true });
-    await page.getByRole("tab", { name: /Preview/ }).click();
+    await page.getByRole("tab", { name: /Review/ }).click();
     assert.equal(await page.locator('a[href^="javascript:"]').count(), 0);
     assert.match(await page.locator(".outline-preview").innerText(), /Missing or invalid evidence link/);
   })();

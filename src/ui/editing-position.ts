@@ -11,8 +11,8 @@ export interface EditingPosition {
   selection?: [number | null, number | null, "forward" | "backward" | "none"];
 }
 
-/** A temporary view the author can step into and return from: the Reasoning review or the outline dialog. */
-export type Excursion = "review" | "outline";
+/** A place the author steps away from and returns to: a workflow stage they left, or the outline dialog. */
+export type Excursion = WorkflowStage | "outline";
 
 const focusable = "button, input, textarea, select, summary, [tabindex]";
 

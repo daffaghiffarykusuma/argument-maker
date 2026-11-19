@@ -4,7 +4,7 @@ Helps you create well-thought arguments for writing blog posts, scripting videos
 giving reviews, and similar work.
 
 Frame a Question and tentative Answer, gather facts once and attach them where
-they support your reasoning, then preview the structure and export it as an
+they support your reasoning, then review the structure and export it as an
 outline, Markdown, text, or PDF. Everything stays in your browser; boards save as
 portable `.argument.json` files.
 

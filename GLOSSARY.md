@@ -2,7 +2,7 @@
 
 ## Argument Board
 
-A visual workspace where a user constructs an argument. The board starts empty with one supporting argument unless optional local draft saving restores it. Users can download a board file or import one to continue work.
+A visual workspace where a user constructs an argument. The board starts empty with one supporting argument unless a local draft restores it. Users can download a board file or import one to continue work.
 
 ## Argument
 
@@ -18,8 +18,15 @@ _Avoid_: Verified argument, certified argument
 The presence of the required narrative fields and the support expected by each Supporting Argument's Support Mode. It does not establish the truth of the claims or the strength of the reasoning.
 _Avoid_: Argument quality, argument strength
 
+**Review**:
+The workflow tab where the author checks the whole argument: its Structural checks, the argument read as a diagram or outline, and the Reasoning review prompts. Construct Argument shows the same Structural checks in a compact bar.
+_Avoid_: Preview, Reasoning review panel
+
+**Structural checks**:
+The list of gaps in Structural completeness, each linking to the field that fills it. They appear once the author starts writing.
+
 **Reasoning review**:
-The author's examination of whether evidence supports the Answer, how an important objection affects it, and what could change their conclusion. It is distinct from structural completeness and does not certify factual accuracy.
+The author's examination of whether evidence supports the Answer, how an important objection affects it, and what could change their conclusion. It appears in Review as "Test your reasoning", is distinct from structural completeness and does not certify factual accuracy.
 _Avoid_: Fact verification, quality score
 
 **Audience**:
@@ -94,7 +101,7 @@ Optional notes on a Supporting Argument covering its connection to the Answer, a
 
 ## Local draft
 
-An opt-in board copy in this browser's local storage. Saving is off by default. A saved draft restores on the next visit. Another tab's changes pause autosave until the user selects which board to keep saving. Turning saving off removes the stored copy without clearing the current board.
+A board copy in this browser's local storage. Saving is on by default and starts with the first edit; an untouched board is not saved. Turning saving off is remembered in this browser. A saved draft restores on the next visit. Another tab's changes pause autosave until the user selects which board to keep saving. Turning saving off removes the stored copy without clearing the current board.
 
 ## Writing export
 
@@ -110,7 +117,7 @@ The schema metadata, filename policy, validation result shape, and compatibility
 
 ## Argument Preview
 
-A read-only visualization of the current argument structure. The preview helps users inspect flow and hierarchy but is not the primary editing surface.
+A read-only visualization of the current argument structure, shown in Review under "Your argument". It helps users inspect flow and hierarchy but is not the primary editing surface.
 
 ## Argument Preview Projection
 
@@ -118,7 +125,7 @@ The render-ready structure derived from an Argument Board for Argument Preview, 
 
 ## Writing review gate
 
-The optional step before the first Writing export in a board session. The author chooses **Review now**, which opens the Reasoning review and then continues the waiting export, or **Export draft**. Once chosen, later exports run immediately with that choice, and the Draft label can be toggled. Writing produced before any choice, such as a browser print, carries the Draft label. Importing, clearing, or replacing the board resets the choice.
+The optional step before the first Writing export in a board session. The author chooses **Review now**, which opens Review with the export waiting until the author continues it, or **Export draft**. Once chosen, later exports run immediately with that choice, and the Draft label can be toggled. Writing produced before any choice, such as a browser print, carries the Draft label. Importing, clearing, or replacing the board resets the choice.
 _Avoid_: Export approval, review requirement
 
 ## Draft label

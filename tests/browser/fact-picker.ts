@@ -110,7 +110,8 @@ export async function verifyFactPicker(browser: Browser, url: string) {
   await emptyPage.locator('[data-disclosure="context"] > summary').click();
   const empty = emptyPage.getByLabel("Facts supporting Situation", { exact: true });
   await empty.locator(":scope > summary").click();
-  await empty.getByText("Choose Gathered Facts", { exact: true }).click();
+  // With no research yet there is nothing to choose: only creating a fact here is offered.
+  assert.equal(await empty.getByText("Choose Gathered Facts", { exact: true }).isVisible(), false);
   assert.match(await empty.innerText(), /No facts gathered yet/);
   await empty.getByRole("button", { name: "Create new fact here" }).click();
   assert.equal(

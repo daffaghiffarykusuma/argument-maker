@@ -153,8 +153,8 @@ export async function verifyResponsiveOutline(browser: Browser, url: string) {
   assert.equal(await page.locator("#scqa-situation").isVisible(), true);
   assert.equal(await page.locator("#planning-audience").isVisible(), true);
   assert.equal(await page.locator("#planning-audience").inputValue(), "Planning remains open.");
-  await page.getByRole("button", { name: "Reasoning review", exact: true }).click();
-  await page.getByRole("button", { name: "Back to editing", exact: true }).click();
+  await page.getByRole("tab", { name: "Review", exact: true }).click();
+  await page.getByRole("tab", { name: "Construct Argument", exact: true }).click();
   assert.equal(await shared.evaluate((el) => el === document.activeElement), true);
   assert.equal(await shared.inputValue(), "Updated shared pilot evidence");
   await open.click();

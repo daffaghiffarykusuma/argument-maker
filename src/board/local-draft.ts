@@ -3,6 +3,8 @@ import { createArgumentBoardSession, type ArgumentBoardSession } from "./argumen
 import { parseExportFile } from "./export-file-contract";
 
 export const localDraftKey = "argument-maker.local-draft.v1";
+/** Present when the author turned saving off, so a new visit respects that choice. */
+export const localDraftOptOutKey = "argument-maker.local-draft.off";
 type DraftStorage = Pick<Storage, "getItem" | "setItem" | "removeItem">;
 
 interface LocalDraftOptions {
@@ -12,11 +14,17 @@ interface LocalDraftOptions {
   schedule?: (callback: () => void, delay: number) => () => void;
 }
 
-const temporaryStatus = "Temporary session. Download your board to keep it.";
+const temporaryStatus = "Not saving. Download your board to keep it.";
+const readyStatus = "Saves as you write. Stays in this browser only.";
 const conflictStatus = "Draft changed in another tab. Choose which board to keep saving.";
 const unreadableStatus = "No readable draft found. Download this board or keep saving it.";
 
-/** Owns recovery and saving; the session remains the owner of board edits and history. */
+/**
+ * Owns recovery and saving; the session remains the owner of board edits and history.
+ * Saving is on by default so a refresh or closed tab never loses work. It stays off
+ * when the author opted out, when storage is unavailable, and when an unreadable draft
+ * would be overwritten.
+ */
 export function createLocalDraft({ storage, initialSession, onChange = () => {}, schedule = scheduleTimeout }: LocalDraftOptions) {
   let enabled = false;
   let conflict = false;
@@ -24,8 +32,6 @@ export function createLocalDraft({ storage, initialSession, onChange = () => {},
   let savedBoard: ArgumentBoard | undefined;
   let cancelSave: (() => void) | undefined;
   let status = temporaryStatus;
-  // Suggesting autosave would overwrite an unreadable draft or fail without storage.
-  let canOfferSaving = true;
 
   // An explicitly supplied session must not restore or overwrite a stored draft.
   if (!initialSession) {
@@ -39,12 +45,13 @@ export function createLocalDraft({ storage, initialSession, onChange = () => {},
           status = "Local draft restored.";
         } else {
           status = "Saved draft could not be read. Download this board before enabling autosave.";
-          canOfferSaving = false;
         }
+      } else if (storage.getItem(localDraftOptOutKey) === null) {
+        enabled = true;
+        status = readyStatus;
       }
     } catch {
       status = "Browser storage unavailable. Download your board to keep it.";
-      canOfferSaving = false;
     }
   }
   const session = initialSession ?? createArgumentBoardSession(savedBoard);
@@ -65,6 +72,8 @@ export function createLocalDraft({ storage, initialSession, onChange = () => {},
   function flush(): boolean {
     cancelPendingSave();
     if (!enabled || conflict) return false;
+    // An untouched board is not worth a draft, and writing one would claim the slot another tab may be using.
+    if (persisted === null && !session.hasTouchedContent()) return true;
     try {
       // Storage events may arrive late. Check again before trusting or replacing the draft.
       if (storage.getItem(localDraftKey) !== persisted) {
@@ -93,6 +102,14 @@ export function createLocalDraft({ storage, initialSession, onChange = () => {},
     return true;
   }
 
+  /** The opt-out is a preference, not board content; failing to record it never blocks the change itself. */
+  function rememberChoice(next: boolean) {
+    try {
+      if (next) storage.removeItem(localDraftOptOutKey);
+      else storage.setItem(localDraftOptOutKey, "true");
+    } catch {}
+  }
+
   return {
     session,
     snapshot() {
@@ -101,8 +118,6 @@ export function createLocalDraft({ storage, initialSession, onChange = () => {},
         conflict,
         status,
         hasUnsavedChanges: session.hasTouchedContent() && (!enabled || conflict || savedBoard !== session.snapshot().board),
-        /** Whether to suggest turning on saving: there is work to lose and nothing would be overwritten. */
-        suggestSaving: canOfferSaving && !enabled && !conflict && session.hasTouchedContent(),
       };
     },
     scheduleSave() {
@@ -125,8 +140,8 @@ export function createLocalDraft({ storage, initialSession, onChange = () => {},
         savedBoard = next ? board : undefined;
         enabled = next;
         conflict = false;
-        canOfferSaving = true;
         status = next ? "Saved in this browser." : temporaryStatus;
+        rememberChoice(next);
       } catch {
         status = "Draft could not be saved or removed. Download your board to keep it.";
         onChange();
@@ -136,6 +151,8 @@ export function createLocalDraft({ storage, initialSession, onChange = () => {},
       return true;
     },
     storageChanged(key: string | null) {
+      // A tab with nothing of its own yet has nothing to protect; its first save still checks for the other draft.
+      if (persisted === null && !session.hasTouchedContent()) return;
       if (enabled && (key === localDraftKey || key === null)) pause();
     },
     loadOther(confirmReplacement: () => boolean): boolean {

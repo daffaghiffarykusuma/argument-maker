@@ -41,7 +41,6 @@ export function mountBoardControls(root: HTMLDivElement, initial: ArgumentBoardS
     positions,
     writing: createWritingReviewGate(),
     disclosures,
-    draftSuggestionDismissed: readSuggestionDismissed(),
   };
   views.set(root, view);
   const wideOutline = window.matchMedia("(min-width: 1201px)");
@@ -161,6 +160,7 @@ export function mountBoardControls(root: HTMLDivElement, initial: ArgumentBoardS
         facts.reconcile();
         controls.refresh(root, session);
         draft.flush();
+        updateDraftControls(root);
       } else render();
     }, 0);
   });
@@ -246,6 +246,7 @@ export function mountBoardControls(root: HTMLDivElement, initial: ArgumentBoardS
           : event.key === "End"
             ? tabs.length - 1
             : (index + (event.key === "ArrowRight" ? 1 : -1) + tabs.length) % tabs.length;
+      positions.hold(session.snapshot().stage);
       session.setStage(tabs[next]!.dataset.stage as WorkflowStage);
       view.writing.send({ type: "leave" });
       controls.render(root, session);
@@ -323,34 +324,6 @@ export function mountBoardControls(root: HTMLDivElement, initial: ArgumentBoardS
   return session;
 }
 
-const suggestionDismissedKey = "argument-maker.draft-suggestion-dismissed";
-
-function readSuggestionDismissed(): boolean {
-  try {
-    return window.localStorage.getItem(suggestionDismissedKey) === "true";
-  } catch {
-    return false;
-  }
-}
-
-export function dismissDraftSuggestion(view: ViewState) {
-  view.draftSuggestionDismissed = true;
-  try {
-    window.localStorage.setItem(suggestionDismissedKey, "true");
-  } catch {
-    // The suggestion stays dismissed for this tab.
-  }
-}
-
-const draftSuggestion = `<div class="draft-suggestion" role="group" aria-labelledby="draft-suggestion-text">
-  <p id="draft-suggestion-text">Keep a draft in this browser so refreshing or closing the tab doesn't lose your work.</p>
-  <div class="draft-suggestion-actions"><button type="button" data-action="accept-draft-suggestion">Turn on draft saving</button><button type="button" data-action="dismiss-draft-suggestion">Not now</button></div>
-</div>`;
-
-function shouldSuggestSaving(view: ViewState): boolean {
-  return !view.draftSuggestionDismissed && view.draft.snapshot().suggestSaving;
-}
-
 const conflictActions =
   '<div class="conflict-actions"><button type="button" data-action="load-other-draft">Load other draft</button><button type="button" data-action="keep-this-draft">Keep saving this board</button></div>';
 
@@ -362,14 +335,6 @@ function updateDraftControls(root: HTMLDivElement) {
   if (checkbox) checkbox.checked = draft.enabled;
   const status = region.querySelector(".save-status");
   if (status) status.textContent = draft.status;
-  const suggestion = region.querySelector(".draft-suggestion");
-  const view = views.get(root)!;
-  if (shouldSuggestSaving(view) && !suggestion) region.insertAdjacentHTML("beforeend", draftSuggestion);
-  else if (!shouldSuggestSaving(view) && suggestion) {
-    const restoreFocus = suggestion.contains(document.activeElement);
-    suggestion.remove();
-    if (restoreFocus) checkbox?.focus({ preventScroll: true });
-  }
   const actions = region.querySelector(".conflict-actions");
   if (draft.conflict && !actions) region.insertAdjacentHTML("beforeend", conflictActions);
   else if (!draft.conflict && actions) {
@@ -402,6 +367,5 @@ export function renderDraftControls(view: ViewState): string {
   const draft = view.draft.snapshot();
   return `<label class="autosave-label"><input id="autosave" type="checkbox" data-action="autosave" ${draft.enabled ? "checked" : ""}> Save draft in this browser</label>
     <span class="save-status" role="status">${escapeHtml(draft.status)}</span>
-    ${draft.conflict ? conflictActions : ""}
-    ${shouldSuggestSaving(view) ? draftSuggestion : ""}`;
+    ${draft.conflict ? conflictActions : ""}`;
 }

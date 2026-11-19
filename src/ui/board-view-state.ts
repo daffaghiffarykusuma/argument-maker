@@ -21,6 +21,5 @@ export interface ViewState {
   writing: WritingReviewGate;
   disclosures: Map<string, boolean>;
   notice?: Notice;
-  draftSuggestionDismissed?: boolean;
 }
 export const views = new WeakMap<HTMLDivElement, ViewState>();

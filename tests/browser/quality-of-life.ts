@@ -36,29 +36,29 @@ export async function verifyQualityOfLife(browser: Browser, url: string) {
 
     // The tab title follows the board title.
     assert.equal(await page.title(), "Argument Maker");
-    assert.equal(await page.getByRole("button", { name: "Turn on draft saving" }).count(), 0, "No suggestion before any work exists");
+    // Drafts save by default and say they stay in this browser.
+    const saving = page.getByRole("checkbox", { name: "Save draft in this browser" });
+    assert.equal(await saving.isChecked(), true);
+    assert.match(await page.locator(".save-status").innerText(), /this browser only/);
     await page.getByRole("textbox", { name: "Board title" }).fill("Pilot plan");
     assert.equal(await page.title(), "Pilot plan · Argument Maker");
     console.log("quality-of-life: document title follows the board title");
 
-    // After the first edit, the workspace suggests local drafts; Not now is remembered.
-    await page.getByRole("button", { name: "Not now", exact: true }).click();
-    assert.equal(await page.getByRole("button", { name: "Turn on draft saving" }).count(), 0);
-    assert.equal(await isFocused(page, "#autosave"), true, "Dismissing keeps focus in the draft controls");
+    // The draft survives reopening with no setup.
+    await page.getByRole("textbox", { name: "Board title" }).blur();
+    const reopened = await context.newPage();
+    await reopened.goto(url);
+    assert.equal(await reopened.getByRole("textbox", { name: "Board title" }).inputValue(), "Pilot plan");
+    await reopened.close();
+    // Turning saving off removes the draft and is remembered for later visits in this browser.
+    await saving.uncheck();
+    assert.equal(await isFocused(page, "#autosave"), true, "Turning saving off keeps focus on the switch");
     const fresh = await context.newPage();
     await fresh.goto(url);
-    await fresh.getByRole("textbox", { name: "Board title" }).fill("Another board");
-    assert.equal(await fresh.getByRole("button", { name: "Turn on draft saving" }).count(), 0, "Dismissal persists in this browser");
+    assert.equal(await fresh.getByRole("textbox", { name: "Board title" }).inputValue(), "");
+    assert.equal(await fresh.getByRole("checkbox", { name: "Save draft in this browser" }).isChecked(), false);
     await fresh.close();
-    const other = await browser.newContext();
-    const accepting = await other.newPage();
-    await accepting.goto(url);
-    await accepting.locator("#scqa-question").fill("Should we pilot first?");
-    await accepting.getByRole("button", { name: "Turn on draft saving", exact: true }).click();
-    assert.equal(await accepting.getByRole("checkbox", { name: "Save draft in this browser" }).isChecked(), true);
-    assert.equal(await accepting.getByRole("button", { name: "Turn on draft saving" }).count(), 0);
-    await other.close();
-    console.log("quality-of-life: draft suggestion appears after editing, enables saving and can be dismissed");
+    console.log("quality-of-life: drafts save by default, restore on reopening, and opting out is remembered");
 
     // Deleting a supporting argument offers Undo, which restores it with focus.
     const argument = page.locator('[data-action="argument-text"]').first();

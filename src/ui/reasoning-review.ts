@@ -1,16 +1,49 @@
 import type { ArgumentBoard } from "../board/argument-board";
 import type { ReviewIssue } from "../board/review";
-import { projectArgumentPreview } from "../board/argument-preview-projection";
 import { renderReasoningPrompts } from "./enhancement-view";
 import { escapeAttr, escapeHtml } from "./html";
-import { renderWritingDocument } from "./writing-view";
+import type { WritingAction } from "./writing-review-gate";
 
-export function renderReasoningReview(board: ArgumentBoard, issues: ReviewIssue[], continueToExport = false): string {
-  return `<section class="workflow-stage reasoning-review" aria-labelledby="reasoning-review-heading">
-    <div class="section-heading"><h2 id="reasoning-review-heading" tabindex="-1">Reasoning review</h2><button type="button" data-action="close-review">Back to editing</button></div>
-    <p>Consider whether your evidence and reasoning support your Answer. Every reflection is optional; you can leave at any time.</p>
-    <section class="panel" aria-labelledby="review-purpose-heading">
-      <h3 id="review-purpose-heading">Purpose and Answer</h3>
+/**
+ * The Review tab's own sections. Review is one place: the same Structural checks
+ * Construct Argument summarises, the argument read as a whole, and the optional
+ * Reasoning review prompts.
+ */
+
+const actionLabels: Record<WritingAction, string> = {
+  "copy-outline": "Copy Outline",
+  markdown: "Markdown",
+  text: "Text",
+  print: "Print / PDF",
+};
+
+/** Shown while an export waits for the author to finish reviewing; it stays in reach as they scroll. */
+export function renderExportWaiting(action: WritingAction): string {
+  return `<div class="review-export-actions export-waiting" role="group" aria-labelledby="export-waiting-text">
+    <p id="export-waiting-text">Your ${actionLabels[action]} export is waiting. Review below, then continue when you are ready.</p>
+    <button type="button" data-action="continue-writing">Continue to export</button>
+  </div>`;
+}
+
+export function renderReviewChecks(issues: ReviewIssue[], started: boolean): string {
+  const content = !started
+    ? '<p class="review-idle">Checks appear as you write.</p>'
+    : issues.length
+      ? `<ul>${issues.map((issue) => `<li><button type="button" class="issue-link" data-action="open-issue" data-target-id="${escapeAttr(issue.targetId)}">${escapeHtml(issue.message)}</button>${issue.fieldMessages?.map((message) => `<p>${escapeHtml(message)}</p>`).join("") ?? ""}</li>`).join("")}</ul>`
+      : '<p class="review-clear">No structural gaps. You decide whether the reasoning is convincing.</p>';
+  return `<section class="review-section review-checks" aria-labelledby="review-structure-heading">
+    <h3 id="review-structure-heading">Structural checks</h3>
+    <p>Checks find missing parts. They do not establish truth or reasoning quality.</p>
+    ${content}
+  </section>`;
+}
+
+export function renderReviewReasoning(board: ArgumentBoard): string {
+  return `<section class="review-section review-reasoning" aria-labelledby="review-reasoning-heading">
+    <h3 id="review-reasoning-heading">Test your reasoning</h3>
+    <p>Consider whether your evidence and reasoning support your Answer. Every reflection is optional, and notes also appear under each reason in Construct Argument.</p>
+    <article class="panel review-purpose" aria-labelledby="review-purpose-heading">
+      <h4 id="review-purpose-heading">Purpose and Answer</h4>
       <dl>${(
         [
           ["Audience", board.audience, "Audience not set (optional)"],
@@ -25,18 +58,8 @@ export function renderReasoningReview(board: ArgumentBoard, issues: ReviewIssue[
         )
         .join("")}</dl>
       <p>Does your explanation help this Audience understand or do what you intend?</p>
-    </section>
-    <section class="panel" aria-labelledby="review-structure-heading">
-      <h3 id="review-structure-heading">Structural completeness</h3>
-      <p>Completeness checks required fields and support. It does not establish truth or reasoning quality.</p>
-      ${issues.length ? `<ul>${issues.map((issue) => `<li><button type="button" class="issue-link" data-action="open-issue" data-target-id="${escapeAttr(issue.targetId)}">${escapeHtml(issue.message)}</button>${issue.fieldMessages?.map((message) => `<p>${escapeHtml(message)}</p>`).join("") ?? ""}</li>`).join("")}</ul>` : '<p class="review-clear">No structural gaps found. You decide whether the reasoning is convincing.</p>'}
-    </section>
-    <details class="review-evidence" data-disclosure="review-evidence"><summary>Read current argument and evidence</summary>${renderWritingDocument(projectArgumentPreview(board).writing, "screen")}</details>
-    <section aria-labelledby="review-notes-heading"><h3 id="review-notes-heading">Reflect on each Supporting Argument</h3>
-      <p>Notes are saved with your board and can also be edited under Construct Argument.</p>
-      ${board.supportingArguments.map((argument, index) => `<article class="argument-card"><h4>Supporting Argument ${index + 1}</h4><p>${escapeHtml(argument.text.trim() || "Reason not written yet")}</p>${renderReasoningPrompts(argument, true)}</article>`).join("") || "<p>No Supporting Arguments yet. Return to Construct Argument to add a reason.</p>"}
-    </section>
-    ${continueToExport ? '<div class="review-export-actions"><button type="button" data-action="continue-writing">Continue to export</button><p>Reflection fields are optional. Exporting does not certify correctness.</p></div>' : ""}
+    </article>
+    ${board.supportingArguments.map((argument, index) => `<article class="argument-card"><h4>Supporting Argument ${index + 1}</h4><p>${escapeHtml(argument.text.trim() || "Reason not written yet")}</p>${renderReasoningPrompts(argument, true)}</article>`).join("") || "<p>No Supporting Arguments yet. Add a reason in Construct Argument.</p>"}
   </section>`;
 }
 

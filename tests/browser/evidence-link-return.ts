@@ -1,7 +1,7 @@
 import type { Browser } from "playwright";
 import assert from "node:assert/strict";
 
-/** Returning from the Reasoning review and from the outline restores Evidence Link focus and scroll without errors. */
+/** Returning from the Review tab and from the outline restores Evidence Link focus and scroll without errors. */
 export async function verifyEvidenceLinkReturn(browser: Browser, url: string) {
   for (const destination of ["review", "outline"] as const) {
     await (async () => {
@@ -18,8 +18,8 @@ export async function verifyEvidenceLinkReturn(browser: Browser, url: string) {
       await link.fill("https://example.com/research");
       const scroll = await page.evaluate(() => window.scrollY);
       if (destination === "review") {
-        await page.getByRole("button", { name: "Reasoning review", exact: true }).click();
-        await page.getByRole("button", { name: "Back to editing", exact: true }).click();
+        await page.getByRole("tab", { name: "Review", exact: true }).click();
+        await page.getByRole("tab", { name: "Construct Argument", exact: true }).click();
       } else {
         await page.getByRole("button", { name: "View outline", exact: true }).click();
         await page.getByRole("button", { name: "Close outline", exact: true }).click();
